@@ -157,7 +157,7 @@ function Feed({ bids }) {
 }
 
 export default function BidRail({ auction }) {
-  const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, onLoginPrompt } = auction;
+  const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, watching, onLoginPrompt } = auction;
   const [editing, setEditing] = useState(false);
 
   const lotClosed = lot?.status === 'closed';
@@ -174,7 +174,7 @@ export default function BidRail({ auction }) {
       <div className="lot-head">
         <div className="lot-toprow">
           <span className="lot-kicker">Single edition · 1 of 1</span>
-          <span className="watching"><span className="dot" /> {bids.length} bids</span>
+          <span className="watching"><span className="dot" /> {watching} watching</span>
         </div>
         <h1 className="lot-title">{lot?.title ?? 'Loading…'}</h1>
         <div className="lot-artist">{lot?.artist ?? ''}</div>

@@ -39,9 +39,21 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [winner, setWinner] = useState(null);
+  const [watching, setWatching] = useState(0);
 
   const myBidRef = useRef(myBid);
   myBidRef.current = myBid;
+
+  // Simulate a viewer count: seed from bid activity, drift slowly over time
+  useEffect(() => {
+    if (!lot) return;
+    const base = 8 + bids.length * 3;
+    setWatching(base + Math.floor(Math.random() * 6));
+    const id = setInterval(() => {
+      setWatching((n) => Math.max(1, n + (Math.random() < 0.4 ? 1 : -1)));
+    }, 7000);
+    return () => clearInterval(id);
+  }, [lot?.id, bids.length]);
 
   const cd = useCountdown(lot?.endsAt);
   const flash = () => { setBump(true); setTimeout(() => setBump(false), 520); };
@@ -133,7 +145,7 @@ export default function App() {
 
   const auction = {
     lot, startingBid, currentBid, minInc, myBid, status, bids,
-    placeBid, bump, user, winner,
+    placeBid, bump, user, winner, watching,
     onLoginPrompt: () => navigate('/login', { state: { from: '/' } }),
   };
 
@@ -175,7 +187,11 @@ export default function App() {
           )}
           <div>
             <div className="brand-name">Oxide</div>
-            <div className="brand-sub">Live Auction</div>
+            {lot && (
+              <a href="#lots" className="brand-lot num" onClick={(e) => e.preventDefault()}>
+                Lot {String(lot.lotNumber).padStart(3, '0')} / {String(lot.totalLots || lot.lotNumber).padStart(3, '0')}
+              </a>
+            )}
           </div>
           {!user && (
             <button className="pill auth-pill" onClick={() => navigate('/login')}>

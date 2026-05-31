@@ -37,9 +37,9 @@ function TeeSlide({ rot, zoom }) {
   );
 }
 
-function ModelSlide({ n, count }) {
+function ModelSlide({ n, count, zoom }) {
   return (
-    <div className="model-card">
+    <div className="model-card" style={{ transform: `scale(${zoom})` }}>
       <div className="ph-icon">◐</div>
       <span className="ph-big">Model wearing the tee</span>
       <span className="ph-small">Editorial shot {n} / {count}</span>
@@ -62,7 +62,8 @@ export default function Stage({ modelCount = 3, lot }) {
   viewRef.current = view;
 
   const isThreeD = view === 0;
-  const go = (d) => setView((v) => Math.max(0, Math.min(total - 1, v + d)));
+  const goTo = (n) => { setView(n); setZoom(1); setInteracted(false); };
+  const go = (d) => goTo(Math.max(0, Math.min(total - 1, view + d)));
 
   useEffect(() => {
     let t0 = performance.now();
@@ -122,15 +123,13 @@ export default function Stage({ modelCount = 3, lot }) {
   }, []);
 
   const onWheel = (e) => {
-    if (viewRef.current !== 0) return;
     setInteracted(true);
     setZoom((z) => clampZoom(z - e.deltaY * 0.0014));
   };
   const bumpZoom = (d) => { setInteracted(true); setZoom((z) => clampZoom(z + d)); };
   const reset = () => { setRot({ x: -6, y: -18 }); setZoom(1); setInteracted(false); };
 
-  const STEP = 78;
-  const lotLabel = lot ? `Lot ${String(lot.lotNumber).padStart(3, '0')} / ${String(lot.totalLots || lot.lotNumber).padStart(3, '0')}` : '';
+  const STEP = 108;
 
   return (
     <div className="stage">
@@ -139,13 +138,6 @@ export default function Stage({ modelCount = 3, lot }) {
         <div className="floor-pool" />
         <div className="vignette" />
       </div>
-
-      {lot && (
-        <a className="lot-link" href="#lots" onClick={(e) => e.preventDefault()}>
-          <span className="lot-no num">{lotLabel}</span>
-          <span className="lot-link-cta">View all lots →</span>
-        </a>
-      )}
 
       <div
         className="canvas"
@@ -162,41 +154,38 @@ export default function Stage({ modelCount = 3, lot }) {
             return (
               <div
                 key={i}
-                className="slide"
+                className={'slide' + (center ? '' : ' bg-slide')}
+                onMouseDown={!center ? (e) => e.stopPropagation() : undefined}
+                onClick={!center ? () => goTo(i) : undefined}
                 style={{
-                  transform: `translateX(${base}%) scale(${center ? 1 : 0.8}) rotateY(${rel * -7}deg)`,
-                  opacity: Math.abs(rel) > 1 ? 0 : center ? 1 : 0.5,
+                  transform: `translateX(${base}%) scale(${center ? 1 : 0.75}) rotateY(${rel * -7}deg)`,
+                  opacity: Math.abs(rel) > 1 ? 0 : center ? 1 : undefined,
                   zIndex: 10 - Math.abs(rel),
-                  pointerEvents: center ? 'auto' : 'none',
                   transition: dragging || swipe.current ? 'none' : undefined,
                 }}
               >
                 {i === 0
                   ? <TeeSlide rot={rot} zoom={zoom} />
-                  : <ModelSlide n={i} count={modelCount} />}
+                  : <ModelSlide n={i} count={modelCount} zoom={zoom} />}
               </div>
             );
           })}
         </div>
 
-        {isThreeD && (
-          <div className="drag-hint" style={{ opacity: interacted ? 0 : 0.9 }}>
-            <span>✦</span> drag to rotate · scroll to zoom
-          </div>
-        )}
+        <div className="drag-hint" style={{ opacity: interacted ? 0 : 0.9 }}>
+          <span>✦</span> {isThreeD ? 'drag to rotate · scroll to zoom' : 'scroll to zoom'}
+        </div>
 
-        {isThreeD && (
-          <div className="zoom-controls" onMouseDown={(e) => e.stopPropagation()}>
-            <button className="zoom-btn" onClick={() => bumpZoom(0.25)} aria-label="Zoom in">+</button>
-            <button className="zoom-btn" onClick={() => bumpZoom(-0.25)} aria-label="Zoom out">−</button>
-            <button className="zoom-btn small" onClick={reset} aria-label="Reset view">⟳</button>
-          </div>
-        )}
+        <div className="zoom-controls" onMouseDown={(e) => e.stopPropagation()}>
+          <button className="zoom-btn" onClick={() => bumpZoom(0.25)} aria-label="Zoom in">+</button>
+          <button className="zoom-btn" onClick={() => bumpZoom(-0.25)} aria-label="Zoom out">−</button>
+          <button className="zoom-btn small" onClick={reset} aria-label="Reset view">⟳</button>
+        </div>
       </div>
 
       <div className="rail">
         <button className="rail-nav" onClick={() => go(-1)} disabled={view === 0} aria-label="Previous">‹</button>
-        <button className={'thumb' + (isThreeD ? ' on' : '')} onClick={() => setView(0)}>
+        <button className={'thumb' + (isThreeD ? ' on' : '')} onClick={() => goTo(0)}>
           <div className="tball" />
           <span className="badge">360°</span>
         </button>
@@ -204,7 +193,7 @@ export default function Stage({ modelCount = 3, lot }) {
           <button
             key={i}
             className={'thumb model-thumb' + (view === i + 1 ? ' on' : '')}
-            onClick={() => setView(i + 1)}
+            onClick={() => goTo(i + 1)}
           >
             <span className="tlabel">0{i + 1}</span>
           </button>
