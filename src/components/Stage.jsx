@@ -47,7 +47,7 @@ function ModelSlide({ n, count }) {
   );
 }
 
-export default function Stage({ modelCount = 3 }) {
+export default function Stage({ modelCount = 3, lot }) {
   const total = modelCount + 1;
   const [view, setView] = useState(0);
   const [rot, setRot] = useState({ x: -6, y: -18 });
@@ -130,6 +130,7 @@ export default function Stage({ modelCount = 3 }) {
   const reset = () => { setRot({ x: -6, y: -18 }); setZoom(1); setInteracted(false); };
 
   const STEP = 78;
+  const lotLabel = lot ? `Lot ${String(lot.lotNumber).padStart(3, '0')} / ${String(lot.totalLots || lot.lotNumber).padStart(3, '0')}` : '';
 
   return (
     <div className="stage">
@@ -139,10 +140,12 @@ export default function Stage({ modelCount = 3 }) {
         <div className="vignette" />
       </div>
 
-      <a className="lot-link" href="#lots" onClick={(e) => e.preventDefault()}>
-        <span className="lot-no num">Lot 014 / 020</span>
-        <span className="lot-link-cta">View all lots →</span>
-      </a>
+      {lot && (
+        <a className="lot-link" href="#lots" onClick={(e) => e.preventDefault()}>
+          <span className="lot-no num">{lotLabel}</span>
+          <span className="lot-link-cta">View all lots →</span>
+        </a>
+      )}
 
       <div
         className="canvas"

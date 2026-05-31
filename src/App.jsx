@@ -1,26 +1,21 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { io as socketIO } from 'socket.io-client';
+import { useAuth } from './contexts/AuthContext';
 import Starfield from './components/Starfield';
 import Stage from './components/Stage';
 import BidRail from './components/BidRail';
 
-const RIVALS = [
-  { name: 'Vela K.', hue: 268 },
-  { name: 'Nori', hue: 32 },
-  { name: 'Astra_09', hue: 200 },
-  { name: 'M. Reyes', hue: 150 },
-  { name: 'k060x', hue: 320 },
-  { name: 'Juno', hue: 48 },
-];
-
 const pad = (n) => String(n).padStart(2, '0');
 
-function useCountdown(endRef) {
+function useCountdown(endsAt) {
   const [, force] = useState(0);
   useEffect(() => {
     const id = setInterval(() => force((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
-  const ms = Math.max(0, endRef.current - Date.now());
+  if (!endsAt) return { h: 0, m: 0, s: 0, total: 0 };
+  const ms = Math.max(0, new Date(endsAt) - Date.now());
   const total = Math.floor(ms / 1000);
   return {
     h: Math.floor(total / 3600),
@@ -31,73 +26,140 @@ function useCountdown(endRef) {
 }
 
 export default function App() {
-  const startingBid = 120;
-  const minInc = 25;
-  const endRef = useRef(Date.now() + (1 * 3600 + 47 * 60 + 12) * 1000);
-  const cd = useCountdown(endRef);
+  const { user, token, logout } = useAuth();
+  const navigate = useNavigate();
 
-  const [currentBid, setCurrentBid] = useState(485);
+  const [lot, setLot] = useState(null);
+  const [bids, setBids] = useState([]);
+  const [currentBid, setCurrentBid] = useState(0);
   const [myBid, setMyBid] = useState(null);
   const [status, setStatus] = useState('none');
   const [bump, setBump] = useState(false);
-  const [bids, setBids] = useState(() => {
-    const seed = [
-      { amount: 485, name: 'Vela K.', hue: 268, time: '1m ago' },
-      { amount: 440, name: 'Nori', hue: 32, time: '4m ago' },
-      { amount: 390, name: 'astra_09', hue: 200, time: '7m ago' },
-      { amount: 310, name: 'M. Reyes', hue: 150, time: '12m ago' },
-      { amount: 210, name: 'k060x', hue: 320, time: '18m ago' },
-      { amount: 120, name: 'Juno', hue: 48, time: '26m ago' },
-    ];
-    return seed.map((b, i) => ({ ...b, id: 'seed' + i, you: false }));
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [winner, setWinner] = useState(null);
 
+  const myBidRef = useRef(myBid);
+  myBidRef.current = myBid;
+
+  const cd = useCountdown(lot?.endsAt);
   const flash = () => { setBump(true); setTimeout(() => setBump(false), 520); };
-  const addBid = (entry) => setBids((prev) => [{ id: 'b' + Date.now() + Math.random(), time: 'just now', ...entry }, ...prev]);
 
-  const placeBid = (n) => {
-    setCurrentBid(n);
-    setMyBid(n);
-    setStatus('winning');
-    flash();
-    addBid({ amount: n, you: true, name: 'You', hue: 45 });
-  };
+  const fetchLot = useCallback(async () => {
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const r = await fetch('/api/lots/current', { headers });
+      if (!r.ok) { setError('No active lot right now.'); return; }
+      const data = await r.json();
+      setLot(data.lot);
+      setBids(data.bids);
+      setCurrentBid(data.currentBid);
+      if (data.myBid !== null && data.myBid !== undefined) {
+        setMyBid(data.myBid);
+        setStatus(data.myStatus);
+      }
+    } catch {
+      setError('Could not connect to the auction server.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
 
+  useEffect(() => { fetchLot(); }, [fetchLot]);
+
+  // Socket.io — join lot room for real-time bid updates
   useEffect(() => {
-    let alive = true;
-    const loop = () => {
-      if (!alive) return;
-      const delay = 7000 + Math.random() * 9000;
-      setTimeout(() => {
-        if (!alive) return;
-        setCurrentBid((cb) => {
-          if (endRef.current - Date.now() < 0) return cb;
-          const inc = minInc * (1 + Math.floor(Math.random() * 3));
-          const next = cb + inc;
-          const r = RIVALS[Math.floor(Math.random() * RIVALS.length)];
-          addBid({ amount: next, you: false, name: r.name, hue: r.hue });
-          flash();
-          setMyBid((mb) => {
-            if (mb !== null && next > mb) setStatus('outbid');
-            return mb;
-          });
-          return next;
-        });
-        loop();
-      }, delay);
-    };
-    loop();
-    return () => { alive = false; };
-  }, []);
+    if (!lot) return;
+    const socket = socketIO({ path: '/socket.io' });
 
-  const urgent = cd.total < 300;
+    socket.emit('join:lot', lot.id);
+
+    socket.on('bid:new', ({ bid }) => {
+      flash();
+      const isMe = bid.userId === user?.id;
+      setBids((prev) => [{ ...bid, you: isMe }, ...prev]);
+      setCurrentBid(bid.amount);
+      if (isMe) {
+        setMyBid(bid.amount);
+        setStatus('winning');
+      } else if (myBidRef.current !== null && bid.amount > myBidRef.current) {
+        setStatus('outbid');
+      }
+    });
+
+    socket.on('lot:closed', ({ winner: w }) => {
+      setLot((prev) => prev ? { ...prev, status: 'closed' } : prev);
+      setWinner(w);
+    });
+
+    socket.on('lot:new', ({ lot: newLot }) => {
+      setLot(newLot);
+      setBids([]);
+      setCurrentBid(newLot.startingBid);
+      setMyBid(null);
+      setStatus('none');
+      setWinner(null);
+    });
+
+    return () => socket.disconnect();
+  }, [lot?.id, user?.id]);
+
+  const placeBid = useCallback(async (amount) => {
+    if (!user) { navigate('/login', { state: { from: '/' } }); return; }
+    const r = await fetch(`/api/lots/${lot.id}/bids`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ amount }),
+    });
+    if (!r.ok) {
+      const data = await r.json();
+      throw new Error(data.error || 'Bid failed');
+    }
+    // Socket.io will push the update to all clients including us
+  }, [user, lot?.id, token, navigate]);
 
   const scrollToBid = () => {
     const el = document.querySelector('.bidrail');
     if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 70, behavior: 'smooth' });
   };
 
-  const auction = { startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump };
+  const urgent = cd.total < 300 && cd.total > 0;
+  const minInc = 25;
+  const startingBid = lot?.startingBid ?? 100;
+
+  const auction = {
+    lot, startingBid, currentBid, minInc, myBid, status, bids,
+    placeBid, bump, user, winner,
+    onLoginPrompt: () => navigate('/login', { state: { from: '/' } }),
+  };
+
+  if (loading) {
+    return (
+      <div className="app">
+        <Starfield />
+        <div className="app-loading">
+          <div className="brand-mark" style={{ width: 40, height: 40, marginBottom: 16 }} />
+          <span>Loading auction…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !lot) {
+    return (
+      <div className="app">
+        <Starfield />
+        <div className="app-loading">
+          <div className="brand-mark" style={{ width: 40, height: 40, marginBottom: 16 }} />
+          <span style={{ color: 'var(--txt-mute)' }}>{error}</span>
+          <button className="app-retry" onClick={fetchLot}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -113,24 +175,47 @@ export default function App() {
         </div>
 
         <div className={'countdown' + (urgent ? ' urgent' : '')}>
-          <span className="countdown-label">{urgent ? 'Ending soon' : 'Auction ends in'}</span>
-          <span className="countdown-time num">
-            {cd.h > 0 && <><span>{pad(cd.h)}</span><span className="u">h</span></>}
-            <span>{pad(cd.m)}</span><span className="u">m</span>
-            <span>{pad(cd.s)}</span><span className="u">s</span>
+          <span className="countdown-label">
+            {lot?.status === 'closed' ? 'Auction ended' : urgent ? 'Ending soon' : 'Auction ends in'}
           </span>
+          {lot?.status !== 'closed' && (
+            <span className="countdown-time num">
+              {cd.h > 0 && <><span>{pad(cd.h)}</span><span className="u">h</span></>}
+              <span>{pad(cd.m)}</span><span className="u">m</span>
+              <span>{pad(cd.s)}</span><span className="u">s</span>
+            </span>
+          )}
         </div>
 
         <div className="topbar-right">
           <div className="pill">
             <span className="dot" />
-            214 watching
+            {bids.length} bids
           </div>
+          {user ? (
+            <>
+              <div className="pill" style={{ gap: 10 }}>
+                <span style={{ color: 'var(--gold-bright)', fontFamily: 'var(--font-display)', fontSize: 13 }}>
+                  {user.name}
+                </span>
+                <button
+                  onClick={logout}
+                  style={{ background: 'none', border: 'none', color: 'var(--txt-mute)', fontSize: 11, cursor: 'pointer', padding: 0 }}
+                >
+                  Sign out
+                </button>
+              </div>
+            </>
+          ) : (
+            <button className="pill auth-pill" onClick={() => navigate('/login')}>
+              Sign in to bid
+            </button>
+          )}
         </div>
       </header>
 
       <div className="stage-wrap">
-        <Stage modelCount={3} />
+        <Stage modelCount={3} lot={lot} />
       </div>
 
       <BidRail auction={auction} />
@@ -142,7 +227,12 @@ export default function App() {
             ${currentBid.toLocaleString('en-US')}
           </div>
         </div>
-        <button className="mb-btn" onClick={scrollToBid}>{myBid === null ? 'Place bid' : 'Raise bid'}</button>
+        <button
+          className="mb-btn"
+          onClick={user ? scrollToBid : () => navigate('/login', { state: { from: '/' } })}
+        >
+          {!user ? 'Sign in to bid' : myBid === null ? 'Place bid' : 'Raise bid'}
+        </button>
       </div>
     </div>
   );
