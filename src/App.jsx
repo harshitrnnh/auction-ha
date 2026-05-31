@@ -5,6 +5,7 @@ import { useAuth } from './contexts/AuthContext';
 import Starfield from './components/Starfield';
 import Stage from './components/Stage';
 import BidRail from './components/BidRail';
+import UserMenu from './components/UserMenu';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -167,11 +168,20 @@ export default function App() {
 
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark" />
+          {user ? (
+            <UserMenu user={user} logout={logout} />
+          ) : (
+            <div className="brand-mark" />
+          )}
           <div>
             <div className="brand-name">Oxide</div>
             <div className="brand-sub">Live Auction</div>
           </div>
+          {!user && (
+            <button className="pill auth-pill" onClick={() => navigate('/login')}>
+              Sign in to bid
+            </button>
+          )}
         </div>
 
         <div className={'countdown' + (urgent ? ' urgent' : '')}>
@@ -184,32 +194,6 @@ export default function App() {
               <span>{pad(cd.m)}</span><span className="u">m</span>
               <span>{pad(cd.s)}</span><span className="u">s</span>
             </span>
-          )}
-        </div>
-
-        <div className="topbar-right">
-          <div className="pill">
-            <span className="dot" />
-            {bids.length} bids
-          </div>
-          {user ? (
-            <>
-              <div className="pill" style={{ gap: 10 }}>
-                <span style={{ color: 'var(--gold-bright)', fontFamily: 'var(--font-display)', fontSize: 13 }}>
-                  {user.name}
-                </span>
-                <button
-                  onClick={logout}
-                  style={{ background: 'none', border: 'none', color: 'var(--txt-mute)', fontSize: 11, cursor: 'pointer', padding: 0 }}
-                >
-                  Sign out
-                </button>
-              </div>
-            </>
-          ) : (
-            <button className="pill auth-pill" onClick={() => navigate('/login')}>
-              Sign in to bid
-            </button>
           )}
         </div>
       </header>
