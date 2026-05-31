@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
+    "build": "prisma db push",
     "start": "node src/index.js",
     "db:push": "prisma db push",
     "db:seed": "node src/seed.js",
