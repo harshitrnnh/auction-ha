@@ -34,6 +34,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5176',
   'http://localhost:5177',
   'http://localhost:5190',
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
 
 const io = new Server(httpServer, {

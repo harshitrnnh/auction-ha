@@ -7,6 +7,8 @@ import Stage from './components/Stage';
 import BidRail from './components/BidRail';
 import UserMenu from './components/UserMenu';
 
+const API = import.meta.env.VITE_API_URL ?? '';
+
 const pad = (n) => String(n).padStart(2, '0');
 
 function useCountdown(endsAt) {
@@ -61,7 +63,7 @@ export default function App() {
   const fetchLot = useCallback(async () => {
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const r = await fetch('/api/lots/current', { headers });
+      const r = await fetch(`${API}/api/lots/current`, { headers });
       if (!r.ok) { setError('No active lot right now.'); return; }
       const data = await r.json();
       setLot(data.lot);
@@ -83,7 +85,9 @@ export default function App() {
   // Socket.io — join lot room for real-time bid updates
   useEffect(() => {
     if (!lot) return;
-    const socket = socketIO({ path: '/socket.io' });
+    const socket = API
+      ? socketIO(API, { path: '/socket.io' })
+      : socketIO({ path: '/socket.io' });
 
     socket.emit('join:lot', lot.id);
 
@@ -119,7 +123,7 @@ export default function App() {
 
   const placeBid = useCallback(async (amount) => {
     if (!user) { navigate('/login', { state: { from: '/' } }); return; }
-    const r = await fetch(`/api/lots/${lot.id}/bids`, {
+    const r = await fetch(`${API}/api/lots/${lot.id}/bids`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
