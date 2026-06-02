@@ -1,0 +1,1 @@
+// Scratch database inspection script

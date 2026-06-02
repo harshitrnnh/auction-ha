@@ -151,10 +151,9 @@ function Feed({ bids }) {
 }
 
 export default function BidRail({ auction }) {
-  const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, watching, onLoginPrompt } = auction;
+  const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, watching, onLoginPrompt, lotClosed } = auction;
   const minNext = bids.length > 0 ? currentBid + minInc : startingBid;
 
-  const lotClosed = lot?.status === 'closed';
   const showForm = !lotClosed;
   const showMyBid = myBid !== null;
 
@@ -216,6 +215,25 @@ export default function BidRail({ auction }) {
           bidsCount={bids.length}
           isHighestBidder={status === 'winning'}
         />
+      )}
+
+      {lotClosed && (
+        <div className="settlement-info" style={{ padding: '24px 20px', border: '1px solid var(--line-strong)', borderRadius: 'var(--r-sm)', background: 'rgba(0,0,0,0.2)', textAlign: 'center', marginTop: '16px' }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', color: 'var(--txt)', fontWeight: 600 }}>Bidding Closed</h3>
+          {bids.length > 0 ? (
+            <p style={{ fontSize: '13px', line-height: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
+              <strong>{bids[0].userName || bids[0].name}</strong> has won the bid with <strong>{fmt(bids[0].amount)}</strong>.
+            </p>
+          ) : (
+            <p style={{ fontSize: '13px', line-height: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
+              No bids were placed on this lot.
+            </p>
+          )}
+          <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold-bright)', borderTop: '1px solid var(--line)', paddingTop: '12px', fontWeight: 500 }}>
+            Next bidding starts at 12:00 AM IST. Log back in then for an exciting new drop!
+          </div>
+        </div>
       )}
 
       <Feed bids={bids} />

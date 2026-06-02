@@ -11,14 +11,59 @@ const API = import.meta.env.VITE_API_URL ?? '';
 
 const pad = (n) => String(n).padStart(2, '0');
 
-function useCountdown(endsAt) {
+function getISTParts() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hourCycle: 'h23'
+  });
+  const str = formatter.format(now);
+  const [hStr, mStr, sStr] = str.split(':');
+  return {
+    hour: parseInt(hStr, 10),
+    minute: parseInt(mStr, 10),
+    second: parseInt(sStr, 10)
+  };
+}
+
+function checkBiddingClosed() {
+  try {
+    const parts = getISTParts();
+    return parts.hour >= 18; // 6:00 PM IST is 18:00
+  } catch (e) {
+    console.error('Error checking bidding closed:', e);
+    return false;
+  }
+}
+
+function getCountdownTarget(isClosed) {
+  const now = new Date();
+  const istDate = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  const y = istDate.getUTCFullYear();
+  const m = istDate.getUTCMonth();
+  const d = istDate.getUTCDate();
+
+  if (isClosed) {
+    // Midnight IST = 18:30 UTC of today
+    return Date.UTC(y, m, d, 18, 30, 0);
+  } else {
+    // 6:00 PM IST = 12:30 UTC of today
+    return Date.UTC(y, m, d, 12, 30, 0);
+  }
+}
+
+function useCountdown(lotClosed) {
   const [, force] = useState(0);
   useEffect(() => {
     const id = setInterval(() => force((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
-  if (!endsAt) return { h: 0, m: 0, s: 0, total: 0 };
-  const ms = Math.max(0, new Date(endsAt) - Date.now());
+
+  const targetMs = getCountdownTarget(lotClosed);
+  const ms = Math.max(0, targetMs - Date.now());
   const total = Math.floor(ms / 1000);
   return {
     h: Math.floor(total / 3600),
@@ -27,6 +72,7 @@ function useCountdown(endsAt) {
     total,
   };
 }
+
 
 export default function App() {
   const { user, token, logout } = useAuth();
@@ -57,7 +103,8 @@ export default function App() {
     return () => clearInterval(id);
   }, [lot?.id, bids.length]);
 
-  const cd = useCountdown(lot?.endsAt);
+  const lotClosed = lot?.status === 'closed' || checkBiddingClosed();
+  const cd = useCountdown(lotClosed);
   const flash = () => { setBump(true); setTimeout(() => setBump(false), 520); };
 
   const fetchLot = useCallback(async () => {
@@ -123,6 +170,14 @@ export default function App() {
       setWinner(null);
     });
 
+    socket.on('lot:payee_changed', () => {
+      fetchLot();
+    });
+
+    socket.on('lot:paid', () => {
+      fetchLot();
+    });
+
     return () => socket.disconnect();
   }, [lot?.id, user?.id]);
 
@@ -148,13 +203,13 @@ export default function App() {
     if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 70, behavior: 'smooth' });
   };
 
-  const urgent = cd.total < 300 && cd.total > 0;
+  const urgent = cd.total < 300 && cd.total > 0 && !lotClosed;
   const minInc = 50;
   const startingBid = lot?.startingBid ?? 100;
 
   const auction = {
     lot, startingBid, currentBid, minInc, myBid, status, bids,
-    placeBid, bump, user, winner, watching,
+    placeBid, bump, user, winner, watching, lotClosed,
     onLoginPrompt: () => navigate('/login', { state: { from: '/' } }),
   };
 
@@ -183,9 +238,25 @@ export default function App() {
     );
   }
 
+  const showCelebration = lot?.status === 'closed' &&
+                          user &&
+                          lot.currentPayeeId === user.id &&
+                          lot.paymentStatus?.startsWith('pending_') &&
+                          lot.payeeExpiresAt &&
+                          new Date(lot.payeeExpiresAt) > new Date();
+
   return (
     <div className="app">
       <Starfield />
+      {showCelebration && (
+        <CelebrationOverlay
+          lot={lot}
+          token={token}
+          onPaymentSuccess={() => {
+            fetchLot();
+          }}
+        />
+      )}
 
       <header className="topbar">
         <div className="brand">
@@ -211,15 +282,13 @@ export default function App() {
 
         <div className={'countdown' + (urgent ? ' urgent' : '')}>
           <span className="countdown-label">
-            {lot?.status === 'closed' ? 'Auction ended' : urgent ? 'Ending soon' : 'Auction ends in'}
+            {lotClosed ? 'Next auction starts in' : urgent ? 'Ending soon' : 'Auction ends in'}
           </span>
-          {lot?.status !== 'closed' && (
-            <span className="countdown-time num">
-              {cd.h > 0 && <><span>{pad(cd.h)}</span><span className="u">h</span></>}
-              <span>{pad(cd.m)}</span><span className="u">m</span>
-              <span>{pad(cd.s)}</span><span className="u">s</span>
-            </span>
-          )}
+          <span className="countdown-time num">
+            {cd.h > 0 && <><span>{pad(cd.h)}</span><span className="u">h</span></>}
+            <span>{pad(cd.m)}</span><span className="u">m</span>
+            <span>{pad(cd.s)}</span><span className="u">s</span>
+          </span>
         </div>
       </header>
 
@@ -242,6 +311,92 @@ export default function App() {
         >
           {!user ? 'Sign in to bid' : myBid === null ? 'Place bid' : 'Raise bid'}
         </button>
+      </div>
+      </div>
+    </div>
+  );
+}
+
+function CelebrationOverlay({ lot, token, onPaymentSuccess }) {
+  const [timeLeft, setTimeLeft] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [paid, setPaid] = useState(false);
+
+  useEffect(() => {
+    if (!lot?.payeeExpiresAt) return;
+    const updateTimer = () => {
+      const diff = new Date(lot.payeeExpiresAt) - new Date();
+      if (diff <= 0) {
+        setTimeLeft('EXPIRED');
+      } else {
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        setTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      }
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [lot?.payeeExpiresAt]);
+
+  const handlePay = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const API_URL = import.meta.env.VITE_API_URL ?? '';
+      const r = await fetch(`${API_URL}/api/lots/simulate-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Payment failed');
+      setPaid(true);
+    } catch (err) {
+      setError(err.message || 'Payment simulation failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="celebration-overlay">
+      <div className="celebration-card">
+        <div className="celebration-badge">{paid ? '🎉' : '🏆'}</div>
+        {paid ? (
+          <>
+            <h2 className="celebration-title">Payment Confirmed!</h2>
+            <p className="celebration-text" style={{ marginBottom: '24px' }}>
+              You have successfully claimed <strong>{lot.title}</strong>! We will contact you shortly to coordinate delivery.
+            </p>
+            <button className="celebration-pay-btn" onClick={onPaymentSuccess}>
+              Go to Auction Stage
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 className="celebration-title">You Won the Bid!</h2>
+            <p className="celebration-text">
+              Congratulations! You won today's drop: <strong>{lot.title}</strong>. 
+              Please complete your payment within the next 2 hours to claim your product. If you don't pay within this time, the product gets transferred to the 2nd highest bidder.
+            </p>
+            
+            <div className="celebration-timer-box">
+              <div className="celebration-timer-label">Time Remaining to Settle</div>
+              <div className="celebration-timer-val">{timeLeft}</div>
+            </div>
+
+            {error && <div className="auth-error" style={{ marginBottom: '20px', justifyContent: 'center' }}><span>⚠</span> {error}</div>}
+
+            <button className="celebration-pay-btn" onClick={handlePay} disabled={loading || timeLeft === 'EXPIRED'}>
+              {loading ? 'Processing Payment…' : 'Simulate Payment (Razorpay Mock)'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
