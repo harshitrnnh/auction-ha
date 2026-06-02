@@ -69,16 +69,21 @@ export default function App() {
       setLot(data.lot);
       setBids(data.bids);
       setCurrentBid(data.currentBid);
-      if (data.myBid !== null && data.myBid !== undefined) {
-        setMyBid(data.myBid);
-        setStatus(data.myStatus);
-      }
+      setMyBid(data.myBid ?? null);
+      setStatus(data.myStatus ?? 'none');
     } catch {
       setError('Could not connect to the auction server.');
     } finally {
       setLoading(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!user) {
+      setMyBid(null);
+      setStatus('none');
+    }
+  }, [user]);
 
   useEffect(() => { fetchLot(); }, [fetchLot]);
 
