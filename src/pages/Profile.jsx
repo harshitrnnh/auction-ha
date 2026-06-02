@@ -7,7 +7,6 @@ export default function Profile() {
   const navigate = useNavigate();
 
   const [username, setUsername] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [avatar, setAvatar] = useState('');
   
@@ -19,7 +18,6 @@ export default function Profile() {
   useEffect(() => {
     if (user) {
       setUsername(user.name || '');
-      setPhone(user.phone || '');
       setAvatar(user.avatarUrl || '');
     }
   }, [user]);
@@ -49,7 +47,6 @@ export default function Profile() {
     try {
       const updates = {
         name: username.trim() || 'User',
-        phone: phone.trim() ? phone.trim() : null,
         avatarUrl: avatar,
       };
       if (password) {
@@ -155,23 +152,6 @@ export default function Profile() {
             />
           </div>
 
-          <div className="auth-field">
-            <label className="auth-label">Mobile Number (For winning reminders)</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <div className="auth-input" style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.8, background: 'rgba(0,0,0,0.4)', padding: '13px 10px' }}>
-                <span style={{ fontSize: 13 }}>🇮🇳</span>
-                <span style={{ color: 'var(--txt-dim)', fontSize: 14, fontWeight: 500 }}>+91</span>
-              </div>
-              <input
-                className="auth-input"
-                style={{ flex: 1, letterSpacing: '0.05em' }}
-                type="tel"
-                placeholder="98765 43210"
-                value={phone}
-                onChange={(e) => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setError(''); setSuccess(''); }}
-              />
-            </div>
-          </div>
 
           <div className="auth-field">
             <label className="auth-label">New Password (Optional)</label>

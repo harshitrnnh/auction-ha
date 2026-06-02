@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 const fmt = (n) => '₹' + n.toLocaleString('en-IN');
 
-function StatusBanner({ status, currentBid, onRaise, lotClosed, winner, user }) {
+function StatusBanner({ status, currentBid, lotClosed, winner, user }) {
   if (lotClosed) {
     const isWinner = winner && winner.userId === user?.id;
     return (
@@ -31,14 +31,13 @@ function StatusBanner({ status, currentBid, onRaise, lotClosed, winner, user }) 
       <div className="status-banner lose">
         <span className="icon">!</span>
         <span className="sb-text">You&apos;ve been <b>outbid</b> — current is {fmt(currentBid)}.</span>
-        <button className="link-btn" style={{ marginLeft: 'auto', color: 'var(--lose)' }} onClick={onRaise}>Raise →</button>
       </div>
     );
   }
   return null;
 }
 
-function BidForm({ minNext, onPlace, label, disabled, onLoginPrompt, user }) {
+function BidForm({ minNext, onPlace, disabled, onLoginPrompt, user, bidsCount, isHighestBidder }) {
   const [err, setErr] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -68,12 +67,14 @@ function BidForm({ minNext, onPlace, label, disabled, onLoginPrompt, user }) {
     );
   }
 
+  const isBtnDisabled = submitting || isHighestBidder;
+
   return (
     <div className="bid-form" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <button
         className="bid-submit"
         onClick={submit}
-        disabled={submitting}
+        disabled={isBtnDisabled}
         style={{
           width: '100%',
           padding: '14px 18px',
@@ -84,7 +85,14 @@ function BidForm({ minNext, onPlace, label, disabled, onLoginPrompt, user }) {
           alignItems: 'center'
         }}
       >
-        {!user ? 'Sign in to bid' : submitting ? 'Placing bid…' : `${label || 'Place bid'}: ${fmt(minNext)}`}
+        {!user 
+          ? 'Sign in to bid' 
+          : submitting 
+            ? 'Placing bid…' 
+            : bidsCount === 0 
+              ? 'Place Bid' 
+              : `Raise Bid : ${fmt(minNext)}`
+        }
       </button>
       {err && <div className="bid-error" style={{ justifyContent: 'center' }}><span>⚠</span> {err}</div>}
       {!user && (
@@ -96,12 +104,11 @@ function BidForm({ minNext, onPlace, label, disabled, onLoginPrompt, user }) {
   );
 }
 
-function MyBid({ myBid, status, onEdit, lotClosed }) {
+function MyBid({ myBid, status }) {
   return (
     <div className="mybid">
       <div className="row">
         <span className="k">Your bid</span>
-        {!lotClosed && <button className="link-btn" onClick={onEdit}>Raise bid</button>}
       </div>
       <div className="row" style={{ marginTop: 6 }}>
         <span className="amt num">{fmt(myBid)}</span>
@@ -109,7 +116,6 @@ function MyBid({ myBid, status, onEdit, lotClosed }) {
           {status === 'winning' ? '● Leading' : '● Outbid'}
         </span>
       </div>
-      {!lotClosed && <div className="max-note">You&apos;ll be notified instantly if someone bids higher.</div>}
     </div>
   );
 }
@@ -146,17 +152,14 @@ function Feed({ bids }) {
 
 export default function BidRail({ auction }) {
   const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, watching, onLoginPrompt } = auction;
-  const [editing, setEditing] = useState(false);
-
   const minNext = bids.length > 0 ? currentBid + minInc : startingBid;
 
   const lotClosed = lot?.status === 'closed';
-  const showForm = !lotClosed && (myBid === null || editing);
+  const showForm = !lotClosed;
   const showMyBid = myBid !== null;
 
   const handlePlace = async (n) => {
     await placeBid(n);
-    setEditing(false);
   };
 
   return (
@@ -194,24 +197,24 @@ export default function BidRail({ auction }) {
       <StatusBanner
         status={status}
         currentBid={currentBid}
-        onRaise={() => setEditing(true)}
         lotClosed={lotClosed}
         winner={winner}
         user={user}
       />
 
       {showMyBid && (
-        <MyBid myBid={myBid} status={status} onEdit={() => setEditing(true)} lotClosed={lotClosed} />
+        <MyBid myBid={myBid} status={status} />
       )}
 
       {showForm && (
         <BidForm
           minNext={minNext}
-          label={myBid === null ? 'Place bid' : 'Raise bid'}
           onPlace={handlePlace}
           disabled={lotClosed}
           user={user}
           onLoginPrompt={onLoginPrompt}
+          bidsCount={bids.length}
+          isHighestBidder={status === 'winning'}
         />
       )}
 
