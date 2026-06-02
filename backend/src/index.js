@@ -9,7 +9,7 @@ import { setIo } from './socket.js';
 import authRoutes from './routes/auth.js';
 import lotRoutes from './routes/lots.js';
 import bidRoutes from './routes/bids.js';
-import { startScheduler, closeLotAndCreateNew } from './scheduler.js';
+import { startScheduler, closeActiveLot, checkPaymentExpirations } from './scheduler.js';
 
 // Load .env from backend directory
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -50,7 +50,12 @@ app.use('/api/lots', lotRoutes);
 app.use('/api/lots', bidRoutes);
 
 app.post('/api/admin/rotate', async (_req, res) => {
-  await closeLotAndCreateNew();
+  await closeActiveLot();
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/check-expirations', async (_req, res) => {
+  await checkPaymentExpirations();
   res.json({ ok: true });
 });
 
