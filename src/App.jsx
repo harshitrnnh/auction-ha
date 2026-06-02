@@ -325,7 +325,6 @@ export default function App() {
           {!user ? 'Sign in to bid' : myBid === null ? 'Place bid' : 'Raise bid'}
         </button>
       </div>
-      </div>
     </div>
   );
 }

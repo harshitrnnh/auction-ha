@@ -222,11 +222,11 @@ export default function BidRail({ auction }) {
           <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
           <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', color: 'var(--txt)', fontWeight: 600 }}>Bidding Closed</h3>
           {bids.length > 0 ? (
-            <p style={{ fontSize: '13px', line-height: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
+            <p style={{ fontSize: '13px', lineHeight: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
               <strong>{bids[0].userName || bids[0].name}</strong> has won the bid with <strong>{fmt(bids[0].amount)}</strong>.
             </p>
           ) : (
-            <p style={{ fontSize: '13px', line-height: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
+            <p style={{ fontSize: '13px', lineHeight: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
               No bids were placed on this lot.
             </p>
           )}
