@@ -25,7 +25,6 @@ export default function Login() {
 
   // Profile setup state (optional intermediary page for Google users who are new)
   const [username, setUsername] = useState('');
-  const [phone, setPhone] = useState('');
   const [setupPassword, setSetupPassword] = useState('');
   const [avatar, setAvatar] = useState('');
 
@@ -198,7 +197,6 @@ export default function Login() {
     try {
       const updates = {};
       if (username.trim()) updates.name = username.trim();
-      if (phone.trim()) updates.phone = phone.trim();
       if (setupPassword) updates.password = setupPassword;
       if (avatar) updates.avatarUrl = avatar;
 
@@ -467,23 +465,6 @@ export default function Login() {
                 />
               </div>
 
-              <div className="auth-field">
-                <label className="auth-label">Mobile Number (Optional - for payment updates)</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div className="auth-input" style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.8, background: 'rgba(0,0,0,0.4)', padding: '13px 10px' }}>
-                    <span style={{ fontSize: 13 }}>🇮🇳</span>
-                    <span style={{ color: 'var(--txt-dim)', fontSize: 14, fontWeight: 500 }}>+91</span>
-                  </div>
-                  <input
-                    className="auth-input"
-                    style={{ flex: 1, letterSpacing: '0.05em' }}
-                    type="tel"
-                    placeholder="98765 43210"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  />
-                </div>
-              </div>
 
               <div className="auth-field">
                 <label className="auth-label">Password (Optional - enables password login)</label>
