@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
 
 const router = Router();
-const MIN_INCREMENT = 25;
+const MIN_INCREMENT = 50;
 
 function stringHue(str) {
   let h = 0;
@@ -34,10 +34,10 @@ router.post('/:id/bids', requireAuth, async (req, res) => {
     where: { lotId },
     orderBy: { amount: 'desc' },
   });
-  const floor = topBid ? topBid.amount + MIN_INCREMENT : lot.startingBid;
-  if (n < floor) {
+  const expectedAmount = topBid ? topBid.amount + MIN_INCREMENT : lot.startingBid;
+  if (n !== expectedAmount) {
     return res.status(400).json({
-      error: `Bid must be at least $${floor.toLocaleString('en-US')} (current${topBid ? ' + $' + MIN_INCREMENT + ' increment' : ''})`,
+      error: `Bid must be exactly ₹${expectedAmount.toLocaleString('en-IN')}`,
     });
   }
 

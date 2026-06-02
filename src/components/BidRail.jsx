@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const fmt = (n) => '$' + n.toLocaleString('en-US');
+const fmt = (n) => '₹' + n.toLocaleString('en-IN');
 
 function StatusBanner({ status, currentBid, onRaise, lotClosed, winner, user }) {
   if (lotClosed) {
@@ -38,26 +38,19 @@ function StatusBanner({ status, currentBid, onRaise, lotClosed, winner, user }) 
   return null;
 }
 
-function BidForm({ currentBid, minInc, onPlace, prefill, label, disabled, onLoginPrompt, user }) {
-  const minNext = currentBid + minInc;
-  const [val, setVal] = useState(String(prefill || minNext));
+function BidForm({ minNext, onPlace, label, disabled, onLoginPrompt, user }) {
   const [err, setErr] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { setVal(String(prefill || minNext)); setErr(''); }, [prefill, currentBid]);
-
-  const quick = [minInc, minInc * 2, minInc * 4];
-  const setQuick = (add) => { setVal(String(currentBid + add)); setErr(''); };
-
   const submit = async () => {
-    if (!user) { onLoginPrompt(); return; }
-    const n = Math.round(Number(val));
-    if (!val || isNaN(n)) { setErr('Enter a valid amount.'); return; }
-    if (n < minNext) { setErr(`Bid must be at least ${fmt(minNext)} (current + ${fmt(minInc)} increment).`); return; }
+    if (!user) {
+      onLoginPrompt();
+      return;
+    }
     setErr('');
     setSubmitting(true);
     try {
-      await onPlace(n);
+      await onPlace(minNext);
     } catch (e) {
       setErr(e.message || 'Failed to place bid. Try again.');
     } finally {
@@ -76,34 +69,29 @@ function BidForm({ currentBid, minInc, onPlace, prefill, label, disabled, onLogi
   }
 
   return (
-    <div className="bid-form">
-      <div className="quickbids">
-        {quick.map((q) => (
-          <button key={q} className="qb" onClick={() => setQuick(q)}>+{fmt(q)}</button>
-        ))}
-      </div>
-      <div className="bid-input-row">
-        <div className={'bid-input' + (err ? ' err' : '')}>
-          <span className="cur">$</span>
-          <input
-            inputMode="numeric"
-            value={val}
-            onChange={(e) => { setVal(e.target.value.replace(/[^0-9]/g, '')); setErr(''); }}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            disabled={submitting}
-          />
+    <div className="bid-form" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <button
+        className="bid-submit"
+        onClick={submit}
+        disabled={submitting}
+        style={{
+          width: '100%',
+          padding: '14px 18px',
+          fontSize: '15px',
+          borderRadius: 'var(--r-sm)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}
+      >
+        {!user ? 'Sign in to bid' : submitting ? 'Placing bid…' : `${label || 'Place bid'}: ${fmt(minNext)}`}
+      </button>
+      {err && <div className="bid-error" style={{ justifyContent: 'center' }}><span>⚠</span> {err}</div>}
+      {!user && (
+        <div className="bid-help" style={{ textAlign: 'center', marginTop: '4px' }}>
+          <button className="link-btn" style={{ padding: 0 }} onClick={onLoginPrompt}>Sign in or create an account</button> to bid on this lot.
         </div>
-        <button className="bid-submit" onClick={submit} disabled={submitting}>
-          {!user ? 'Sign in' : submitting ? '…' : (label || 'Place bid')}
-        </button>
-      </div>
-      {err
-        ? <div className="bid-error"><span>⚠</span> {err}</div>
-        : !user
-          ? <div className="bid-help">
-              <button className="link-btn" style={{ padding: 0 }} onClick={onLoginPrompt}>Sign in or create an account</button> to bid on this lot.
-            </div>
-          : <div className="bid-help">Minimum next bid {fmt(minNext)} · increment {fmt(minInc)}</div>}
+      )}
     </div>
   );
 }
@@ -160,6 +148,8 @@ export default function BidRail({ auction }) {
   const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, watching, onLoginPrompt } = auction;
   const [editing, setEditing] = useState(false);
 
+  const minNext = bids.length > 0 ? currentBid + minInc : startingBid;
+
   const lotClosed = lot?.status === 'closed';
   const showForm = !lotClosed && (myBid === null || editing);
   const showMyBid = myBid !== null;
@@ -182,7 +172,7 @@ export default function BidRail({ auction }) {
         <div className="lot-meta">
           <div className="m"><span className="k">Size</span><span className="v">{lot?.size ?? 'M'}</span></div>
           <div className="m"><span className="k">Edition</span><span className="v">{lot?.edition ?? '1 / 1'}</span></div>
-          <div className="m"><span className="k">Ships</span><span className="v">Worldwide</span></div>
+          <div className="m"><span className="k">Ships</span><span className="v">India Only</span></div>
         </div>
       </div>
 
@@ -194,8 +184,8 @@ export default function BidRail({ auction }) {
         <div className="current">
           <div className="price-row"><span className="label">Current bid</span></div>
           <div className={'amt' + (bump ? ' bump' : '')} key={currentBid}>
-            <span className="cur num">$</span>
-            <span className="num">{currentBid.toLocaleString('en-US')}</span>
+            <span className="cur num">₹</span>
+            <span className="num">{currentBid.toLocaleString('en-IN')}</span>
           </div>
           <div className="sub">{bids.length} bids · {fmt(currentBid - startingBid)} over start</div>
         </div>
@@ -216,9 +206,7 @@ export default function BidRail({ auction }) {
 
       {showForm && (
         <BidForm
-          currentBid={currentBid}
-          minInc={minInc}
-          prefill={editing ? currentBid + minInc : null}
+          minNext={minNext}
           label={myBid === null ? 'Place bid' : 'Raise bid'}
           onPlace={handlePlace}
           disabled={lotClosed}

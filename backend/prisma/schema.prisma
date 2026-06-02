@@ -10,10 +10,19 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  name         String
-  passwordHash String
+  name         String   @default("User")
+  phone        String?  @unique
+  avatarUrl    String?
+  passwordHash String?
   createdAt    DateTime @default(now())
   bids         Bid[]
+}
+
+model VerificationOtp {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  otp       String
+  expiresAt DateTime
 }
 
 model Lot {
@@ -41,3 +50,4 @@ model Bid {
   lot       Lot      @relation(fields: [lotId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
 }
+
