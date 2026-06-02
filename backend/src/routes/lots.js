@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { optionalAuth } from '../middleware/auth.js';
+import { getIo } from '../socket.js';
 
 const router = Router();
 
@@ -27,7 +28,6 @@ function stringHue(str) {
 /* GET /api/lots/current */
 router.get('/current', optionalAuth, async (req, res) => {
   const lot = await prisma.lot.findFirst({
-    where: { status: 'active' },
     orderBy: { startsAt: 'desc' },
   });
   if (!lot) return res.status(404).json({ error: 'No active lot' });
@@ -62,6 +62,37 @@ router.get('/current', optionalAuth, async (req, res) => {
     myStatus,
     bids: bids.map((b) => shapeBid(b, req.userId)),
   });
+});
+
+/* POST /api/lots/simulate-payment */
+router.post('/simulate-payment', async (req, res) => {
+  try {
+    const lot = await prisma.lot.findFirst({
+      where: { status: 'closed' },
+      orderBy: { startsAt: 'desc' },
+    });
+    if (!lot) {
+      return res.status(400).json({ error: 'No closed lot found to pay.' });
+    }
+    if (!lot.currentPayeeId) {
+      return res.status(400).json({ error: 'No active payment window for this lot.' });
+    }
+
+    const updatedLot = await prisma.lot.update({
+      where: { id: lot.id },
+      data: {
+        paymentStatus: 'paid',
+        winnerId: lot.currentPayeeId, // set winnerId as the user who paid
+      },
+    });
+
+    getIo()?.emit('lot:paid', { lotId: lot.id, winnerId: lot.currentPayeeId });
+
+    res.json({ ok: true, lot: updatedLot });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to simulate payment' });
+  }
 });
 
 /* GET /api/lots/past */

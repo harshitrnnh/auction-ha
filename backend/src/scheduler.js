@@ -44,157 +44,387 @@ const LOT_TEMPLATES = [
   },
 ];
 
-async function closeLotAndCreateNew() {
+// Helper to construct IST Date string
+function getISTDateString(date) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric', month: 'numeric', day: 'numeric'
+  });
+  const parts = formatter.formatToParts(date);
+  const dateMap = {};
+  parts.forEach(p => dateMap[p.type] = p.value);
+  return `${dateMap.year}-${dateMap.month.padStart(2, '0')}-${dateMap.day.padStart(2, '0')}`;
+}
+
+async function closeActiveLot() {
   const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
   if (!activeLot) {
-    console.log('[Scheduler] No active lot — creating first one');
-    await createNewLot(1);
+    console.log('[Scheduler] No active lot to close.');
     return;
   }
 
-  // Find winner (highest bidder)
-  const topBid = await prisma.bid.findFirst({
+  // Fetch bids for this lot
+  const bids = await prisma.bid.findMany({
     where: { lotId: activeLot.id },
     orderBy: { amount: 'desc' },
-    include: { user: { select: { name: true, email: true } } },
+    include: { user: { select: { id: true, name: true, email: true } } },
   });
 
-  await prisma.lot.update({
-    where: { id: activeLot.id },
-    data: {
-      status: 'closed',
-      winnerId: topBid?.userId ?? null,
-    },
-  });
-
-  console.log(`[Scheduler] Lot #${activeLot.lotNumber} closed. Winner: ${topBid?.user?.name ?? 'no bids'}`);
-
-  getIo()?.emit('lot:closed', {
-    lotId: activeLot.id,
-    winner: topBid
-      ? { userId: topBid.userId, name: topBid.user.name, amount: topBid.amount }
-      : null,
-  });
-
-  // Send payment reminder email to winner
-  if (topBid?.user?.email) {
-    const winnerEmail = topBid.user.email;
-    const winnerName = topBid.user.name;
-    const winningAmount = topBid.amount;
-    const lotTitle = activeLot.title;
-    const lotArtist = activeLot.artist;
-
-    if (!process.env.RESEND_API_KEY) {
-      console.log(`
-============================================================
-[Email Mock] Sending payment notification to ${winnerEmail}
-Winner Name: ${winnerName}
-Winning Bid: ₹${winningAmount.toLocaleString('en-IN')}
-Lot: "${lotTitle}" by ${lotArtist}
-Action Required: Pay within 2 hours
-============================================================
-      `);
-    } else {
-      console.log(`[Scheduler] Sending winner email notification to ${winnerEmail}...`);
-      resend.emails.send({
-        from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
-        to: winnerEmail,
-        subject: `Urgent Payment Required: You won "${lotTitle}"! 🏆`,
-        html: `
-          <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e6c27e; margin-top: 0; font-size: 22px;">Congratulations, ${winnerName}!</h2>
-            <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4;">
-              You have won the auction for <strong>${lotTitle}</strong> by ${lotArtist}!
-            </p>
-            
-            <div style="background: rgba(230, 194, 126, 0.05); border: 1px solid rgba(230, 194, 126, 0.2); border-radius: 8px; padding: 18px; margin: 20px 0;">
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 8px;">Item</td>
-                  <td style="color: #f4f1ea; font-size: 14px; font-weight: bold; text-align: right; padding-bottom: 8px;">${lotTitle}</td>
-                </tr>
-                <tr>
-                  <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 8px;">Your Winning Bid</td>
-                  <td style="color: #e6c27e; font-size: 16px; font-weight: bold; text-align: right; padding-bottom: 8px;">₹${winningAmount.toLocaleString('en-IN')}</td>
-                </tr>
-                <tr>
-                  <td style="color: #7d7a8c; font-size: 13px;">Time to Pay</td>
-                  <td style="color: #ff6b7d; font-size: 14px; font-weight: bold; text-align: right;">2 Hours (Urgent)</td>
-                </tr>
-              </table>
-            </div>
-            
-            <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
-              To secure your item, please complete your payment of <strong>₹${winningAmount.toLocaleString('en-IN')}</strong> within the next 2 hours.
-            </p>
-            
-            <div style="background: rgba(255, 255, 255, 0.02); border-radius: 6px; padding: 16px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
-              <h4 style="margin: 0 0 10px 0; color: #e6c27e; font-size: 14px;">Payment Instructions</h4>
-              <p style="font-size: 13px; color: #9c99aa; margin: 0 0 8px 0; line-height: 1.5;">
-                [DUMMY PAYMENT DETAILS]<br/>
-                UPI ID: payment@oxide<br/>
-                Bank Transfer: Oxide Auctions Ltd | A/C 1234567890 | IFSC OXID0001234
-              </p>
-              <p style="font-size: 12px; color: #ff6b7d; margin: 0; font-weight: 500;">
-                Please reply to this email with your payment confirmation screenshot once completed.
-              </p>
-            </div>
-            
-            <p style="color: #7d7a8c; font-size: 11.5px; margin-bottom: 0; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; text-align: center;">
-              Oxide Auction • Generative wearable art series • Thank you for your bid!
-            </p>
-          </div>
-        `,
-      }).catch((err) => {
-        console.error('[Scheduler] Failed to send winner email via Resend:', err);
+  // Determine top 3 distinct bidders
+  const distinctBidders = [];
+  const seenUsers = new Set();
+  for (const bid of bids) {
+    if (!seenUsers.has(bid.userId)) {
+      seenUsers.add(bid.userId);
+      distinctBidders.push({
+        userId: bid.userId,
+        name: bid.user.name,
+        email: bid.user.email,
+        amount: bid.amount,
       });
     }
   }
 
-  // Create next lot
-  const nextLotNumber = activeLot.lotNumber + 1;
-  await createNewLot(nextLotNumber);
+  const topBid = distinctBidders[0] ?? null;
+
+  // Mark lot as closed
+  await prisma.lot.update({
+    where: { id: activeLot.id },
+    data: {
+      status: 'closed',
+      winnerId: null, // Reset winnerId; winner is confirmed only upon payment
+      currentPayeeId: topBid?.userId ?? null,
+      payeeExpiresAt: topBid ? new Date(Date.now() + 2 * 60 * 60 * 1000) : null,
+      paymentStatus: topBid ? 'pending_1st' : null,
+    },
+  });
+
+  console.log(`[Scheduler] Lot #${activeLot.lotNumber} closed. Highest Bidder: ${topBid?.name ?? 'no bids'}`);
+
+  // Emit closed status
+  getIo()?.emit('lot:closed', {
+    lotId: activeLot.id,
+    winner: topBid
+      ? { userId: topBid.userId, name: topBid.name, amount: topBid.amount }
+      : null,
+  });
+
+  // 1. Send Congratulations Email to 1st highest bidder
+  if (topBid?.email) {
+    await sendWinnerEmail(topBid, activeLot);
+  }
+
+  // 2. Send almost-had-it Email to 2nd highest bidder
+  if (distinctBidders.length > 1 && distinctBidders[1].email) {
+    await sendSecondPlaceEmail(distinctBidders[1]);
+  }
 }
 
 async function createNewLot(lotNumber) {
   const template = LOT_TEMPLATES[(lotNumber - 1) % LOT_TEMPLATES.length];
   const now = new Date();
-  const endsAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const dateStr = getISTDateString(now);
+
+  const startsAt = new Date(`${dateStr}T00:00:00+05:30`);
+  const endsAt = new Date(`${dateStr}T18:00:00+05:30`);
 
   const lot = await prisma.lot.create({
     data: {
       ...template,
       lotNumber,
-      startsAt: now,
+      startsAt,
       endsAt,
       startingBid: 100,
       status: 'active',
+      winnerId: null,
+      currentPayeeId: null,
+      payeeExpiresAt: null,
+      paymentStatus: null,
     },
   });
 
-  console.log(`[Scheduler] New lot #${lotNumber} created: "${lot.title}"`);
+  console.log(`[Scheduler] New lot #${lotNumber} created: "${lot.title}" (Active until 6:00 PM IST)`);
   const totalLots = await prisma.lot.count();
   getIo()?.emit('lot:new', { lot: { ...lot, totalLots } });
 }
 
-export async function startScheduler() {
-  // Handle expired lot on startup
-  const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
-  if (activeLot && new Date(activeLot.endsAt) < new Date()) {
-    console.log('[Scheduler] Found expired lot on startup — rotating now');
-    await closeLotAndCreateNew();
-  } else if (!activeLot) {
-    await createNewLot(1);
-  }
-
-  // Every day at midnight
-  cron.schedule('0 0 * * *', async () => {
-    console.log('[Scheduler] Running daily lot rotation');
-    await closeLotAndCreateNew();
+async function checkPaymentExpirations() {
+  const lot = await prisma.lot.findFirst({
+    where: { status: 'closed' },
+    orderBy: { startsAt: 'desc' },
   });
+  if (!lot) return;
 
-  console.log('[Scheduler] Daily lot rotation scheduled');
+  const hasExpired = lot.paymentStatus && 
+                     lot.paymentStatus.startsWith('pending_') && 
+                     lot.payeeExpiresAt && 
+                     new Date() > new Date(lot.payeeExpiresAt);
+
+  if (hasExpired) {
+    console.log(`[Scheduler] Payment window expired for lot #${lot.lotNumber}, payee: ${lot.currentPayeeId}`);
+
+    // Fetch bids to find top bidders
+    const bids = await prisma.bid.findMany({
+      where: { lotId: lot.id },
+      orderBy: { amount: 'desc' },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    });
+
+    const distinctBidders = [];
+    const seenUsers = new Set();
+    for (const bid of bids) {
+      if (!seenUsers.has(bid.userId)) {
+        seenUsers.add(bid.userId);
+        distinctBidders.push({
+          userId: bid.userId,
+          name: bid.user.name,
+          email: bid.user.email,
+          amount: bid.amount,
+        });
+      }
+    }
+
+    if (lot.paymentStatus === 'pending_1st') {
+      if (distinctBidders.length > 1) {
+        const secondBidder = distinctBidders[1];
+        const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        await prisma.lot.update({
+          where: { id: lot.id },
+          data: {
+            currentPayeeId: secondBidder.userId,
+            payeeExpiresAt: expiresAt,
+            paymentStatus: 'pending_2nd',
+          },
+        });
+        console.log(`[Scheduler] 1st payee expired. Transitioned to 2nd payee ${secondBidder.name}`);
+        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+        await sendPaymentLinkEmail(secondBidder, lot, '2nd');
+      } else {
+        await prisma.lot.update({
+          where: { id: lot.id },
+          data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
+        });
+        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+      }
+    } else if (lot.paymentStatus === 'pending_2nd') {
+      if (distinctBidders.length > 2) {
+        const thirdBidder = distinctBidders[2];
+        const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+        await prisma.lot.update({
+          where: { id: lot.id },
+          data: {
+            currentPayeeId: thirdBidder.userId,
+            payeeExpiresAt: expiresAt,
+            paymentStatus: 'pending_3rd',
+          },
+        });
+        console.log(`[Scheduler] 2nd payee expired. Transitioned to 3rd payee ${thirdBidder.name}`);
+        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+        await sendPaymentLinkEmail(thirdBidder, lot, '3rd');
+      } else {
+        await prisma.lot.update({
+          where: { id: lot.id },
+          data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
+        });
+        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+      }
+    } else if (lot.paymentStatus === 'pending_3rd') {
+      await prisma.lot.update({
+        where: { id: lot.id },
+        data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
+      });
+      console.log(`[Scheduler] 3rd payee expired. No more settlement slots.`);
+      getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+    }
+  }
 }
 
-/* Admin shortcut for testing — POST /api/admin/rotate */
-export { closeLotAndCreateNew };
+// Email Sender Helper for 1st Place Winner
+async function sendWinnerEmail(winner, lot) {
+  const { name, email, amount } = winner;
+  const { title, artist } = lot;
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`
+============================================================
+[Email Mock] Congratulations ${name} (${email})!
+Subject: Congratulations! You won today's bid! 🏆
+You won "${title}" by ${artist}.
+Winning Bid: ₹${amount.toLocaleString('en-IN')}
+Action Required: Pay within 2 hours to claim.
+============================================================
+    `);
+    return;
+  }
+
+  try {
+    await resend.emails.send({
+      from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
+      to: email,
+      subject: `Congratulations! You won today's bid! 🏆`,
+      html: `
+        <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #e6c27e; margin-top: 0; font-size: 22px;">Congratulations, ${name}!</h2>
+          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4;">
+            You have won the auction for <strong>${title}</strong> by ${artist}!
+          </p>
+          <div style="background: rgba(230, 194, 126, 0.05); border: 1px solid rgba(230, 194, 126, 0.2); border-radius: 8px; padding: 18px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 8px;">Winning Bid</td>
+                <td style="color: #e6c27e; font-size: 16px; font-weight: bold; text-align: right; padding-bottom: 8px;">₹${amount.toLocaleString('en-IN')}</td>
+              </tr>
+              <tr>
+                <td style="color: #7d7a8c; font-size: 13px;">Time to Claim</td>
+                <td style="color: #ff6b7d; font-size: 14px; font-weight: bold; text-align: right;">2 Hours (Strict deadline)</td>
+              </tr>
+            </table>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
+            Please log into the portal immediately to settle your payment. If you do not pay within 2 hours, the opportunity will get transferred to the 2nd highest bidder.
+          </p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('[Scheduler] Error sending winner email:', err);
+  }
+}
+
+// Email Sender Helper for 2nd Place at Bidding End
+async function sendSecondPlaceEmail(bidder) {
+  const { name, email } = bidder;
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`
+============================================================
+[Email Mock] ALMOST HAD IT: ${name} (${email})
+Subject: Oxide Auction: You almost had it! ⚡
+The top bidder has 2 hours to pay. If they fail, we will send you a payment link.
+============================================================
+    `);
+    return;
+  }
+
+  try {
+    await resend.emails.send({
+      from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
+      to: email,
+      subject: `Oxide Auction: You almost had it! ⚡`,
+      html: `
+        <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #e6c27e; margin-top: 0; font-size: 20px;">This was close!</h2>
+          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4;">
+            You almost had the product. The top bidder has a 2-hour window to complete their payment.
+          </p>
+          <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
+            If they do not pay within this time, the opportunity to claim the product shifts to you. We will send you an email with a payment link immediately if that happens — keep an eye on your inbox!
+          </p>
+          <p style="font-size: 13px; color: #7d7a8c; margin-top: 20px;">
+            Otherwise, get ready for the next bid starting in 6 hours (at 12:00 AM IST).
+          </p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('[Scheduler] Error sending 2nd place email:', err);
+  }
+}
+
+// Email Sender Helper for subsequent Payees
+async function sendPaymentLinkEmail(bidder, lot, rank) {
+  const { name, email, amount } = bidder;
+  const { title } = lot;
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`
+============================================================
+[Email Mock] PAYMENT OFFER FOR ${rank.toUpperCase()} PLACE: ${name} (${email})
+Subject: Your opportunity to claim "${title}"! 🏆
+Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('en-IN')}.
+============================================================
+    `);
+    return;
+  }
+
+  try {
+    await resend.emails.send({
+      from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
+      to: email,
+      subject: `Your opportunity to claim today's drop! 🏆`,
+      html: `
+        <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #e6c27e; margin-top: 0; font-size: 20px;">Your Opportunity has Arrived!</h2>
+          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4;">
+            The previous bidder failed to make their payment on time. As the next highest bidder, you can now claim <strong>${title}</strong>!
+          </p>
+          <div style="background: rgba(230, 194, 126, 0.05); border: 1px solid rgba(230, 194, 126, 0.2); border-radius: 8px; padding: 18px; margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 8px;">Claim Price</td>
+                <td style="color: #e6c27e; font-size: 16px; font-weight: bold; text-align: right; padding-bottom: 8px;">₹${amount.toLocaleString('en-IN')}</td>
+              </tr>
+              <tr>
+                <td style="color: #7d7a8c; font-size: 13px;">Time to Pay</td>
+                <td style="color: #ff6b7d; font-size: 14px; font-weight: bold; text-align: right;">2 Hours (Strict deadline)</td>
+              </tr>
+            </table>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
+            Please log in to the website immediately to finalize your payment and claim your drop. If you do not pay within 2 hours, the opportunity shifts to the next bidder.
+          </p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('[Scheduler] Error sending transition email:', err);
+  }
+}
+
+export async function startScheduler() {
+  const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
+  
+  // Expiration check on startup
+  if (activeLot && new Date(activeLot.endsAt) < new Date()) {
+    console.log('[Scheduler] Active lot is expired on startup — closing now');
+    await closeActiveLot();
+  } else if (!activeLot) {
+    // Check if we need to create first lot
+    const closedLot = await prisma.lot.findFirst({ orderBy: { startsAt: 'desc' } });
+    if (!closedLot) {
+      await createNewLot(1);
+    }
+  }
+
+  // 1. Every day at 6:00 PM IST: Close Bidding
+  cron.schedule('0 18 * * *', async () => {
+    console.log('[Scheduler] Closing active lot (6:00 PM IST)');
+    await closeActiveLot();
+  }, {
+    timezone: "Asia/Kolkata"
+  });
+
+  // 2. Every day at 12:00 AM midnight IST: Start New Bidding Lot
+  cron.schedule('0 0 * * *', async () => {
+    console.log('[Scheduler] Creating new bidding lot (12:00 AM IST)');
+    const latestClosed = await prisma.lot.findFirst({
+      where: { status: 'closed' },
+      orderBy: { startsAt: 'desc' },
+    });
+    const nextNum = latestClosed ? latestClosed.lotNumber + 1 : 1;
+    await createNewLot(nextNum);
+  }, {
+    timezone: "Asia/Kolkata"
+  });
+
+  // 3. Every minute: Check for payee window expirations (2 hour limit per payee)
+  cron.schedule('* * * * *', async () => {
+    await checkPaymentExpirations();
+  }, {
+    timezone: "Asia/Kolkata"
+  });
+
+  console.log('[Scheduler] Timezone-aware daily schedules and check loops active.');
+}
+
+/* Shortcuts for admin simulation */
+export { closeActiveLot, checkPaymentExpirations };

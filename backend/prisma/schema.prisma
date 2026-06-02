@@ -26,19 +26,22 @@ model VerificationOtp {
 }
 
 model Lot {
-  id          String   @id @default(cuid())
-  lotNumber   Int      @unique
-  title       String
-  artist      String
-  description String
-  size        String   @default("Medium")
-  edition     String   @default("1 / 1")
-  startsAt    DateTime
-  endsAt      DateTime
-  startingBid Int      @default(100)
-  status      String   @default("active")
-  winnerId    String?
-  bids        Bid[]
+  id              String    @id @default(cuid())
+  lotNumber       Int       @unique
+  title           String
+  artist          String
+  description     String
+  size            String    @default("Medium")
+  edition         String    @default("1 / 1")
+  startsAt        DateTime
+  endsAt          DateTime
+  startingBid     Int       @default(100)
+  status          String    @default("active")
+  winnerId        String?
+  currentPayeeId  String?
+  payeeExpiresAt  DateTime?
+  paymentStatus   String?   // 'pending_1st', 'pending_2nd', 'pending_3rd', 'paid', 'expired'
+  bids            Bid[]
 }
 
 model Bid {
