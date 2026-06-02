@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
+import { closeActiveLot, checkPaymentExpirations } from '../scheduler.js';
 
 const router = Router();
 
@@ -25,8 +26,36 @@ function stringHue(str) {
   return h % 360;
 }
 
+function isISTPast6PM() {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      hourCycle: 'h23'
+    });
+    const hour = parseInt(formatter.format(new Date()), 10);
+    return hour >= 18;
+  } catch (e) {
+    console.error('Error in isISTPast6PM:', e);
+    return false;
+  }
+}
+
 /* GET /api/lots/current */
 router.get('/current', optionalAuth, async (req, res) => {
+  try {
+    const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
+    if (activeLot) {
+      if (new Date(activeLot.endsAt) < new Date() || isISTPast6PM()) {
+        console.log('[API] Active lot has expired or is past 6:00 PM IST — closing now');
+        await closeActiveLot();
+      }
+    }
+    await checkPaymentExpirations();
+  } catch (err) {
+    console.error('[API] Error in pre-check active lot:', err);
+  }
+
   const lot = await prisma.lot.findFirst({
     orderBy: { startsAt: 'desc' },
   });

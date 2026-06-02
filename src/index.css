@@ -749,3 +749,93 @@ input { font-family: inherit; }
   cursor: pointer; transition: all 0.15s; margin-top: 8px;
 }
 .account-add-btn:hover { background: rgb(var(--glow) / 0.06); border-style: solid; }
+
+/* ---------- Celebratory Payment Overlay ---------- */
+.celebration-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(4, 5, 10, 0.85);
+  backdrop-filter: blur(20px);
+  z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.celebration-card {
+  width: 100%; max-width: 500px;
+  background: linear-gradient(180deg, rgba(28, 30, 48, 0.95), rgba(15, 16, 26, 0.98));
+  border: 1px solid rgb(var(--glow) / 0.3);
+  border-radius: var(--r-lg);
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 50px 120px rgba(0, 0, 0, 0.8), 0 0 80px rgb(var(--glow) / 0.15);
+  position: relative;
+  overflow: hidden;
+}
+.celebration-badge {
+  font-size: 52px; margin-bottom: 20px;
+  animation: float-badge 3s ease-in-out infinite;
+}
+@keyframes float-badge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.celebration-title {
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 700;
+  color: var(--gold-bright);
+  margin: 0 0 12px;
+  text-shadow: 0 0 20px rgb(var(--glow) / 0.3);
+}
+.celebration-text {
+  font-size: 14.5px; line-height: 1.6;
+  color: var(--txt-dim);
+  margin: 0 0 28px;
+}
+.celebration-timer-box {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 16px;
+  margin-bottom: 28px;
+}
+.celebration-timer-label {
+  font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--txt-mute);
+  margin-bottom: 6px;
+}
+.celebration-timer-val {
+  font-family: var(--font-display);
+  font-size: 32px; font-weight: 700;
+  color: var(--lose);
+  letter-spacing: 0.05em;
+}
+.celebration-pay-btn {
+  width: 100%; padding: 16px;
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 700;
+  border-radius: var(--r-sm);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #271d08;
+  border: none; cursor: pointer;
+  box-shadow: 0 10px 30px rgb(var(--glow) / 0.4);
+  transition: all 0.15s;
+}
+.celebration-pay-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 12px 36px rgb(var(--glow) / 0.5);
+}
+.celebration-pay-btn:active {
+  transform: scale(0.98);
+}
+.celebration-pay-btn:disabled {
+  opacity: 0.5; cursor: not-allowed; box-shadow: none;
+}
+.celebration-close-btn {
+  background: none; border: 1px solid var(--line-strong);
+  color: var(--txt-mute);
+  padding: 10px 24px; border-radius: var(--r-sm);
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  transition: all 0.12s; margin-top: 16px;
+}
+.celebration-close-btn:hover {
+  color: var(--txt); border-color: var(--txt-mute);
+}
