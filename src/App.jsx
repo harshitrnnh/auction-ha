@@ -118,6 +118,19 @@ export default function App() {
       setCurrentBid(data.currentBid);
       setMyBid(data.myBid ?? null);
       setStatus(data.myStatus ?? 'none');
+
+      // Initialize winner state from the highest bid if the lot is closed
+      const isClosed = data.lot.status === 'closed' || checkBiddingClosed();
+      if (isClosed && data.bids && data.bids.length > 0) {
+        const top = data.bids[0];
+        setWinner({
+          userId: top.userId,
+          name: top.userName || top.name,
+          amount: top.amount
+        });
+      } else {
+        setWinner(null);
+      }
     } catch {
       setError('Could not connect to the auction server.');
     } finally {
