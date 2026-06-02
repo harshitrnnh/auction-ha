@@ -144,7 +144,7 @@ export default function App() {
   };
 
   const urgent = cd.total < 300 && cd.total > 0;
-  const minInc = 25;
+  const minInc = 50;
   const startingBid = lot?.startingBid ?? 100;
 
   const auction = {
@@ -228,7 +228,7 @@ export default function App() {
         <div className="mb-info">
           <div className="k">{status === 'outbid' ? "You've been outbid" : 'Current bid'}</div>
           <div className="v num" style={{ color: status === 'outbid' ? 'var(--lose)' : 'var(--txt)' }}>
-            ${currentBid.toLocaleString('en-US')}
+            ₹{currentBid.toLocaleString('en-IN')}
           </div>
         </div>
         <button
