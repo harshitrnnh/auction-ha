@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { io as socketIO } from 'socket.io-client';
 import { useAuth } from './contexts/AuthContext';
 import Starfield from './components/Starfield';
@@ -281,9 +281,9 @@ export default function App() {
           <div>
             <div className="brand-name">Oxide</div>
             {lot && (
-              <a href="#lots" className="brand-lot num" onClick={(e) => e.preventDefault()}>
-                Lot {String(lot.lotNumber).padStart(3, '0')} / {String(lot.totalLots || lot.lotNumber).padStart(3, '0')}
-              </a>
+              <Link to="/lots" className="brand-lot num">
+                Lot {String(lot.lotNumber).padStart(3, '0')} / {String(lot.totalLots || lot.lotNumber).padStart(3, '0')} · View all lots →
+              </Link>
             )}
           </div>
           {!user && (
