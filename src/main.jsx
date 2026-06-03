@@ -9,6 +9,7 @@ import Signup from './pages/Signup.jsx';
 import Profile from './pages/Profile.jsx';
 import Orders from './pages/Orders.jsx';
 import Addresses from './pages/Addresses.jsx';
+import Lots from './pages/Lots.jsx';
 import './index.css';
 
 const GOOGLE_CLIENT_ID = "447129401369-5a78d2mdcmbe5mckdiapovcg8pffdtgu.apps.googleusercontent.com";
@@ -20,6 +21,7 @@ createRoot(document.getElementById('root')).render(
         <AuthProvider>
           <Routes>
             <Route path="/" element={<App />} />
+            <Route path="/lots" element={<Lots />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/profile" element={<Profile />} />
