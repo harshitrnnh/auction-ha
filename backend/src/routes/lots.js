@@ -26,7 +26,7 @@ function stringHue(str) {
   return h % 360;
 }
 
-function isISTPast6PM() {
+function isBiddingClosedIST() {
   try {
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'Asia/Kolkata',
@@ -34,9 +34,9 @@ function isISTPast6PM() {
       hourCycle: 'h23'
     });
     const hour = parseInt(formatter.format(new Date()), 10);
-    return hour >= 18;
+    return hour >= 12 && hour < 18;
   } catch (e) {
-    console.error('Error in isISTPast6PM:', e);
+    console.error('Error in isBiddingClosedIST:', e);
     return false;
   }
 }
@@ -46,8 +46,8 @@ router.get('/current', optionalAuth, async (req, res) => {
   try {
     const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
     if (activeLot) {
-      if (new Date(activeLot.endsAt) < new Date() || isISTPast6PM()) {
-        console.log('[API] Active lot has expired or is past 6:00 PM IST — closing now');
+      if (new Date(activeLot.endsAt) < new Date() || isBiddingClosedIST()) {
+        console.log('[API] Active lot has expired or bidding is closed — closing now');
         await closeActiveLot();
       }
     }

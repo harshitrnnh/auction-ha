@@ -32,7 +32,7 @@ function getISTParts() {
 function checkBiddingClosed() {
   try {
     const parts = getISTParts();
-    return parts.hour >= 18; // 6:00 PM IST is 18:00
+    return parts.hour >= 12 && parts.hour < 18; // Closed 12:00 PM to 6:00 PM IST
   } catch (e) {
     console.error('Error checking bidding closed:', e);
     return false;
@@ -40,18 +40,59 @@ function checkBiddingClosed() {
 }
 
 function getCountdownTarget(isClosed) {
-  const now = new Date();
-  const istDate = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  const y = istDate.getUTCFullYear();
-  const m = istDate.getUTCMonth();
-  const d = istDate.getUTCDate();
+  try {
+    const now = new Date();
+    // Get current year, month, date, and hour in Asia/Kolkata
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      hourCycle: 'h23'
+    });
+    const parts = formatter.formatToParts(now);
+    const dateMap = {};
+    parts.forEach(p => dateMap[p.type] = p.value);
+    
+    const y = parseInt(dateMap.year, 10);
+    const m = parseInt(dateMap.month, 10);
+    const d = parseInt(dateMap.day, 10);
+    const h = parseInt(dateMap.hour, 10);
 
-  if (isClosed) {
-    // Midnight IST = 18:30 UTC of today
-    return Date.UTC(y, m, d, 18, 30, 0);
-  } else {
-    // 6:00 PM IST = 12:30 UTC of today
-    return Date.UTC(y, m, d, 12, 30, 0);
+    if (isClosed) {
+      // Bidding is closed (between 12:00 PM and 6:00 PM IST). 
+      // Next auction starts at 6:00 PM IST today.
+      const target = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T18:00:00+05:30`;
+      return new Date(target).getTime();
+    } else {
+      // Bidding is active (either >= 18:00 today or < 12:00 today).
+      // If hour >= 18, it ends at 12:00 PM tomorrow.
+      // If hour < 12, it ends at 12:00 PM today.
+      let targetDate = new Date(now);
+      if (h >= 18) {
+        targetDate.setDate(targetDate.getDate() + 1);
+      }
+      
+      const targetParts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric', month: 'numeric', day: 'numeric'
+      }).formatToParts(targetDate);
+      
+      const tmMap = {};
+      targetParts.forEach(p => tmMap[p.type] = p.value);
+      const ty = parseInt(tmMap.year, 10);
+      const tm = parseInt(tmMap.month, 10);
+      const td = parseInt(tmMap.day, 10);
+
+      const target = `${ty}-${String(tm).padStart(2, '0')}-${String(td).padStart(2, '0')}T12:00:00+05:30`;
+      return new Date(target).getTime();
+    }
+  } catch (e) {
+    console.error('Error calculating countdown target:', e);
+    const now = new Date();
+    // Safe fallback: 6:00 PM IST today = 12:30 UTC today
+    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 30, 0);
   }
 }
 

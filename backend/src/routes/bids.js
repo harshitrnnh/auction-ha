@@ -12,7 +12,7 @@ function stringHue(str) {
   return h % 360;
 }
 
-function isISTPast6PM() {
+function isBiddingClosedIST() {
   try {
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'Asia/Kolkata',
@@ -20,9 +20,9 @@ function isISTPast6PM() {
       hourCycle: 'h23'
     });
     const hour = parseInt(formatter.format(new Date()), 10);
-    return hour >= 18;
+    return hour >= 12 && hour < 18;
   } catch (e) {
-    console.error('Error in isISTPast6PM:', e);
+    console.error('Error in isBiddingClosedIST:', e);
     return false;
   }
 }
@@ -39,7 +39,7 @@ router.post('/:id/bids', requireAuth, async (req, res) => {
 
   const lot = await prisma.lot.findUnique({ where: { id: lotId } });
   if (!lot) return res.status(404).json({ error: 'Lot not found' });
-  if (lot.status !== 'active' || new Date(lot.endsAt) < new Date() || isISTPast6PM()) {
+  if (lot.status !== 'active' || new Date(lot.endsAt) < new Date() || isBiddingClosedIST()) {
     return res.status(400).json({ error: 'This auction has ended' });
   }
 

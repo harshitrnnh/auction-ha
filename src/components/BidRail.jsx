@@ -231,7 +231,7 @@ export default function BidRail({ auction }) {
             </p>
           )}
           <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold-bright)', borderTop: '1px solid var(--line)', paddingTop: '12px', fontWeight: 500 }}>
-            Next bidding starts at 12:00 AM IST. Log back in then for an exciting new drop!
+            Next bidding starts at 6:00 PM IST. Log back in then for an exciting new drop!
           </div>
         </div>
       )}
