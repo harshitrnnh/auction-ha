@@ -56,6 +56,43 @@ function getISTDateString(date) {
   return `${dateMap.year}-${dateMap.month.padStart(2, '0')}-${dateMap.day.padStart(2, '0')}`;
 }
 
+function getBiddingWindowDates(now) {
+  // Get current hour in IST
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    hourCycle: 'h23',
+    year: 'numeric', month: 'numeric', day: 'numeric'
+  });
+  const parts = formatter.formatToParts(now);
+  const dateMap = {};
+  parts.forEach(p => dateMap[p.type] = p.value);
+  
+  const hour = parseInt(dateMap.hour, 10);
+  
+  let startDate = new Date(now);
+  let endDate = new Date(now);
+  
+  if (hour < 12) {
+    // Bidding started yesterday 6:00 PM, ends today 12:00 PM
+    startDate.setDate(startDate.getDate() - 1);
+  } else if (hour >= 12 && hour < 18) {
+    // In payment window. If we create a lot, treat it as the upcoming one starting today 6:00 PM
+    endDate.setDate(endDate.getDate() + 1);
+  } else {
+    // Bidding started today 6:00 PM, ends tomorrow 12:00 PM
+    endDate.setDate(endDate.getDate() + 1);
+  }
+  
+  const startStr = getISTDateString(startDate);
+  const endStr = getISTDateString(endDate);
+  
+  return {
+    startsAt: new Date(`${startStr}T18:00:00+05:30`),
+    endsAt: new Date(`${endStr}T12:00:00+05:30`)
+  };
+}
+
 async function closeActiveLot() {
   const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
   if (!activeLot) {
@@ -123,10 +160,7 @@ async function closeActiveLot() {
 async function createNewLot(lotNumber) {
   const template = LOT_TEMPLATES[(lotNumber - 1) % LOT_TEMPLATES.length];
   const now = new Date();
-  const dateStr = getISTDateString(now);
-
-  const startsAt = new Date(`${dateStr}T00:00:00+05:30`);
-  const endsAt = new Date(`${dateStr}T18:00:00+05:30`);
+  const { startsAt, endsAt } = getBiddingWindowDates(now);
 
   const lot = await prisma.lot.create({
     data: {
@@ -143,7 +177,7 @@ async function createNewLot(lotNumber) {
     },
   });
 
-  console.log(`[Scheduler] New lot #${lotNumber} created: "${lot.title}" (Active until 6:00 PM IST)`);
+  console.log(`[Scheduler] New lot #${lotNumber} created: "${lot.title}" (Active until 12:00 PM IST next day)`);
   const totalLots = await prisma.lot.count();
   getIo()?.emit('lot:new', { lot: { ...lot, totalLots } });
 }
@@ -320,7 +354,7 @@ The top bidder has 2 hours to pay. If they fail, we will send you a payment link
             If they do not pay within this time, the opportunity to claim the product shifts to you. We will send you an email with a payment link immediately if that happens — keep an eye on your inbox!
           </p>
           <p style="font-size: 13px; color: #7d7a8c; margin-top: 20px;">
-            Otherwise, get ready for the next bid starting in 6 hours (at 12:00 AM IST).
+            Otherwise, get ready for the next bid starting in 6 hours (at 6:00 PM IST).
           </p>
         </div>
       `,
@@ -395,17 +429,17 @@ export async function startScheduler() {
     }
   }
 
-  // 1. Every day at 6:00 PM IST: Close Bidding
-  cron.schedule('0 18 * * *', async () => {
-    console.log('[Scheduler] Closing active lot (6:00 PM IST)');
+  // 1. Every day at 12:00 PM noon IST: Close Bidding
+  cron.schedule('0 12 * * *', async () => {
+    console.log('[Scheduler] Closing active lot (12:00 PM IST)');
     await closeActiveLot();
   }, {
     timezone: "Asia/Kolkata"
   });
 
-  // 2. Every day at 12:00 AM midnight IST: Start New Bidding Lot
-  cron.schedule('0 0 * * *', async () => {
-    console.log('[Scheduler] Creating new bidding lot (12:00 AM IST)');
+  // 2. Every day at 6:00 PM IST: Start New Bidding Lot
+  cron.schedule('0 18 * * *', async () => {
+    console.log('[Scheduler] Creating new bidding lot (6:00 PM IST)');
     const latestClosed = await prisma.lot.findFirst({
       where: { status: 'closed' },
       orderBy: { startsAt: 'desc' },
