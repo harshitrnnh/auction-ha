@@ -156,7 +156,13 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
       onClick={() => onPeek(lot)}
     >
       <div className="card-art">
-        <ArtBloom lot={lot} />
+        {lot.artworkUrl
+          ? <img
+              src={lot.artworkUrl}
+              alt={lot.title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          : <ArtBloom lot={lot} />}
         <div className="card-badges">
           <span className="l-tag lotno num">Lot {lot.lotNo}</span>
           {lot.owned && userLoggedIn && showRibbon
@@ -183,6 +189,7 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
     </button>
   );
 }
+
 
 /* ---------- Infinite-scroll grid ---------- */
 const BATCH = 12;
