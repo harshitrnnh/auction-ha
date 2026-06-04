@@ -156,13 +156,23 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
       onClick={() => onPeek(lot)}
     >
       <div className="card-art">
-        {lot.artworkUrl
-          ? <img
+        {/* Zoom wrapper — scale on hover centered on chest */}
+        <div className="card-tshirt-zoom">
+          {/* Black front t-shirt base */}
+          <img
+            src="/tshirt_black_front_png.png"
+            alt=""
+            className="card-tshirt-base"
+          />
+          {/* Artwork overlay at chest position */}
+          {lot.artworkUrl && (
+            <img
               src={lot.artworkUrl}
               alt={lot.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              className="card-chest-art"
             />
-          : <ArtBloom lot={lot} />}
+          )}
+        </div>
         <div className="card-badges">
           <span className="l-tag lotno num">Lot {lot.lotNo}</span>
           {lot.owned && userLoggedIn && showRibbon
