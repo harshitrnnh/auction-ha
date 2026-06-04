@@ -213,8 +213,12 @@ export default function Lots() {
   const ARCHIVE = useMemo(() => {
     const realIds = new Set(realPastLots.map((l) => l.id));
     const mocks = MOCK_ARCHIVE.filter((l) => !realIds.has(l.id));
-    return [...realPastLots, ...mocks];
-  }, [realPastLots]);
+    let combined = [...realPastLots, ...mocks];
+    if (apiLot) {
+      combined = combined.filter((l) => l.id !== apiLot.id && String(l.lotNo) !== String(apiLot.lotNumber).padStart(3, '0'));
+    }
+    return combined;
+  }, [realPastLots, apiLot]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -288,15 +292,6 @@ export default function Lots() {
       </header>
 
       <div className="lots-wrap">
-        <Hero
-          lot={heroLot}
-          currentBid={displayBid}
-          bids={liveBids}
-          bump={bump}
-          lotClosed={lotClosed}
-          getCountdownTarget={getCountdownTarget}
-          onPeek={openPeek}
-        />
 
         <div className="archive-head">
           <div>
