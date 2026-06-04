@@ -35,34 +35,48 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
         {/* gallery — left column */}
         <div className="m-gallery">
           <div className="m-main">
-            {shot === 0
-              ? <ArtBloom lot={lot} />
-              : (
-                <div className="model-shot">
-                  <span className="ic">◐</span>
-                  <span className="lab">Model wearing the tee</span>
-                  <span className="sub">Editorial shot {shot} / {lot.shots - 1}</span>
-                </div>
+            <div className="m-tshirt-wrap">
+              {/* Base t-shirt — front or back depending on shot */}
+              <img
+                src={shot === 0 ? '/tshirt_black_front_png.png' : '/tshirt_black_back_png.png'}
+                alt=""
+                className="m-tshirt-base"
+              />
+              {/* Artwork overlay on chest (front view only) */}
+              {shot === 0 && lot.artworkUrl && (
+                <img
+                  src={lot.artworkUrl}
+                  alt={lot.title}
+                  className="m-chest-art"
+                />
               )}
+            </div>
           </div>
           <div className="m-thumbs">
+            {/* Thumbnail 0: front view */}
             <button
               className={'m-thumb' + (shot === 0 ? ' on' : '')}
               onClick={() => setShot(0)}
             >
-              <ArtBloom lot={lot} />
+              <div className="m-thumb-tshirt">
+                <img src="/tshirt_black_front_png.png" alt="Front" className="m-thumb-img" />
+                {lot.artworkUrl && (
+                  <img src={lot.artworkUrl} alt="" className="m-thumb-art" />
+                )}
+              </div>
             </button>
-            {Array.from({ length: lot.shots - 1 }).map((_, i) => (
-              <button
-                key={i}
-                className={'m-thumb' + (shot === i + 1 ? ' on' : '')}
-                onClick={() => setShot(i + 1)}
-              >
-                <span className="mlabel">0{i + 1}</span>
-              </button>
-            ))}
+            {/* Thumbnail 1: back view */}
+            <button
+              className={'m-thumb' + (shot === 1 ? ' on' : '')}
+              onClick={() => setShot(1)}
+            >
+              <div className="m-thumb-tshirt">
+                <img src="/tshirt_black_back_png.png" alt="Back" className="m-thumb-img" />
+              </div>
+            </button>
           </div>
         </div>
+
 
         {/* detail — right column */}
         <div className="m-detail">
