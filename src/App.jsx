@@ -322,9 +322,12 @@ export default function App() {
           <div>
             <div className="brand-name">Oxide</div>
             {lot && (
-              <Link to="/lots" className="brand-lot num">
-                Lot {String(lot.lotNumber).padStart(3, '0')} / {String(lot.totalLots || lot.lotNumber).padStart(3, '0')} · View all lots →
-              </Link>
+              <div className="brand-lot-wrap">
+                <span className="brand-lot num">
+                  Lot {String(lot.lotNumber).padStart(3, '0')} / {String(lot.totalLots || lot.lotNumber).padStart(3, '0')}
+                </span>
+                <Link to="/lots" className="brand-view-all">View all lots →</Link>
+              </div>
             )}
           </div>
           {!user && (
