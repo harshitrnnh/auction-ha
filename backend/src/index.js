@@ -48,15 +48,40 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5176',
   'http://localhost:5177',
   'http://localhost:5190',
+  'https://oxide.chemicalfarmers.com',
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
 
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // Allow non-CORS requests (like curl)
+  if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  try {
+    const url = new URL(origin);
+    if (url.hostname === 'chemicalfarmers.com' || url.hostname.endsWith('.chemicalfarmers.com')) {
+      return true;
+    }
+  } catch { /* invalid URL */ }
+  return false;
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+};
+
 const io = new Server(httpServer, {
-  cors: { origin: ALLOWED_ORIGINS, credentials: true },
+  cors: corsOptions,
 });
 setIo(io);
 
-app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/public', express.static(join(__dir, '../public')));
 
