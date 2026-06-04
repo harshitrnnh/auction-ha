@@ -11,6 +11,7 @@ import authRoutes from './routes/auth.js';
 import lotRoutes from './routes/lots.js';
 import bidRoutes from './routes/bids.js';
 import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
+import { prisma } from './prisma.js';
 
 // Load .env from backend directory
 const __dir = dirname(fileURLToPath(import.meta.url));
