@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { Resend } from 'resend';
 import { prisma } from './prisma.js';
 import { getIo } from './socket.js';
+import { generateDailyArtwork } from './artGenerator.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -162,6 +163,13 @@ async function createNewLot(lotNumber) {
   const now = new Date();
   const { startsAt, endsAt } = getBiddingWindowDates(now);
 
+  let art = { artworkUrl: null, artworkHeadline: null, artworkPrompt: null };
+  try {
+    art = await generateDailyArtwork(lotNumber);
+  } catch (err) {
+    console.error('[Scheduler] Failed to generate daily artwork:', err.message);
+  }
+
   const lot = await prisma.lot.create({
     data: {
       ...template,
@@ -174,6 +182,9 @@ async function createNewLot(lotNumber) {
       currentPayeeId: null,
       payeeExpiresAt: null,
       paymentStatus: null,
+      artworkUrl: art.artworkUrl,
+      artworkHeadline: art.artworkHeadline,
+      artworkPrompt: art.artworkPrompt,
     },
   });
 
@@ -185,7 +196,7 @@ async function createNewLot(lotNumber) {
 async function checkPaymentExpirations() {
   const lot = await prisma.lot.findFirst({
     where: { status: 'closed' },
-    orderBy: { startsAt: 'desc' },
+    orderBy: { lotNumber: 'desc' },
   });
   if (!lot) return;
 
@@ -442,7 +453,7 @@ export async function startScheduler() {
     console.log('[Scheduler] Creating new bidding lot (6:00 PM IST)');
     const latestClosed = await prisma.lot.findFirst({
       where: { status: 'closed' },
-      orderBy: { startsAt: 'desc' },
+      orderBy: { lotNumber: 'desc' },
     });
     const nextNum = latestClosed ? latestClosed.lotNumber + 1 : 1;
     await createNewLot(nextNum);
@@ -461,4 +472,4 @@ export async function startScheduler() {
 }
 
 /* Shortcuts for admin simulation */
-export { closeActiveLot, checkPaymentExpirations };
+export { closeActiveLot, checkPaymentExpirations, createNewLot };
