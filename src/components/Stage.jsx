@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
+import { getArtworkUrl } from '../data/lotsData';
 
 const clampZoom = (z) => Math.max(0.6, Math.min(2.2, z));
 
@@ -12,14 +13,7 @@ function Tee3DViewer({ lot }) {
   const [loading, setLoading] = useState(true);
 
   const API_URL = import.meta.env.VITE_API_URL ?? '';
-  // Map GCS URL to local proxy path to avoid CORS issues
-  const artworkSrc = lot?.artworkUrl
-    ? (lot.artworkUrl.includes('artwork/lot-')
-        ? `/public/artwork/${lot.artworkUrl.split('/').pop()}`
-        : (lot.artworkUrl.startsWith('http://') || lot.artworkUrl.startsWith('https://')
-            ? lot.artworkUrl
-            : `${API_URL}${lot.artworkUrl}`))
-    : null;
+  const artworkSrc = getArtworkUrl(lot, API_URL);
 
   useEffect(() => {
     if (!containerRef.current || !canvasRef.current) return;
@@ -172,7 +166,9 @@ function Tee3DViewer({ lot }) {
                 const lotDate = lot?.startsAt 
                   ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
                   : new Date().toLocaleDateString('en-GB');
-                const lotNo = lot ? String(lot.lotNumber).padStart(3, '0') : '001';
+                const lotNo = lot?.lotNumber != null 
+                  ? String(lot.lotNumber).padStart(3, '0') 
+                  : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
                 ctx.font = 'bold 24px monospace';
                 ctx.fillStyle = '#ffffff';
@@ -259,14 +255,7 @@ function Tee3DViewer({ lot }) {
 function Tee2DFrontViewer({ lot, zoom }) {
   const [hovered, setHovered] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL ?? '';
-  // Map GCS URL to local proxy path to avoid CORS issues
-  const artworkSrc = lot?.artworkUrl
-    ? (lot.artworkUrl.includes('artwork/lot-')
-        ? `/public/artwork/${lot.artworkUrl.split('/').pop()}`
-        : (lot.artworkUrl.startsWith('http://') || lot.artworkUrl.startsWith('https://')
-            ? lot.artworkUrl
-            : `${API_URL}${lot.artworkUrl}`))
-    : null;
+  const artworkSrc = getArtworkUrl(lot, API_URL);
 
   return (
     <div 
@@ -298,7 +287,9 @@ function Tee2DBackViewer({ lot, zoom }) {
   const lotDate = lot?.startsAt 
     ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
     : new Date().toLocaleDateString('en-GB');
-  const lotNo = lot ? String(lot.lotNumber).padStart(3, '0') : '001';
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
   return (
     <div 
