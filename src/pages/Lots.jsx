@@ -9,9 +9,33 @@ import '../lots.css';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
-/* stable archive — built once */
-const ARCHIVE = buildArchive();
-const OWNED_COUNT = ARCHIVE.filter((l) => l.owned).length;
+/* stable mock archive — fills in below real lots */
+const MOCK_ARCHIVE = buildArchive();
+const OWNED_COUNT = MOCK_ARCHIVE.filter((l) => l.owned).length;
+
+/* Shape a real API lot into the archive card format */
+function shapeApiLot(lot) {
+  const topBid = lot.bids?.[0];
+  return {
+    id: lot.id,
+    lotNo: String(lot.lotNumber).padStart(3, '0'),
+    title: lot.title,
+    artist: lot.artist,
+    desc: lot.description,
+    size: lot.size,
+    status: topBid ? 'sold' : 'unsold',
+    startingBid: lot.startingBid,
+    soldPrice: topBid?.amount ?? 0,
+    bids: lot.bids?.length ?? 0,
+    winner: topBid?.user ? { name: topBid.user.name ?? 'Anonymous', hue: 268 } : null,
+    artworkUrl: lot.artworkUrl ?? null,
+    hue: (lot.lotNumber * 67 + 180) % 360,
+    seed: lot.lotNumber * 37,
+    shots: 3,
+    owned: false,
+    isReal: true,
+  };
+}
 
 /* Starfield that covers full scroll height */
 function LotsStarfield() {
@@ -97,6 +121,9 @@ export default function Lots() {
   const [lotClosed, setLotClosed] = useState(checkBiddingClosed);
   const myBidRef = useRef(null);
 
+  /* real past lots from API */
+  const [realPastLots, setRealPastLots] = useState([]);
+
   const flash = () => { setBump(true); setTimeout(() => setBump(false), 520); };
 
   /* fetch current lot once on mount */
@@ -114,6 +141,17 @@ export default function Lots() {
       })
       .catch(() => null);
   }, [token]);
+
+  /* fetch real past lots */
+  useEffect(() => {
+    fetch(`${API}/api/lots/past`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.lots?.length) return;
+        setRealPastLots(data.lots.map(shapeApiLot));
+      })
+      .catch(() => null);
+  }, []);
 
   /* watching count — simulated from bid activity, same approach as App.jsx */
   useEffect(() => {
@@ -170,6 +208,13 @@ export default function Lots() {
   /* quick-peek state */
   const [peekIdx, setPeekIdx] = useState(null);
 
+  /* merge real lots (newest first) + mock filler, deduplicated */
+  const ARCHIVE = useMemo(() => {
+    const realIds = new Set(realPastLots.map((l) => l.id));
+    const mocks = MOCK_ARCHIVE.filter((l) => !realIds.has(l.id));
+    return [...realPastLots, ...mocks];
+  }, [realPastLots]);
+
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
     const lo = priceMin ? Number(priceMin) : -Infinity;
@@ -189,7 +234,7 @@ export default function Lots() {
       'bids-desc': (a, b) => b.bids - a.bids,
     }[sort];
     return by ? [...list].sort(by) : list;
-  }, [q, sort, priceMin, priceMax, ownedOnly]);
+  }, [ARCHIVE, q, sort, priceMin, priceMax, ownedOnly]);
 
   const liveLotForPeek = { ...heroLot, currentBid: displayBid, bids: liveBids };
 
@@ -204,7 +249,9 @@ export default function Lots() {
     ? liveLotForPeek
     : (typeof peekIdx === 'number' && peekIdx >= 0 ? filtered[peekIdx] : null);
 
-  const soldCount = ARCHIVE.filter((l) => l.status === 'sold').length;
+  const soldCount = realPastLots.length > 0
+    ? realPastLots.filter((l) => l.status === 'sold').length
+    : MOCK_ARCHIVE.filter((l) => l.status === 'sold').length;
   const loggedIn = !!user;
   const userInitial = user?.name?.slice(0, 1)?.toUpperCase() ?? user?.email?.slice(0, 1)?.toUpperCase() ?? '?';
 
