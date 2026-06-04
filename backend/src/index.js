@@ -10,7 +10,7 @@ import { setIo } from './socket.js';
 import authRoutes from './routes/auth.js';
 import lotRoutes from './routes/lots.js';
 import bidRoutes from './routes/bids.js';
-import { startScheduler, closeActiveLot, checkPaymentExpirations } from './scheduler.js';
+import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
 
 // Load .env from backend directory
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -92,6 +92,35 @@ app.use('/api/lots', bidRoutes);
 app.post('/api/admin/rotate', async (_req, res) => {
   await closeActiveLot();
   res.json({ ok: true });
+});
+
+app.post('/api/admin/reset', async (req, res) => {
+  const { password } = req.body;
+  if (password !== 'cron1212') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    console.log('[Admin Reset] Initiating auction reset...');
+    // 1. Close current active lot if there is one
+    await closeActiveLot();
+
+    // 2. Determine next lot number
+    const latestClosed = await prisma.lot.findFirst({
+      where: { status: 'closed' },
+      orderBy: { lotNumber: 'desc' },
+    });
+    const nextNum = latestClosed ? latestClosed.lotNumber + 1 : 1;
+
+    // 3. Create new lot
+    await createNewLot(nextNum);
+
+    console.log('[Admin Reset] Auction reset complete. Created lot:', nextNum);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin Reset] Reset failed:', err);
+    res.status(500).json({ error: 'Reset failed' });
+  }
 });
 
 app.post('/api/admin/check-expirations', async (_req, res) => {

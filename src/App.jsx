@@ -252,6 +252,35 @@ export default function App() {
     // Socket.io will push the update to all clients including us
   }, [user, lot?.id, token, navigate]);
 
+  const handleAdminReset = async () => {
+    const pwd = prompt('Enter admin reset password:');
+    if (!pwd) return;
+    if (pwd !== 'cron1212') {
+      alert('Invalid password!');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API}/api/admin/reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: pwd }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Reset failed');
+      }
+      
+      alert('Auction reset successful! A new lot with generated AI artwork has been drop-created.');
+      fetchLot();
+    } catch (err) {
+      alert(`Error resetting auction: ${err.message}`);
+    }
+  };
+
   const scrollToBid = () => {
     const el = document.querySelector('.bidrail');
     if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 70, behavior: 'smooth' });
@@ -369,6 +398,41 @@ export default function App() {
           {!user ? 'Sign in to bid' : myBid === null ? 'Place bid' : 'Raise bid'}
         </button>
       </div>
+
+      {/* Floating admin reset button */}
+      <button 
+        onClick={handleAdminReset}
+        style={{
+          position: 'fixed',
+          left: '20px',
+          bottom: '80px',
+          zIndex: 1000,
+          background: 'rgba(22, 19, 31, 0.8)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          color: 'var(--txt-mute, #7d7a8c)',
+          padding: '8px 12px',
+          borderRadius: '6px',
+          fontFamily: 'monospace',
+          fontSize: '10px',
+          letterSpacing: '0.15em',
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          backdropFilter: 'blur(8px)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = '#e6c27e';
+          e.currentTarget.style.color = '#e6c27e';
+          e.currentTarget.style.boxShadow = '0 0 15px rgba(230, 194, 126, 0.3)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+          e.currentTarget.style.color = 'var(--txt-mute, #7d7a8c)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        ⟳ Reset Drop
+      </button>
     </div>
   );
 }
