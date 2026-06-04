@@ -4,7 +4,7 @@ import { io as socketIO } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
 import { Hero, Toolbar, Grid } from '../components/lots/LotsGrid';
 import PeekModal from '../components/lots/PeekModal';
-import { buildArchive, LIVE_LOT } from '../data/lotsData';
+import { buildArchive, LIVE_LOT, getArtworkUrl } from '../data/lotsData';
 import '../lots.css';
 
 const API = import.meta.env.VITE_API_URL ?? '';
@@ -16,6 +16,7 @@ const OWNED_COUNT = MOCK_ARCHIVE.filter((l) => l.owned).length;
 /* Shape a real API lot into the archive card format */
 function shapeApiLot(lot) {
   const topBid = lot.bids?.[0];
+  const artworkUrl = getArtworkUrl(lot, API);
   return {
     id: lot.id,
     lotNo: String(lot.lotNumber).padStart(3, '0'),
@@ -28,7 +29,7 @@ function shapeApiLot(lot) {
     soldPrice: topBid?.amount ?? 0,
     bids: lot.bids?.length ?? 0,
     winner: topBid?.user ? { name: topBid.user.name ?? 'Anonymous', hue: 268 } : null,
-    artworkUrl: lot.artworkUrl ?? null,
+    artworkUrl,
     hue: (lot.lotNumber * 67 + 180) % 360,
     seed: lot.lotNumber * 37,
     shots: 3,

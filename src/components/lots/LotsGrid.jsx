@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { fmt } from '../../data/lotsData';
+import { fmt, getArtworkUrl } from '../../data/lotsData';
 import ArtBloom from './ArtBloom';
+
+const API = import.meta.env.VITE_API_URL ?? '';
 
 /* ---------- Hero banner (live lot) ---------- */
 const pad = (n) => String(n).padStart(2, '0');
@@ -150,6 +152,7 @@ export function Toolbar({
 /* ---------- Lot card ---------- */
 export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
   const passed = lot.status === 'unsold';
+  const artworkUrl = getArtworkUrl(lot, API);
   return (
     <button
       className={'lot-card' + (lot.owned && userLoggedIn ? ' is-owned' : '')}
@@ -165,9 +168,9 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
             className="card-tshirt-base"
           />
           {/* Artwork overlay at chest position */}
-          {lot.artworkUrl && (
+          {artworkUrl && (
             <img
-              src={lot.artworkUrl}
+              src={artworkUrl}
               alt={lot.title}
               className="card-chest-art"
             />

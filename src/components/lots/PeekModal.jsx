@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { fmt } from '../../data/lotsData';
+import { fmt, getArtworkUrl } from '../../data/lotsData';
 import ArtBloom from './ArtBloom';
+
+const API = import.meta.env.VITE_API_URL ?? '';
 import DeliveryTracker from './DeliveryTracker';
 
 export default function PeekModal({ lot, onClose, userLoggedIn }) {
@@ -33,49 +35,54 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
         <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
 
         {/* gallery — left column */}
-        <div className="m-gallery">
-          <div className="m-main">
-            <div className="m-tshirt-wrap">
-              {/* Base t-shirt — front or back depending on shot */}
-              <img
-                src={shot === 0 ? '/tshirt_black_front_png.png' : '/tshirt_black_back_png.png'}
-                alt=""
-                className="m-tshirt-base"
-              />
-              {/* Artwork overlay on chest (front view only) */}
-              {shot === 0 && lot.artworkUrl && (
-                <img
-                  src={lot.artworkUrl}
-                  alt={lot.title}
-                  className="m-chest-art"
-                />
-              )}
+        {(() => {
+          const artworkUrl = getArtworkUrl(lot, API);
+          return (
+            <div className="m-gallery">
+              <div className="m-main">
+                <div className="m-tshirt-wrap">
+                  {/* Base t-shirt — front or back depending on shot */}
+                  <img
+                    src={shot === 0 ? '/tshirt_black_front_png.png' : '/tshirt_black_back_png.png'}
+                    alt=""
+                    className="m-tshirt-base"
+                  />
+                  {/* Artwork overlay on chest (front view only) */}
+                  {shot === 0 && artworkUrl && (
+                    <img
+                      src={artworkUrl}
+                      alt={lot.title}
+                      className="m-chest-art"
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="m-thumbs">
+                {/* Thumbnail 0: front view */}
+                <button
+                  className={'m-thumb' + (shot === 0 ? ' on' : '')}
+                  onClick={() => setShot(0)}
+                >
+                  <div className="m-thumb-tshirt">
+                    <img src="/tshirt_black_front_png.png" alt="Front" className="m-thumb-img" />
+                    {artworkUrl && (
+                      <img src={artworkUrl} alt="" className="m-thumb-art" />
+                    )}
+                  </div>
+                </button>
+                {/* Thumbnail 1: back view */}
+                <button
+                  className={'m-thumb' + (shot === 1 ? ' on' : '')}
+                  onClick={() => setShot(1)}
+                >
+                  <div className="m-thumb-tshirt">
+                    <img src="/tshirt_black_back_png.png" alt="Back" className="m-thumb-img" />
+                  </div>
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="m-thumbs">
-            {/* Thumbnail 0: front view */}
-            <button
-              className={'m-thumb' + (shot === 0 ? ' on' : '')}
-              onClick={() => setShot(0)}
-            >
-              <div className="m-thumb-tshirt">
-                <img src="/tshirt_black_front_png.png" alt="Front" className="m-thumb-img" />
-                {lot.artworkUrl && (
-                  <img src={lot.artworkUrl} alt="" className="m-thumb-art" />
-                )}
-              </div>
-            </button>
-            {/* Thumbnail 1: back view */}
-            <button
-              className={'m-thumb' + (shot === 1 ? ' on' : '')}
-              onClick={() => setShot(1)}
-            >
-              <div className="m-thumb-tshirt">
-                <img src="/tshirt_black_back_png.png" alt="Back" className="m-thumb-img" />
-              </div>
-            </button>
-          </div>
-        </div>
+          );
+        })()}
 
 
         {/* detail — right column */}

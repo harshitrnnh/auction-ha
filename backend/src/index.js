@@ -76,6 +76,81 @@ app.post('/api/admin/check-expirations', async (_req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+/* Artwork proxy — serves locally cached file OR fetches from GCS on-demand.
+   Solves the CORS problem: frontend fetches from this backend, not GCS directly. */
+app.get('/api/artwork/:filename', async (req, res) => {
+  const { filename } = req.params;
+  if (!/^lot-\d+\.png$/.test(filename)) return res.status(400).json({ error: 'Invalid filename' });
+
+  const localPath = join(__dir, '../public/artwork', filename);
+
+  // 1. Try local cache first (fast, works in dev)
+  try {
+    const { createReadStream } = await import('node:fs');
+    const { stat } = await import('node:fs/promises');
+    await stat(localPath);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    createReadStream(localPath).pipe(res);
+    return;
+  } catch { /* not cached locally, fall through to GCS */ }
+
+  const lotNumber = filename.match(/\d+/)[0];
+
+  // 2. Fetch from GCS using storage SDK and stream back
+  const bucketName = process.env.GCS_BUCKET_NAME;
+  if (bucketName) {
+    try {
+      const { Storage } = await import('@google-cloud/storage');
+      const storage = new Storage();
+      const bucket = storage.bucket(bucketName);
+      const file = bucket.file(`artwork/${filename}`);
+      
+      const [exists] = await file.exists();
+      if (exists) {
+        const [buffer] = await file.download();
+        
+        // Save to local cache directory for future requests
+        const { writeFile } = await import('node:fs/promises');
+        try {
+          await writeFile(localPath, buffer);
+        } catch (e) {
+          console.error('[Artwork Proxy] Failed to cache GCS file locally:', e.message);
+        }
+
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        res.send(buffer);
+        return;
+      }
+    } catch (gcsErr) {
+      console.error('[Artwork Proxy] GCS download failed:', gcsErr.message);
+    }
+  }
+
+  // 3. Fallback: Fetch a beautiful placeholder based on the lot number, cache it locally, and serve
+  try {
+    console.log(`[Artwork Proxy] Artwork ${filename} not found in GCS/local. Fetching fallback placeholder...`);
+    const fallbackUrl = `https://picsum.photos/seed/${lotNumber}/800/800`;
+    const r = await fetch(fallbackUrl);
+    if (!r.ok) throw new Error('Picsum fetch failed');
+
+    const buffer = Buffer.from(await r.arrayBuffer());
+    
+    // Save to local cache directory
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(localPath, buffer);
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.send(buffer);
+  } catch (fallbackErr) {
+    console.error('[Artwork Proxy] Fallback generation failed:', fallbackErr.message);
+    res.status(404).json({ error: 'Artwork not found' });
+  }
+});
+
+
 io.on('connection', (socket) => {
   socket.on('join:lot', (lotId) => socket.join(`lot:${lotId}`));
 });
