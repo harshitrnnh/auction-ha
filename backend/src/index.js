@@ -1,6 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
@@ -19,10 +20,23 @@ try {
     const eq = line.indexOf('=');
     if (eq === -1) continue;
     const k = line.slice(0, eq).trim();
-    const v = line.slice(eq + 1).trim().replace(/^"(.*)"$/, '$1');
+    const v = line.slice(eq + 1).trim().replace(/^['"](.*)['"]$/, '$1');
     if (k && !process.env[k]) process.env[k] = v;
   }
 } catch { /* env file optional */ }
+
+// Load GCP service account credentials from env variable if present
+if (process.env.GCP_SERVICE_ACCOUNT_JSON) {
+  try {
+    const keyPath = join(tmpdir(), 'gcp-key.json');
+    const parsed = JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON);
+    writeFileSync(keyPath, JSON.stringify(parsed), 'utf8');
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = keyPath;
+    console.log('[Oxide] Dynamically loaded GCP credentials key to:', keyPath);
+  } catch (err) {
+    console.error('[Oxide] Failed to parse/write GCP_SERVICE_ACCOUNT_JSON:', err.message);
+  }
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -44,6 +58,7 @@ setIo(io);
 
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
+app.use('/public', express.static(join(__dir, '../public')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/lots', lotRoutes);
@@ -70,3 +85,5 @@ httpServer.listen(PORT, async () => {
   console.log(`[Oxide] API  →  http://localhost:${PORT}`);
   await startScheduler();
 });
+// Server reload trigger
+

@@ -41,6 +41,9 @@ model Lot {
   currentPayeeId  String?
   payeeExpiresAt  DateTime?
   paymentStatus   String?   // 'pending_1st', 'pending_2nd', 'pending_3rd', 'paid', 'expired'
+  artworkUrl      String?
+  artworkHeadline String?
+  artworkPrompt   String?
   bids            Bid[]
 }
 

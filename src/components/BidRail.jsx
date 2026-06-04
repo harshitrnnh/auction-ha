@@ -171,6 +171,24 @@ export default function BidRail({ auction }) {
         <h1 className="lot-title">{lot?.title ?? 'Loading…'}</h1>
         <div className="lot-artist">{lot?.artist ?? ''}</div>
         <p className="lot-desc">{lot?.description ?? ''}</p>
+        {lot?.artworkHeadline && (
+          <div className="lot-news-banner" style={{
+            marginTop: '14px',
+            padding: '10px 12px',
+            borderRadius: 'var(--r-sm)',
+            border: '1px dashed rgba(230, 194, 126, 0.25)',
+            background: 'rgba(230, 194, 126, 0.04)',
+            fontSize: '12px',
+            textAlign: 'left'
+          }}>
+            <span style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '9.5px', color: 'var(--gold-bright)', marginBottom: '4px', fontWeight: 600 }}>
+              🗞 Inspired by today's news
+            </span>
+            <span style={{ color: 'var(--txt-dim)', fontStyle: 'italic', lineHeight: '1.4' }}>
+              &ldquo;{lot.artworkHeadline}&rdquo;
+            </span>
+          </div>
+        )}
         <div className="lot-meta">
           <div className="m"><span className="k">Size</span><span className="v">{lot?.size ?? 'M'}</span></div>
           <div className="m"><span className="k">Edition</span><span className="v">{lot?.edition ?? '1 / 1'}</span></div>

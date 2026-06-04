@@ -57,7 +57,7 @@ router.get('/current', optionalAuth, async (req, res) => {
   }
 
   const lot = await prisma.lot.findFirst({
-    orderBy: { startsAt: 'desc' },
+    orderBy: { lotNumber: 'desc' },
   });
   if (!lot) return res.status(404).json({ error: 'No active lot' });
 
@@ -98,7 +98,7 @@ router.post('/simulate-payment', async (req, res) => {
   try {
     const lot = await prisma.lot.findFirst({
       where: { status: 'closed' },
-      orderBy: { startsAt: 'desc' },
+      orderBy: { lotNumber: 'desc' },
     });
     if (!lot) {
       return res.status(400).json({ error: 'No closed lot found to pay.' });
