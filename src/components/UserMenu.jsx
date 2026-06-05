@@ -9,7 +9,7 @@ function getInitials(name) {
     .join('');
 }
 
-const ADMIN_EMAILS = ['harshit.rnnh@gmail.com', 'prabhat1992@gmail.com', 'ambzone@gmail.com'];
+const ADMIN_EMAILS = ['harshit.rnnh@gmail.com', 'prabhat1992@gmail.com', 'abmzone@gmail.com'];
 
 const MENU_ITEMS = [
   { label: 'Profile', path: '/profile', icon: '👤' },
