@@ -1,8 +1,16 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
+import Razorpay from 'razorpay';
 import { prisma } from '../prisma.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
 import { closeActiveLot, checkPaymentExpirations } from '../scheduler.js';
+import { notifyVendor, sendInvoiceEmail } from '../vendor/qikink.js';
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder',
+});
 
 const router = Router();
 
@@ -93,34 +101,98 @@ router.get('/current', optionalAuth, async (req, res) => {
   });
 });
 
-/* POST /api/lots/simulate-payment */
-router.post('/simulate-payment', async (req, res) => {
+/* POST /api/lots/create-razorpay-order */
+router.post('/create-razorpay-order', requireAuth, async (req, res) => {
   try {
     const lot = await prisma.lot.findFirst({
       where: { status: 'closed' },
       orderBy: { lotNumber: 'desc' },
     });
-    if (!lot) {
-      return res.status(400).json({ error: 'No closed lot found to pay.' });
-    }
-    if (!lot.currentPayeeId) {
-      return res.status(400).json({ error: 'No active payment window for this lot.' });
+    if (!lot) return res.status(400).json({ error: 'No closed lot found.' });
+    if (lot.currentPayeeId !== req.userId) return res.status(403).json({ error: 'You are not the current payee.' });
+    if (lot.paymentStatus === 'paid') return res.status(400).json({ error: 'Lot is already paid.' });
+    if (lot.payeeExpiresAt && new Date(lot.payeeExpiresAt) < new Date()) {
+      return res.status(400).json({ error: 'Payment window has expired.' });
     }
 
-    const updatedLot = await prisma.lot.update({
-      where: { id: lot.id },
-      data: {
-        paymentStatus: 'paid',
-        winnerId: lot.currentPayeeId, // set winnerId as the user who paid
-      },
+    const bids = await prisma.bid.findMany({ where: { lotId: lot.id, userId: req.userId }, orderBy: { amount: 'desc' }, take: 1 });
+    const amount = bids[0]?.amount ?? lot.startingBid;
+
+    const order = await razorpay.orders.create({
+      amount: amount * 100,
+      currency: 'INR',
+      receipt: `lot_${lot.id}`,
     });
 
-    getIo()?.emit('lot:paid', { lotId: lot.id, winnerId: lot.currentPayeeId });
-
-    res.json({ ok: true, lot: updatedLot });
+    res.json({ razorpayOrderId: order.id, amount: order.amount, currency: order.currency, lotId: lot.id, lotTitle: lot.title });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to simulate payment' });
+    console.error('[Razorpay] create order error:', err);
+    res.status(500).json({ error: 'Failed to create payment order' });
+  }
+});
+
+/* POST /api/lots/verify-payment */
+router.post('/verify-payment', requireAuth, async (req, res) => {
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature, addressId } = req.body;
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature || !addressId) {
+    return res.status(400).json({ error: 'razorpayOrderId, razorpayPaymentId, razorpaySignature, addressId required' });
+  }
+
+  const expectedSig = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'placeholder')
+    .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+    .digest('hex');
+
+  if (expectedSig !== razorpaySignature) {
+    return res.status(400).json({ error: 'Payment verification failed — invalid signature' });
+  }
+
+  try {
+    const lot = await prisma.lot.findFirst({
+      where: { status: 'closed', currentPayeeId: req.userId },
+      orderBy: { startsAt: 'desc' },
+    });
+    if (!lot) return res.status(400).json({ error: 'No payable lot found for this user.' });
+
+    const address = await prisma.address.findUnique({ where: { id: addressId } });
+    if (!address || address.userId !== req.userId) return res.status(400).json({ error: 'Invalid address.' });
+
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    const bids = await prisma.bid.findMany({ where: { lotId: lot.id, userId: req.userId }, orderBy: { amount: 'desc' }, take: 1 });
+    const amount = bids[0]?.amount ?? lot.startingBid;
+
+    const year = new Date().getFullYear();
+    const orderCount = await prisma.order.count();
+    const orderNumber = `OX-${year}-${String(orderCount + 1).padStart(3, '0')}`;
+
+    const [updatedLot, order] = await prisma.$transaction([
+      prisma.lot.update({
+        where: { id: lot.id },
+        data: { paymentStatus: 'paid', winnerId: req.userId },
+      }),
+      prisma.order.create({
+        data: {
+          orderNumber,
+          lotId: lot.id,
+          userId: req.userId,
+          addressId,
+          amount: amount * 100,
+          razorpayOrderId,
+          razorpayPaymentId,
+          status: 'processing',
+        },
+      }),
+    ]);
+
+    getIo()?.emit('lot:paid', { lotId: lot.id, winnerId: req.userId });
+
+    notifyVendor(order, lot, address).catch((e) => console.error('[Vendor] notify failed:', e));
+    sendInvoiceEmail(order, lot, address, user.email, user.name).catch((e) => console.error('[Invoice] email failed:', e));
+
+    res.json({ ok: true, orderId: order.id, orderNumber });
+  } catch (err) {
+    console.error('[Payment] verify error:', err);
+    res.status(500).json({ error: 'Payment verification failed' });
   }
 });
 

@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String   @default("User")
-  phone        String?  @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String    @default("User")
+  phone        String?   @unique
   avatarUrl    String?
   passwordHash String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   bids         Bid[]
+  addresses    Address[]
+  orders       Order[]
 }
 
 model VerificationOtp {
@@ -45,6 +47,47 @@ model Lot {
   artworkHeadline String?
   artworkPrompt   String?
   bids            Bid[]
+  order           Order?
+}
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  phone     String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model Order {
+  id                String    @id @default(cuid())
+  orderNumber       String    @unique
+  lotId             String    @unique
+  lot               Lot       @relation(fields: [lotId], references: [id])
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  addressId         String
+  address           Address   @relation(fields: [addressId], references: [id])
+  amount            Int
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  status            String    @default("processing")
+  carrier           String?
+  trackingNumber    String?
+  trackingUrl       String?
+  vendorOrderId     String?
+  paidAt            DateTime  @default(now())
+  printedAt         DateTime?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime  @default(now())
 }
 
 model Bid {

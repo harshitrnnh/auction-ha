@@ -6,12 +6,15 @@ import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { setIo } from './socket.js';
+import { setIo, getIo } from './socket.js';
+import { prisma } from './prisma.js';
 import authRoutes from './routes/auth.js';
 import lotRoutes from './routes/lots.js';
 import bidRoutes from './routes/bids.js';
+import addressRoutes from './routes/addresses.js';
+import orderRoutes from './routes/orders.js';
+import vendorRoutes from './routes/vendor.js';
 import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
-import { prisma } from './prisma.js';
 
 // Load .env from backend directory
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -89,6 +92,9 @@ app.use('/public', express.static(join(__dir, '../public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api/lots', bidRoutes);
+app.use('/api/addresses', addressRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/vendor', vendorRoutes);
 
 app.post('/api/admin/rotate', async (_req, res) => {
   await closeActiveLot();
@@ -127,6 +133,26 @@ app.post('/api/admin/reset', async (req, res) => {
 app.post('/api/admin/check-expirations', async (_req, res) => {
   await checkPaymentExpirations();
   res.json({ ok: true });
+});
+
+app.put('/api/admin/orders/:id/tracking', async (req, res) => {
+  const { status, carrier, trackingNumber, trackingUrl } = req.body;
+  const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  const now = new Date();
+  const update = {};
+  if (status) update.status = status;
+  if (carrier) update.carrier = carrier;
+  if (trackingNumber) update.trackingNumber = trackingNumber;
+  if (trackingUrl) update.trackingUrl = trackingUrl;
+  if (status === 'printing' && !order.printedAt) update.printedAt = now;
+  if (status === 'shipped' && !order.shippedAt) update.shippedAt = now;
+  if (status === 'delivered' && !order.deliveredAt) update.deliveredAt = now;
+
+  const updated = await prisma.order.update({ where: { id: req.params.id }, data: update });
+  getIo()?.to(`user:${order.userId}`).emit('order:updated', { orderId: order.id, status: updated.status });
+  res.json({ ok: true, order: updated });
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -208,6 +234,7 @@ app.get('/api/artwork/:filename', async (req, res) => {
 
 io.on('connection', (socket) => {
   socket.on('join:lot', (lotId) => socket.join(`lot:${lotId}`));
+  socket.on('join:user', (userId) => socket.join(`user:${userId}`));
 });
 
 const PORT = Number(process.env.PORT) || 3001;

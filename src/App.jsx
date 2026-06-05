@@ -437,11 +437,76 @@ export default function App() {
   );
 }
 
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+function AddressForm({ onSave, onCancel }) {
+  const [form, setForm] = useState({ name: '', line1: '', line2: '', city: '', state: '', pincode: '', phone: '' });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setErr('');
+    try {
+      const token = localStorage.getItem('token');
+      const r = await fetch(`${API}/api/addresses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(form),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Failed to save address');
+      onSave(data.address);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="celebration-addr-form">
+      <div className="celebration-addr-row">
+        <input className="celebration-input" placeholder="Full name" value={form.name} onChange={set('name')} required />
+        <input className="celebration-input" placeholder="Phone" value={form.phone} onChange={set('phone')} required />
+      </div>
+      <input className="celebration-input" placeholder="Address line 1" value={form.line1} onChange={set('line1')} required />
+      <input className="celebration-input" placeholder="Address line 2 (optional)" value={form.line2} onChange={set('line2')} />
+      <div className="celebration-addr-row">
+        <input className="celebration-input" placeholder="City" value={form.city} onChange={set('city')} required />
+        <input className="celebration-input" placeholder="State" value={form.state} onChange={set('state')} required />
+        <input className="celebration-input" placeholder="Pincode" value={form.pincode} onChange={set('pincode')} required />
+      </div>
+      {err && <div className="auth-error" style={{ marginBottom: '8px', justifyContent: 'center' }}><span>⚠</span> {err}</div>}
+      <div className="celebration-addr-actions">
+        <button type="button" className="celebration-cancel-btn" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="celebration-pay-btn" disabled={saving}>{saving ? 'Saving…' : 'Save address'}</button>
+      </div>
+    </form>
+  );
+}
+
 function CelebrationOverlay({ lot, token, onPaymentSuccess }) {
+  const navigate = useNavigate();
   const [timeLeft, setTimeLeft] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState('address'); // 'address' | 'paying' | 'paid'
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddr, setSelectedAddr] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [loadingAddrs, setLoadingAddrs] = useState(true);
   const [error, setError] = useState('');
-  const [paid, setPaid] = useState(false);
 
   useEffect(() => {
     if (!lot?.payeeExpiresAt) return;
@@ -461,60 +526,154 @@ function CelebrationOverlay({ lot, token, onPaymentSuccess }) {
     return () => clearInterval(interval);
   }, [lot?.payeeExpiresAt]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`${API}/api/addresses`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await r.json();
+        const list = data.addresses || [];
+        setAddresses(list);
+        const def = list.find((a) => a.isDefault) || list[0] || null;
+        setSelectedAddr(def?.id ?? null);
+        if (list.length === 0) setShowForm(true);
+      } catch (_) {}
+      setLoadingAddrs(false);
+    })();
+  }, [token]);
+
+  const handleNewAddress = (addr) => {
+    setAddresses((prev) => [...prev, addr]);
+    setSelectedAddr(addr.id);
+    setShowForm(false);
+  };
+
   const handlePay = async () => {
-    setLoading(true);
+    if (!selectedAddr) return;
     setError('');
+    setStep('paying');
+
+    const loaded = await loadRazorpayScript();
+    if (!loaded) {
+      setError('Could not load Razorpay. Check your internet connection.');
+      setStep('address');
+      return;
+    }
+
     try {
-      const API_URL = import.meta.env.VITE_API_URL ?? '';
-      const r = await fetch(`${API_URL}/api/lots/simulate-payment`, {
+      const r = await fetch(`${API}/api/lots/create-razorpay-order`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Payment failed');
-      setPaid(true);
+      if (!r.ok) throw new Error(data.error || 'Failed to create order');
+
+      const rzp = new window.Razorpay({
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        order_id: data.razorpayOrderId,
+        amount: data.amount,
+        currency: data.currency,
+        name: 'Oxide Atelier',
+        description: data.lotTitle,
+        theme: { color: '#e6c27e' },
+        handler: async (response) => {
+          try {
+            const vr = await fetch(`${API}/api/lots/verify-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+                addressId: selectedAddr,
+              }),
+            });
+            const vdata = await vr.json();
+            if (!vr.ok) throw new Error(vdata.error || 'Verification failed');
+            setStep('paid');
+            onPaymentSuccess?.();
+          } catch (err) {
+            setError(err.message || 'Payment verification failed');
+            setStep('address');
+          }
+        },
+        modal: {
+          ondismiss: () => setStep('address'),
+        },
+      });
+      rzp.open();
     } catch (err) {
-      setError(err.message || 'Payment simulation failed.');
-    } finally {
-      setLoading(false);
+      setError(err.message || 'Payment failed');
+      setStep('address');
     }
   };
 
   return (
     <div className="celebration-overlay">
       <div className="celebration-card">
-        <div className="celebration-badge">{paid ? '🎉' : '🏆'}</div>
-        {paid ? (
+        {step === 'paid' ? (
           <>
+            <div className="celebration-badge">🎉</div>
             <h2 className="celebration-title">Payment Confirmed!</h2>
             <p className="celebration-text" style={{ marginBottom: '24px' }}>
-              You have successfully claimed <strong>{lot.title}</strong>! We will contact you shortly to coordinate delivery.
+              You have successfully claimed <strong>{lot.title}</strong>. A confirmation email is on its way.
             </p>
-            <button className="celebration-pay-btn" onClick={onPaymentSuccess}>
-              Go to Auction Stage
+            <button className="celebration-pay-btn" onClick={() => navigate('/orders')}>
+              View your order →
             </button>
           </>
         ) : (
           <>
+            <div className="celebration-badge">🏆</div>
             <h2 className="celebration-title">You Won the Bid!</h2>
             <p className="celebration-text">
-              Congratulations! You won today's drop: <strong>{lot.title}</strong>. 
-              Please complete your payment within the next 2 hours to claim your product. If you don't pay within this time, the product gets transferred to the 2nd highest bidder.
+              Congratulations! You won today's drop: <strong>{lot.title}</strong>.
+              Complete payment within the next 2 hours to claim it.
             </p>
-            
+
             <div className="celebration-timer-box">
               <div className="celebration-timer-label">Time Remaining to Settle</div>
               <div className="celebration-timer-val">{timeLeft}</div>
             </div>
 
-            {error && <div className="auth-error" style={{ marginBottom: '20px', justifyContent: 'center' }}><span>⚠</span> {error}</div>}
+            <div className="celebration-section-label">Ship to</div>
 
-            <button className="celebration-pay-btn" onClick={handlePay} disabled={loading || timeLeft === 'EXPIRED'}>
-              {loading ? 'Processing Payment…' : 'Simulate Payment (Razorpay Mock)'}
-            </button>
+            {loadingAddrs ? (
+              <div className="celebration-loading">Loading addresses…</div>
+            ) : showForm ? (
+              <AddressForm
+                onSave={handleNewAddress}
+                onCancel={addresses.length > 0 ? () => setShowForm(false) : undefined}
+              />
+            ) : (
+              <>
+                <div className="celebration-addr-list">
+                  {addresses.map((a) => (
+                    <label key={a.id} className={'celebration-addr-card' + (selectedAddr === a.id ? ' selected' : '')}>
+                      <input type="radio" name="address" value={a.id} checked={selectedAddr === a.id} onChange={() => setSelectedAddr(a.id)} />
+                      <div className="celebration-addr-info">
+                        <div className="celebration-addr-name">{a.name}</div>
+                        <div className="celebration-addr-text">{[a.line1, a.line2, a.city, a.state, a.pincode].filter(Boolean).join(', ')}</div>
+                        <div className="celebration-addr-text">{a.phone}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <button className="celebration-add-addr-btn" onClick={() => setShowForm(true)}>+ Add new address</button>
+              </>
+            )}
+
+            {error && <div className="auth-error" style={{ margin: '12px 0', justifyContent: 'center' }}><span>⚠</span> {error}</div>}
+
+            {!showForm && (
+              <button
+                className="celebration-pay-btn"
+                onClick={handlePay}
+                disabled={step === 'paying' || !selectedAddr || timeLeft === 'EXPIRED'}
+                style={{ marginTop: '16px' }}
+              >
+                {step === 'paying' ? 'Opening payment…' : `Pay ₹${lot.startingBid?.toLocaleString('en-IN')} →`}
+              </button>
+            )}
           </>
         )}
       </div>

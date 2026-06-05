@@ -997,3 +997,121 @@ input { font-family: inherit; }
 }
 
 
+/* ---------- Celebration — Address Step ---------- */
+.celebration-section-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em;
+  color: var(--txt-mute); text-align: left; margin-bottom: 10px;
+}
+.celebration-loading { font-size: 13px; color: var(--txt-mute); padding: 16px 0; }
+.celebration-addr-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.celebration-addr-card {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: rgba(255,255,255,0.02); cursor: pointer; text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+.celebration-addr-card input[type="radio"] { margin-top: 3px; flex-shrink: 0; accent-color: var(--gold-bright); }
+.celebration-addr-card.selected {
+  border-color: rgb(var(--glow) / 0.6);
+  background: rgb(var(--glow) / 0.06);
+}
+.celebration-addr-name { font-size: 13px; font-weight: 600; color: var(--txt); margin-bottom: 2px; }
+.celebration-addr-text { font-size: 12px; color: var(--txt-mute); line-height: 1.4; }
+.celebration-add-addr-btn {
+  width: 100%; padding: 10px; margin-bottom: 12px;
+  border: 1px dashed rgb(var(--glow) / 0.3); border-radius: var(--r-sm);
+  background: none; color: var(--gold-bright); font-size: 12px; cursor: pointer;
+  transition: all 0.12s;
+}
+.celebration-add-addr-btn:hover { background: rgb(var(--glow) / 0.06); border-style: solid; }
+.celebration-addr-form { text-align: left; }
+.celebration-addr-row { display: flex; gap: 8px; }
+.celebration-addr-row .celebration-input { flex: 1; }
+.celebration-input {
+  width: 100%; padding: 10px 12px; margin-bottom: 8px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); color: var(--txt); font-size: 13px;
+  transition: border-color 0.12s;
+}
+.celebration-input:focus { outline: none; border-color: rgb(var(--glow) / 0.5); }
+.celebration-input::placeholder { color: var(--txt-mute); }
+.celebration-addr-actions { display: flex; gap: 8px; margin-top: 4px; }
+.celebration-cancel-btn {
+  flex: 1; padding: 12px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); background: none; color: var(--txt-mute);
+  font-size: 13px; cursor: pointer; transition: all 0.12s;
+}
+.celebration-cancel-btn:hover { color: var(--txt); }
+
+/* ---------- Orders Page ---------- */
+.orders-list { display: flex; flex-direction: column; gap: 0; }
+.order-item { border-bottom: 1px solid var(--line); }
+.order-item:last-child { border-bottom: none; }
+.order-row {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 16px 0; background: none; border: none;
+  cursor: pointer; text-align: left; gap: 12px;
+  transition: background 0.1s;
+}
+.order-row:hover { background: rgba(255,255,255,0.02); }
+.order-row-left { flex: 1; min-width: 0; }
+.order-row-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.order-number { font-size: 11px; color: var(--txt-mute); letter-spacing: 0.08em; margin-bottom: 3px; }
+.order-title { font-size: 14px; font-weight: 600; color: var(--txt); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.order-meta { font-size: 12px; color: var(--txt-mute); }
+.order-chevron { font-size: 10px; color: var(--txt-mute); }
+.order-detail { padding: 0 0 16px; }
+.order-processing-msg { padding: 16px; border: 1px solid var(--line); border-radius: var(--r-sm); background: rgba(255,255,255,0.02); }
+
+/* ---------- Addresses Page ---------- */
+.account-card { max-width: 520px; }
+.addr-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.addr-card {
+  padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: rgba(255,255,255,0.02); position: relative;
+}
+.addr-card--default { border-color: rgb(var(--glow) / 0.4); background: rgb(var(--glow) / 0.04); }
+.addr-card--editing { background: rgba(255,255,255,0.03); }
+.addr-default-badge {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--gold-bright); background: rgb(var(--glow) / 0.12);
+  padding: 2px 8px; border-radius: 20px; border: 1px solid rgb(var(--glow) / 0.25);
+}
+.addr-card-name { font-size: 14px; font-weight: 600; color: var(--txt); margin-bottom: 4px; }
+.addr-card-text { font-size: 12px; color: var(--txt-mute); line-height: 1.5; }
+.addr-card-actions { display: flex; gap: 8px; margin-top: 12px; }
+.addr-action-btn {
+  padding: 5px 12px; font-size: 11px; border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong); background: none;
+  color: var(--txt-mute); cursor: pointer; transition: all 0.12s;
+}
+.addr-action-btn:hover { color: var(--txt); border-color: var(--txt-mute); }
+.addr-action-btn--danger:hover { color: var(--lose); border-color: var(--lose); }
+.addr-form { display: flex; flex-direction: column; }
+.addr-form-row { display: flex; gap: 8px; }
+.addr-form-group { display: flex; flex-direction: column; flex: 1; margin-bottom: 10px; }
+.addr-form-group--sm { flex: 0 0 100px; }
+.addr-label { font-size: 11px; color: var(--txt-mute); margin-bottom: 4px; letter-spacing: 0.05em; }
+.addr-input {
+  padding: 9px 12px; background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  color: var(--txt); font-size: 13px; transition: border-color 0.12s;
+}
+.addr-input:focus { outline: none; border-color: rgb(var(--glow) / 0.5); }
+.addr-input::placeholder { color: var(--txt-mute); }
+.addr-form-actions { display: flex; gap: 8px; margin-top: 4px; justify-content: flex-end; }
+.addr-cancel-btn {
+  padding: 9px 16px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: none; color: var(--txt-mute); font-size: 13px; cursor: pointer;
+  transition: all 0.12s;
+}
+.addr-cancel-btn:hover { color: var(--txt); }
+.addr-save-btn {
+  padding: 9px 20px; border: none; border-radius: var(--r-sm);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #271d08; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: filter 0.12s;
+}
+.addr-save-btn:hover { filter: brightness(1.08); }
+.addr-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }

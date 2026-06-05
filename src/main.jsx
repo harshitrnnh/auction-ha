@@ -15,8 +15,8 @@ import './index.css';
 const GOOGLE_CLIENT_ID = "447129401369-5a78d2mdcmbe5mckdiapovcg8pffdtgu.apps.googleusercontent.com";
 
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+    <StrictMode>
       <BrowserRouter>
         <AuthProvider>
           <Routes>
@@ -30,6 +30,6 @@ createRoot(document.getElementById('root')).render(
           </Routes>
         </AuthProvider>
       </BrowserRouter>
-    </GoogleOAuthProvider>
-  </StrictMode>,
+    </StrictMode>
+  </GoogleOAuthProvider>,
 );
