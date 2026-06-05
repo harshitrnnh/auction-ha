@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import crypto from 'node:crypto';
 import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
@@ -88,6 +89,102 @@ const io = new Server(httpServer, {
 setIo(io);
 
 app.use(cors(corsOptions));
+
+/* Razorpay webhook — must use raw body for HMAC verification, registered before express.json() */
+app.post('/api/razorpay-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['x-razorpay-signature'];
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  if (secret) {
+    const expectedSig = crypto
+      .createHmac('sha256', secret)
+      .update(req.body)
+      .digest('hex');
+    if (expectedSig !== sig) {
+      console.warn('[Webhook] Invalid signature — rejecting');
+      return res.status(400).json({ error: 'Invalid webhook signature' });
+    }
+  } else {
+    console.warn('[Webhook] RAZORPAY_WEBHOOK_SECRET not set — skipping signature check');
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(req.body.toString());
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
+  if (payload.event !== 'payment.captured') {
+    return res.status(200).json({ ok: true });
+  }
+
+  const payment = payload.payload?.payment?.entity;
+  if (!payment) return res.status(200).json({ ok: true });
+
+  const razorpayOrderId = payment.order_id;
+  const razorpayPaymentId = payment.id;
+  const { lotId, userId, addressId } = payment.notes ?? {};
+
+  try {
+    const existing = await prisma.order.findFirst({ where: { razorpayOrderId } });
+    if (existing) {
+      console.log(`[Webhook] payment.captured already processed for order ${razorpayOrderId}`);
+      return res.status(200).json({ ok: true, duplicate: true });
+    }
+
+    if (!lotId || !userId || !addressId) {
+      console.error('[Webhook] Missing notes on payment', razorpayPaymentId);
+      return res.status(200).json({ ok: true });
+    }
+
+    const lot = await prisma.lot.findUnique({ where: { id: lotId } });
+    if (!lot || lot.paymentStatus === 'paid') {
+      return res.status(200).json({ ok: true });
+    }
+
+    const [address, user, bids] = await Promise.all([
+      prisma.address.findUnique({ where: { id: addressId } }),
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.bid.findMany({ where: { lotId, userId }, orderBy: { amount: 'desc' }, take: 1 }),
+    ]);
+
+    const amount = bids[0]?.amount ?? lot.startingBid;
+    const year = new Date().getFullYear();
+    const orderCount = await prisma.order.count();
+    const orderNumber = `OX-${year}-${String(orderCount + 1).padStart(3, '0')}`;
+
+    const [, order] = await prisma.$transaction([
+      prisma.lot.update({
+        where: { id: lotId },
+        data: { paymentStatus: 'paid', winnerId: userId },
+      }),
+      prisma.order.create({
+        data: {
+          orderNumber,
+          lotId,
+          userId,
+          addressId,
+          amount: amount * 100,
+          razorpayOrderId,
+          razorpayPaymentId,
+          status: 'processing',
+        },
+      }),
+    ]);
+
+    getIo()?.emit('lot:paid', { lotId, winnerId: userId });
+    notifyVendor(order, lot, address).catch((e) => console.error('[Webhook] vendor notify failed:', e));
+    sendInvoiceEmail(order, lot, address, user.email, user.name).catch((e) => console.error('[Webhook] invoice email failed:', e));
+
+    console.log(`[Webhook] payment.captured — created order ${orderNumber}`);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('[Webhook] Error processing payment:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 app.use(express.json());
 app.use('/public', express.static(join(__dir, '../public')));
 

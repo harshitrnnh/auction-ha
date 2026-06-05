@@ -162,7 +162,7 @@ async function createNewLot(lotNumber) {
       lotNumber,
       startsAt: now,
       endsAt: new Date(now.getTime() + BIDDING_DURATION_MS),
-      startingBid: 100,
+      startingBid: 1,
       status: 'active',
       winnerId: null,
       currentPayeeId: null,

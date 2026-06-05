@@ -4,7 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
 
 const router = Router();
-const MIN_INCREMENT = 50;
+const MIN_INCREMENT = 1;
 
 function stringHue(str) {
   let h = 0;

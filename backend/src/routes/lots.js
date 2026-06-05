@@ -87,6 +87,7 @@ router.get('/current', optionalAuth, async (req, res) => {
 /* POST /api/lots/create-razorpay-order */
 router.post('/create-razorpay-order', requireAuth, async (req, res) => {
   try {
+    const { addressId } = req.body;
     const lot = await prisma.lot.findFirst({
       where: { status: 'closed' },
       orderBy: { lotNumber: 'desc' },
@@ -105,6 +106,11 @@ router.post('/create-razorpay-order', requireAuth, async (req, res) => {
       amount: amount * 100,
       currency: 'INR',
       receipt: `lot_${lot.id}`,
+      notes: {
+        lotId: lot.id,
+        userId: req.userId,
+        addressId: addressId ?? '',
+      },
     });
 
     res.json({ razorpayOrderId: order.id, amount: order.amount, currency: order.currency, lotId: lot.id, lotTitle: lot.title });

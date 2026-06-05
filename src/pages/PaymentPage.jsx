@@ -200,6 +200,7 @@ export default function PaymentPage() {
       const r = await fetch(`${API}/api/lots/create-razorpay-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ addressId: selectedAddr }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Failed to create order');
