@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const API = import.meta.env.VITE_API_URL ?? '';
-const ADMIN_EMAILS = ['harshit.rnnh@gmail.com', 'prabhat1992@gmail.com'];
+const ADMIN_EMAILS = ['harshit.rnnh@gmail.com', 'prabhat1992@gmail.com', 'ambzone@gmail.com'];
 
 const STATUSES = ['processing', 'printing', 'shipped', 'delivered'];
 
