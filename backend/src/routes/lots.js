@@ -143,6 +143,12 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
     });
     if (!lot) return res.status(400).json({ error: 'No payable lot found for this user.' });
 
+    // Idempotency: webhook may have already created the order
+    const existingOrder = await prisma.order.findUnique({ where: { lotId: lot.id } });
+    if (existingOrder) {
+      return res.json({ ok: true, orderId: existingOrder.id, orderNumber: existingOrder.orderNumber });
+    }
+
     const address = await prisma.address.findUnique({ where: { id: addressId } });
     if (!address || address.userId !== req.userId) return res.status(400).json({ error: 'Invalid address.' });
 
@@ -154,7 +160,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
     const orderCount = await prisma.order.count();
     const orderNumber = `OX-${year}-${String(orderCount + 1).padStart(3, '0')}`;
 
-    const [updatedLot, order] = await prisma.$transaction([
+    const [, order] = await prisma.$transaction([
       prisma.lot.update({
         where: { id: lot.id },
         data: { paymentStatus: 'paid', winnerId: req.userId },
