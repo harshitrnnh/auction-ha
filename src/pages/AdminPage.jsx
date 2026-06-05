@@ -299,6 +299,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(null);
   const [globalMsg, setGlobalMsg] = useState('');
+  const [auctionLoading, setAuctionLoading] = useState(null);
 
   const isAdmin = !authLoading && user && ADMIN_EMAILS.includes(user.email);
 
@@ -330,6 +331,7 @@ export default function AdminPage() {
   };
 
   const handleAuctionAction = async (endpoint, label) => {
+    setAuctionLoading(endpoint);
     try {
       const r = await fetch(`${API}/api/admin/${endpoint}`, {
         method: 'POST',
@@ -340,6 +342,8 @@ export default function AdminPage() {
       fetchOrders();
     } catch (err) {
       notify(`Error: ${err.message}`);
+    } finally {
+      setAuctionLoading(null);
     }
   };
 
@@ -400,8 +404,20 @@ export default function AdminPage() {
           display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, color: '#7d7a8c', textTransform: 'uppercase',
             letterSpacing: '0.1em', marginRight: 4 }}>Auction</span>
-          <button style={auctionBtnStyle} onClick={() => handleAuctionAction('close-bid', 'Bid closed')}>✕ Close bid</button>
-          <button style={auctionBtnStyle} onClick={() => handleAuctionAction('new-bid', 'New lot started')}>▶ Start bidding</button>
+          <button
+            style={{ ...auctionBtnStyle, opacity: auctionLoading ? 0.55 : 1, cursor: auctionLoading ? 'not-allowed' : 'pointer' }}
+            disabled={!!auctionLoading}
+            onClick={() => handleAuctionAction('close-bid', 'Bid closed')}
+          >
+            {auctionLoading === 'close-bid' ? '…' : '✕'} Close bid
+          </button>
+          <button
+            style={{ ...auctionBtnStyle, opacity: auctionLoading ? 0.55 : 1, cursor: auctionLoading ? 'not-allowed' : 'pointer' }}
+            disabled={!!auctionLoading}
+            onClick={() => handleAuctionAction('new-bid', 'New lot started')}
+          >
+            {auctionLoading === 'new-bid' ? '…' : '▶'} Start bidding
+          </button>
           {globalMsg && (
             <span style={{ fontSize: 13, color: globalMsg.startsWith('Error') ? '#ff6b7d' : '#4ade80', marginLeft: 4 }}>
               {globalMsg}
