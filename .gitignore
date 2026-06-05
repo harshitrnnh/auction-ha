@@ -26,5 +26,5 @@ dist-ssr
 client_secret_*.json
 
 .env*
-oxide-auction-*.json
+oxide-*.json
 
