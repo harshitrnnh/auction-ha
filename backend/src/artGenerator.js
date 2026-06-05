@@ -97,15 +97,21 @@ export async function generateDailyArtwork(lotNumber) {
   // URL that frontend will access locally
   const localUrl = `/public/artwork/${fileName}`;
 
-  // 1. Try Vertex AI Imagen 3 if GOOGLE_CLOUD_PROJECT exists
-  if (process.env.GOOGLE_CLOUD_PROJECT) {
-    console.log('[Art Generator] GOOGLE_CLOUD_PROJECT found. Generating artwork via Vertex AI Imagen 3...');
+  // 1. Try Google Gen AI Imagen 3 (via Gemini API key or Vertex AI Project)
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_CLOUD_PROJECT) {
+    const isGeminiKey = !!process.env.GEMINI_API_KEY;
+    console.log(isGeminiKey 
+      ? '[Art Generator] GEMINI_API_KEY found. Generating artwork via Google Gen AI (Gemini Developer API)...' 
+      : '[Art Generator] GOOGLE_CLOUD_PROJECT found. Generating artwork via Vertex AI Imagen 3...'
+    );
     try {
-      const ai = new GoogleGenAI({
-        vertexai: true,
-        project: process.env.GOOGLE_CLOUD_PROJECT,
-        location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
-      });
+      const ai = isGeminiKey
+        ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+        : new GoogleGenAI({
+            vertexai: true,
+            project: process.env.GOOGLE_CLOUD_PROJECT,
+            location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+          });
 
       const response = await ai.models.generateImages({
         model: 'imagen-3.0-generate-002',
@@ -119,13 +125,13 @@ export async function generateDailyArtwork(lotNumber) {
 
       const imageBytes = response?.generatedImages?.[0]?.image?.imageBytes;
       if (!imageBytes) {
-        throw new Error('No image bytes returned from Vertex AI');
+        throw new Error('No image bytes returned from Google Gen AI');
       }
 
       const buffer = Buffer.from(imageBytes, 'base64');
       return await saveAndUploadArtwork(buffer, lotNumber, headline, prompt, filePath, localUrl);
     } catch (err) {
-      console.error('[Art Generator] Vertex AI Imagen 3 generation failed, checking fallbacks...', err.message);
+      console.error('[Art Generator] Google Gen AI Imagen 3 generation failed, checking fallbacks...', err.message);
     }
   }
 
