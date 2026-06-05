@@ -12,21 +12,6 @@ function stringHue(str) {
   return h % 360;
 }
 
-function isBiddingClosedIST() {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      hour: 'numeric',
-      hourCycle: 'h23'
-    });
-    const hour = parseInt(formatter.format(new Date()), 10);
-    return hour >= 12 && hour < 18;
-  } catch (e) {
-    console.error('Error in isBiddingClosedIST:', e);
-    return false;
-  }
-}
-
 /* POST /api/lots/:id/bids */
 router.post('/:id/bids', requireAuth, async (req, res) => {
   const { id: lotId } = req.params;
@@ -39,7 +24,7 @@ router.post('/:id/bids', requireAuth, async (req, res) => {
 
   const lot = await prisma.lot.findUnique({ where: { id: lotId } });
   if (!lot) return res.status(404).json({ error: 'Lot not found' });
-  if (lot.status !== 'active' || new Date(lot.endsAt) < new Date() || isBiddingClosedIST()) {
+  if (lot.status !== 'active' || new Date(lot.endsAt) < new Date()) {
     return res.status(400).json({ error: 'This auction has ended' });
   }
 

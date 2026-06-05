@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { setIo, getIo } from './socket.js';
 import { prisma } from './prisma.js';
+import { requireAdmin } from './middleware/auth.js';
 import authRoutes from './routes/auth.js';
 import lotRoutes from './routes/lots.js';
 import bidRoutes from './routes/bids.js';
@@ -15,6 +16,7 @@ import addressRoutes from './routes/addresses.js';
 import orderRoutes from './routes/orders.js';
 import vendorRoutes from './routes/vendor.js';
 import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
+import { notifyVendor, sendInvoiceEmail, sendShippingEmail } from './vendor/qikink.js';
 
 // Load .env from backend directory
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -89,6 +91,8 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/public', express.static(join(__dir, '../public')));
 
+app.use('/api/admin', requireAdmin);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api/lots', bidRoutes);
@@ -99,6 +103,53 @@ app.use('/api/vendor', vendorRoutes);
 app.post('/api/admin/rotate', async (_req, res) => {
   await closeActiveLot();
   res.json({ ok: true });
+});
+
+app.post('/api/admin/close-bid', async (_req, res) => {
+  try {
+    await closeActiveLot();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] close-bid error:', err);
+    res.status(500).json({ error: 'Failed to close bid' });
+  }
+});
+
+app.post('/api/admin/new-bid', async (_req, res) => {
+  try {
+    // Close the active lot first so the highest bidder is set as winner
+    const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
+    if (activeLot) {
+      await closeActiveLot();
+    }
+    // Use the global max lot number (not just closed lots) to avoid unique-constraint errors
+    const latestLot = await prisma.lot.findFirst({
+      orderBy: { lotNumber: 'desc' },
+    });
+    const nextNum = latestLot ? latestLot.lotNumber + 1 : 1;
+    await createNewLot(nextNum);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] new-bid error:', err);
+    res.status(500).json({ error: 'Failed to create new bid' });
+  }
+});
+
+app.get('/api/admin/orders', async (_req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        lot: { select: { title: true, lotNumber: true, artworkUrl: true, size: true, artist: true, artworkUrl: true } },
+        user: { select: { name: true, email: true, phone: true } },
+        address: true,
+      },
+    });
+    res.json({ orders });
+  } catch (err) {
+    console.error('[Admin] orders error:', err);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
 });
 
 app.post('/api/admin/reset', async (req, res) => {
@@ -136,23 +187,70 @@ app.post('/api/admin/check-expirations', async (_req, res) => {
 });
 
 app.put('/api/admin/orders/:id/tracking', async (req, res) => {
-  const { status, carrier, trackingNumber, trackingUrl } = req.body;
+  const { status, carrier, trackingNumber, trackingUrl, notes } = req.body;
   const order = await prisma.order.findUnique({ where: { id: req.params.id } });
   if (!order) return res.status(404).json({ error: 'Order not found' });
 
   const now = new Date();
   const update = {};
   if (status) update.status = status;
-  if (carrier) update.carrier = carrier;
-  if (trackingNumber) update.trackingNumber = trackingNumber;
-  if (trackingUrl) update.trackingUrl = trackingUrl;
+  if (carrier !== undefined) update.carrier = carrier;
+  if (trackingNumber !== undefined) update.trackingNumber = trackingNumber;
+  if (trackingUrl !== undefined) update.trackingUrl = trackingUrl;
+  if (notes !== undefined) update.notes = notes;
   if (status === 'printing' && !order.printedAt) update.printedAt = now;
   if (status === 'shipped' && !order.shippedAt) update.shippedAt = now;
   if (status === 'delivered' && !order.deliveredAt) update.deliveredAt = now;
 
   const updated = await prisma.order.update({ where: { id: req.params.id }, data: update });
   getIo()?.to(`user:${order.userId}`).emit('order:updated', { orderId: order.id, status: updated.status });
+
+  if (status === 'shipped' && !order.shippedAt) {
+    try {
+      const [lot, address, user] = await Promise.all([
+        prisma.lot.findUnique({ where: { id: order.lotId } }),
+        prisma.address.findUnique({ where: { id: order.addressId } }),
+        prisma.user.findUnique({ where: { id: order.userId } }),
+      ]);
+      sendShippingEmail(updated, lot, address, user.email, user.name).catch((e) =>
+        console.error('[Shipping email] failed:', e)
+      );
+    } catch (e) {
+      console.error('[Shipping email] lookup failed:', e);
+    }
+  }
+
   res.json({ ok: true, order: updated });
+});
+
+app.post('/api/admin/orders/:id/resend-invoice', async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { lot: true, address: true, user: true },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    await sendInvoiceEmail(order, order.lot, order.address, order.user.email, order.user.name);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Resend invoice] error:', err);
+    res.status(500).json({ error: 'Failed to resend invoice' });
+  }
+});
+
+app.post('/api/admin/orders/:id/resend-vendor', async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { lot: true, address: true },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    await notifyVendor(order, order.lot, order.address);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Resend vendor] error:', err);
+    res.status(500).json({ error: 'Failed to resend vendor notification' });
+  }
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));

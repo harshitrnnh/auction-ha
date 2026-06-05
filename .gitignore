@@ -28,3 +28,5 @@ client_secret_*.json
 .env*
 oxide-*.json
 
+backend/public/artwork/
+*.db

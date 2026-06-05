@@ -7,11 +7,16 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', async (req, res) => {
-  const addresses = await prisma.address.findMany({
-    where: { userId: req.userId },
-    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-  });
-  res.json({ addresses });
+  try {
+    const addresses = await prisma.address.findMany({
+      where: { userId: req.userId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
+    res.json({ addresses });
+  } catch (err) {
+    console.error('[Addresses] GET error:', err);
+    res.status(500).json({ error: 'Failed to fetch addresses' });
+  }
 });
 
 router.post('/', async (req, res) => {

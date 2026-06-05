@@ -1,23 +1,145 @@
 import { useState, useEffect } from 'react';
 
 const fmt = (n) => '₹' + n.toLocaleString('en-IN');
+const pad = (n) => String(n).padStart(2, '0');
 
-function StatusBanner({ status, currentBid, lotClosed, winner, user }) {
-  if (lotClosed) {
-    const isWinner = winner && winner.userId === user?.id;
-    return (
-      <div className={`status-banner ${isWinner ? 'win' : 'lose'}`}>
-        <span className="icon">{isWinner ? '★' : '✕'}</span>
-        <span className="sb-text">
-          {isWinner
-            ? <><b>You won this lot!</b> We&apos;ll reach out to arrange shipping.</>
-            : winner
-              ? <><b>Auction ended.</b> Won by {winner.name} for {fmt(winner.amount)}.</>
-              : <><b>Auction ended.</b> No bids were placed.</>}
-        </span>
+const AUTO_RESTART_DELAY_MS = 6 * 60 * 60 * 1000;
+
+function useTimer(targetMs) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const diff = Math.max(0, targetMs - Date.now());
+  const total = Math.floor(diff / 1000);
+  return { h: Math.floor(total / 3600), m: Math.floor((total % 3600) / 60), s: total % 60, total };
+}
+
+function PaymentCountdown({ expiresAt }) {
+  const t = useTimer(new Date(expiresAt).getTime());
+  if (t.total === 0) return <span style={{ color: 'var(--lose)', fontFamily: 'monospace', fontSize: '13px', fontWeight: 700 }}>EXPIRED</span>;
+  return <span style={{ color: '#ff6b7d', fontFamily: 'monospace', fontSize: '14px', fontWeight: 700 }}>{pad(t.h)}:{pad(t.m)}:{pad(t.s)}</span>;
+}
+
+function NextAuctionCountdown({ endsAt }) {
+  const targetMs = endsAt ? new Date(endsAt).getTime() + AUTO_RESTART_DELAY_MS : Date.now() + AUTO_RESTART_DELAY_MS;
+  const t = useTimer(targetMs);
+  if (t.total === 0) return <span style={{ fontFamily: 'monospace', color: 'var(--gold-bright)' }}>soon</span>;
+  return (
+    <span style={{ fontFamily: 'monospace', color: 'var(--gold-bright)' }}>
+      {t.h > 0 ? `${pad(t.h)}h ` : ''}{pad(t.m)}m {pad(t.s)}s
+    </span>
+  );
+}
+
+function ClosedBlob({ lot, bids, user, winner, myRank, onPayNow }) {
+  const topBid = bids[0] ?? null;
+  const isCurrentPayee = user && lot?.currentPayeeId === user.id && lot?.paymentStatus?.startsWith('pending_');
+  const isInQueue = user && !isCurrentPayee && myRank !== null && lot?.paymentStatus?.startsWith('pending_');
+  const paymentExpired = lot?.paymentStatus === 'expired' || lot?.paymentStatus === 'paid';
+
+  return (
+    <div className="settlement-info" style={{
+      padding: '24px 20px',
+      border: '1px solid var(--line-strong)',
+      borderRadius: 'var(--r-sm)',
+      background: 'rgba(0,0,0,0.2)',
+      textAlign: 'center',
+      marginTop: '16px',
+    }}>
+      {isCurrentPayee ? (
+        <>
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>🏆</div>
+          <h3 style={{ margin: '0 0 6px', fontSize: '16px', color: '#e6c27e', fontWeight: 700 }}>
+            You won this lot!
+          </h3>
+          <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--txt-mute)', margin: '0 0 10px' }}>
+            Winning bid: <strong style={{ color: 'var(--txt)' }}>{topBid ? fmt(topBid.amount) : '—'}</strong>
+          </p>
+          {lot.payeeExpiresAt && (
+            <div style={{ margin: '0 0 16px', fontSize: '12px', color: 'var(--txt-mute)' }}>
+              <span>Time to pay: </span><PaymentCountdown expiresAt={lot.payeeExpiresAt} />
+            </div>
+          )}
+          <button
+            onClick={onPayNow}
+            style={{
+              background: '#e6c27e',
+              color: '#0c0d15',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '10px 24px',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              letterSpacing: '0.04em',
+              width: '100%',
+            }}
+          >
+            Pay Now →
+          </button>
+        </>
+      ) : isInQueue ? (
+        <>
+          <div style={{ fontSize: '28px', marginBottom: '10px' }}>⏳</div>
+          <h3 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--txt)', fontWeight: 600 }}>
+            Bidding Closed
+          </h3>
+          {topBid && (
+            <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--txt-mute)', margin: '0 0 10px' }}>
+              <strong style={{ color: 'var(--txt)' }}>{topBid.userName || topBid.name}</strong> won with <strong style={{ color: 'var(--txt)' }}>{fmt(topBid.amount)}</strong>.
+            </p>
+          )}
+          <p style={{ fontSize: '12px', lineHeight: 1.6, color: 'var(--txt-mute)', margin: 0 }}>
+            {lot?.paymentStatus === 'pending_2nd' || lot?.paymentStatus === 'pending_3rd'
+              ? `You're now #${myRank} — check your email for a payment link.`
+              : myRank === 2
+                ? "You're 2nd in line. If the winner doesn't pay within 2h, you'll be emailed."
+                : `You're #${myRank} in line. Watch your inbox.`
+            }
+          </p>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: '32px', marginBottom: '10px' }}>🔒</div>
+          <h3 style={{ margin: '0 0 8px', fontSize: '15px', color: 'var(--txt)', fontWeight: 600 }}>
+            Bidding Closed
+          </h3>
+          {topBid ? (
+            <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--txt-mute)', margin: 0 }}>
+              <strong style={{ color: 'var(--txt)' }}>{topBid.userName || topBid.name}</strong> won with <strong style={{ color: 'var(--txt)' }}>{fmt(topBid.amount)}</strong>.
+              {paymentExpired && lot?.paymentStatus !== 'paid' && (
+                <span style={{ display: 'block', marginTop: '6px', fontSize: '11px', color: 'var(--txt-mute)' }}>
+                  Payment window closed — lot unsettled.
+                </span>
+              )}
+            </p>
+          ) : (
+            <p style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--txt-mute)', margin: 0 }}>
+              No bids were placed on this lot.
+            </p>
+          )}
+        </>
+      )}
+
+      <div style={{
+        fontSize: '11px',
+        textTransform: 'uppercase',
+        letterSpacing: '0.12em',
+        color: 'var(--txt-mute)',
+        borderTop: '1px solid var(--line)',
+        paddingTop: '12px',
+        marginTop: '16px',
+        fontWeight: 500,
+      }}>
+        Next auction in <NextAuctionCountdown endsAt={lot?.endsAt} />
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+function StatusBanner({ status, currentBid }) {
   if (status === 'winning') {
     return (
       <div className="status-banner win">
@@ -42,10 +164,7 @@ function BidForm({ minNext, onPlace, disabled, onLoginPrompt, user, bidsCount, i
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
-    if (!user) {
-      onLoginPrompt();
-      return;
-    }
+    if (!user) { onLoginPrompt(); return; }
     setErr('');
     setSubmitting(true);
     try {
@@ -67,32 +186,15 @@ function BidForm({ minNext, onPlace, disabled, onLoginPrompt, user, bidsCount, i
     );
   }
 
-  const isBtnDisabled = submitting || isHighestBidder;
-
   return (
     <div className="bid-form" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <button
         className="bid-submit"
         onClick={submit}
-        disabled={isBtnDisabled}
-        style={{
-          width: '100%',
-          padding: '14px 18px',
-          fontSize: '15px',
-          borderRadius: 'var(--r-sm)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}
+        disabled={submitting || isHighestBidder}
+        style={{ width: '100%', padding: '14px 18px', fontSize: '15px', borderRadius: 'var(--r-sm)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
       >
-        {!user 
-          ? 'Sign in to bid' 
-          : submitting 
-            ? 'Placing bid…' 
-            : bidsCount === 0 
-              ? 'Place Bid' 
-              : `Raise Bid : ${fmt(minNext)}`
-        }
+        {!user ? 'Sign in to bid' : submitting ? 'Placing bid…' : bidsCount === 0 ? 'Place Bid' : `Raise Bid : ${fmt(minNext)}`}
       </button>
       {err && <div className="bid-error" style={{ justifyContent: 'center' }}><span>⚠</span> {err}</div>}
       {!user && (
@@ -107,9 +209,7 @@ function BidForm({ minNext, onPlace, disabled, onLoginPrompt, user, bidsCount, i
 function MyBid({ myBid, status }) {
   return (
     <div className="mybid">
-      <div className="row">
-        <span className="k">Your bid</span>
-      </div>
+      <div className="row"><span className="k">Your bid</span></div>
       <div className="row" style={{ marginTop: 6 }}>
         <span className="amt num">{fmt(myBid)}</span>
         <span style={{ fontSize: 12, color: status === 'winning' ? 'var(--win)' : 'var(--lose)' }}>
@@ -151,15 +251,8 @@ function Feed({ bids }) {
 }
 
 export default function BidRail({ auction }) {
-  const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, watching, onLoginPrompt, lotClosed } = auction;
+  const { lot, startingBid, currentBid, minInc, myBid, status, bids, placeBid, bump, user, winner, watching, onLoginPrompt, lotClosed, onPayNow, myRank } = auction;
   const minNext = bids.length > 0 ? currentBid + minInc : startingBid;
-
-  const showForm = !lotClosed;
-  const showMyBid = myBid !== null;
-
-  const handlePlace = async (n) => {
-    await placeBid(n);
-  };
 
   return (
     <aside className="bidrail">
@@ -173,13 +266,9 @@ export default function BidRail({ auction }) {
         <p className="lot-desc">{lot?.description ?? ''}</p>
         {lot?.artworkHeadline && (
           <div className="lot-news-banner" style={{
-            marginTop: '14px',
-            padding: '10px 12px',
-            borderRadius: 'var(--r-sm)',
-            border: '1px dashed rgba(230, 194, 126, 0.25)',
-            background: 'rgba(230, 194, 126, 0.04)',
-            fontSize: '12px',
-            textAlign: 'left'
+            marginTop: '14px', padding: '10px 12px', borderRadius: 'var(--r-sm)',
+            border: '1px dashed rgba(230, 194, 126, 0.25)', background: 'rgba(230, 194, 126, 0.04)',
+            fontSize: '12px', textAlign: 'left',
           }}>
             <span style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '9.5px', color: 'var(--gold-bright)', marginBottom: '4px', fontWeight: 600 }}>
               🗞 Inspired by today's news
@@ -211,23 +300,17 @@ export default function BidRail({ auction }) {
         </div>
       </div>
 
-      <StatusBanner
-        status={status}
-        currentBid={currentBid}
-        lotClosed={lotClosed}
-        winner={winner}
-        user={user}
-      />
+      {!lotClosed && <StatusBanner status={status} currentBid={currentBid} />}
 
-      {showMyBid && (
+      {myBid !== null && !lotClosed && (
         <MyBid myBid={myBid} status={status} />
       )}
 
-      {showForm && (
+      {!lotClosed && (
         <BidForm
           minNext={minNext}
-          onPlace={handlePlace}
-          disabled={lotClosed}
+          onPlace={placeBid}
+          disabled={false}
           user={user}
           onLoginPrompt={onLoginPrompt}
           bidsCount={bids.length}
@@ -236,22 +319,14 @@ export default function BidRail({ auction }) {
       )}
 
       {lotClosed && (
-        <div className="settlement-info" style={{ padding: '24px 20px', border: '1px solid var(--line-strong)', borderRadius: 'var(--r-sm)', background: 'rgba(0,0,0,0.2)', textAlign: 'center', marginTop: '16px' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', color: 'var(--txt)', fontWeight: 600 }}>Bidding Closed</h3>
-          {bids.length > 0 ? (
-            <p style={{ fontSize: '13px', lineHeight: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
-              <strong>{bids[0].userName || bids[0].name}</strong> has won the bid with <strong>{fmt(bids[0].amount)}</strong>.
-            </p>
-          ) : (
-            <p style={{ fontSize: '13px', lineHeight: '1.6', color: 'var(--txt-mute)', margin: '0 0 16px 0' }}>
-              No bids were placed on this lot.
-            </p>
-          )}
-          <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--gold-bright)', borderTop: '1px solid var(--line)', paddingTop: '12px', fontWeight: 500 }}>
-            Next bidding starts at 6:00 PM IST. Log back in then for an exciting new drop!
-          </div>
-        </div>
+        <ClosedBlob
+          lot={lot}
+          bids={bids}
+          user={user}
+          winner={winner}
+          myRank={myRank}
+          onPayNow={onPayNow}
+        />
       )}
 
       <Feed bids={bids} />

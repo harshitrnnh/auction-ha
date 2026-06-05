@@ -10,9 +10,11 @@ import Profile from './pages/Profile.jsx';
 import Orders from './pages/Orders.jsx';
 import Addresses from './pages/Addresses.jsx';
 import Lots from './pages/Lots.jsx';
+import PaymentPage from './pages/PaymentPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
 import './index.css';
 
-const GOOGLE_CLIENT_ID = "447129401369-5a78d2mdcmbe5mckdiapovcg8pffdtgu.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "933530419477-j18kgi9u914anhe3j8jf1chgfrva2rkr.apps.googleusercontent.com";
 
 createRoot(document.getElementById('root')).render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
@@ -27,6 +29,8 @@ createRoot(document.getElementById('root')).render(
             <Route path="/profile" element={<Profile />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/addresses" element={<Addresses />} />
+            <Route path="/pay" element={<PaymentPage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

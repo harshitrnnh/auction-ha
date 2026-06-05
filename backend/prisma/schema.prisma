@@ -87,6 +87,7 @@ model Order {
   printedAt         DateTime?
   shippedAt         DateTime?
   deliveredAt       DateTime?
+  notes             String?
   createdAt         DateTime  @default(now())
 }
 
