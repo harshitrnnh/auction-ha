@@ -5,7 +5,12 @@ export function getArtworkUrl(lot, apiBaseUrl = '') {
 
   const raw = lot.artworkUrl;
   if (raw && raw !== 'null' && raw !== 'undefined') {
-    // Already an external URL (GCS, CDN) — use directly
+    // GCS URL — proxy through backend to avoid CORS/403
+    if (/^https?:\/\/storage\.googleapis\.com\//.test(raw)) {
+      const filename = raw.split('/').pop();
+      if (filename) return `${apiBaseUrl}/api/artwork/${filename}`;
+    }
+    // Already an external URL (CDN) — use directly
     if (/^https?:\/\/(?!localhost|127\.0\.0\.1)/.test(raw)) return raw;
     // Already a proxied /api/artwork/ path — return as-is (idempotent)
     if (raw.includes('/api/artwork/')) return raw.startsWith('http') ? raw : `${apiBaseUrl}${raw}`;
