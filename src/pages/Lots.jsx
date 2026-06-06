@@ -121,7 +121,7 @@ export default function Lots() {
   const [liveBids, setLiveBids] = useState(0);
   const [watching, setWatching] = useState(0);
   const [bump, setBump] = useState(false);
-  const [lotClosed, setLotClosed] = useState(checkBiddingClosed);
+  const [lotClosed, setLotClosed] = useState(true);
   const myBidRef = useRef(null);
 
   /* real past lots from API */
@@ -225,7 +225,9 @@ export default function Lots() {
   const [peekIdx, setPeekIdx] = useState(null);
 
   const ARCHIVE = useMemo(() => {
-    const lots = apiLot ? realPastLots.filter((l) => l.id !== apiLot.id) : realPastLots;
+    // Only exclude the live lot from the archive when it's actively being auctioned,
+    // to avoid it appearing in both the Hero and the grid. Closed lots belong in the archive.
+    const lots = (apiLot?.status === 'active') ? realPastLots.filter((l) => l.id !== apiLot.id) : realPastLots;
     return lots.map((l) => myLotIds.has(l.id) ? { ...l, owned: true } : l);
   }, [realPastLots, apiLot, myLotIds]);
 
