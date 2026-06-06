@@ -186,6 +186,13 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 
     res.json({ ok: true, orderId: order.id, orderNumber });
   } catch (err) {
+    // P2002 = unique constraint: webhook beat us to creating the order — return it as success
+    if (err.code === 'P2002') {
+      try {
+        const o = await prisma.order.findFirst({ where: { razorpayOrderId } });
+        if (o) return res.json({ ok: true, orderId: o.id, orderNumber: o.orderNumber });
+      } catch { /* fall through */ }
+    }
     console.error('[Payment] verify error:', err);
     res.status(500).json({ error: 'Payment verification failed' });
   }
