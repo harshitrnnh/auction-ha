@@ -126,8 +126,12 @@ export default function App() {
   useEffect(() => {
     if (!lot) return;
     const socket = API
-      ? socketIO(API, { path: '/socket.io' })
-      : socketIO({ path: '/socket.io' });
+      ? socketIO(API, { path: '/socket.io', transports: ['websocket', 'polling'] })
+      : socketIO({ path: '/socket.io', transports: ['websocket', 'polling'] });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] connection error:', err.message);
+    });
 
     socket.emit('join:lot', lot.id);
 
