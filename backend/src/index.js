@@ -157,7 +157,7 @@ app.post('/api/razorpay-webhook', express.raw({ type: 'application/json' }), asy
     const [, order] = await prisma.$transaction([
       prisma.lot.update({
         where: { id: lotId },
-        data: { paymentStatus: 'paid', winnerId: userId },
+        data: { paymentStatus: 'paid', winnerId: userId, soldPrice: amount },
       }),
       prisma.order.create({
         data: {

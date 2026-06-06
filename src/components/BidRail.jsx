@@ -258,11 +258,11 @@ export default function BidRail({ auction }) {
     <aside className="bidrail">
       <div className="lot-head">
         <div className="lot-toprow">
-          <span className="lot-kicker">Single edition · 1 of 1</span>
+          <span className="lot-kicker">Drop #{lot?.lotNumber} · Today's auction</span>
           <span className="watching"><span className="dot" /> {watching} watching</span>
         </div>
         <h1 className="lot-title">{lot?.title ?? 'Loading…'}</h1>
-        <div className="lot-artist">{lot?.artist ?? ''}</div>
+        <div className="lot-edition">Unique piece · 1 of 1 · never reprinted</div>
         <p className="lot-desc">{lot?.description ?? ''}</p>
         {lot?.artworkHeadline && (
           <div className="lot-news-banner" style={{

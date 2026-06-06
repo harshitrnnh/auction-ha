@@ -43,6 +43,7 @@ model Lot {
   currentPayeeId  String?
   payeeExpiresAt  DateTime?
   paymentStatus   String?   // 'pending_1st', 'pending_2nd', 'pending_3rd', 'paid', 'expired'
+  soldPrice       Int?      // final paid amount in rupees (set when paymentStatus = 'paid')
   artworkUrl      String?
   artworkHeadline String?
   artworkPrompt   String?

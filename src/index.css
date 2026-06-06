@@ -342,7 +342,8 @@ input { font-family: inherit; }
 .watching { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt-dim); white-space: nowrap; }
 .watching .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--win); box-shadow: 0 0 8px var(--win); }
 .lot-title { font-family: var(--font-display); font-size: 22px; line-height: 1.12; font-weight: 600; margin: 0 0 5px; letter-spacing: -0.01em; }
-.lot-artist { font-size: 12px; color: var(--txt-dim); margin-bottom: 11px; }
+.lot-artist { font-size: 12px; color: var(--txt-dim); margin-bottom: 6px; }
+.lot-edition { font-size: 11px; color: var(--txt-mute); letter-spacing: 0.04em; margin-bottom: 11px; }
 .lot-desc { font-size: 12.5px; line-height: 1.55; color: var(--txt-dim); text-wrap: pretty; }
 .lot-meta { display: flex; gap: 16px; margin-top: 14px; }
 .lot-meta .m { display: flex; flex-direction: column; gap: 2px; }

@@ -1,4 +1,4 @@
-export const fmt = (n) => '$' + Math.round(n).toLocaleString('en-US');
+export const fmt = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 export function getArtworkUrl(lot, apiBaseUrl = '') {
   if (!lot) return null;

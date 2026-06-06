@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
+import { MIN_INCREMENT } from '../constants.js';
 
 const router = Router();
-const MIN_INCREMENT = 1;
 
 function stringHue(str) {
   let h = 0;

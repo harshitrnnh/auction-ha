@@ -6,6 +6,7 @@ import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
 import { closeActiveLot, checkPaymentExpirations } from '../scheduler.js';
 import { notifyVendor, sendInvoiceEmail } from '../vendor/qikink.js';
+import { MIN_INCREMENT } from '../constants.js';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
@@ -77,6 +78,7 @@ router.get('/current', optionalAuth, async (req, res) => {
   res.json({
     lot: { ...lot, totalLots },
     currentBid,
+    minInc: MIN_INCREMENT,
     bidCount: bids.length,
     myBid,
     myStatus,
@@ -163,7 +165,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
     const [, order] = await prisma.$transaction([
       prisma.lot.update({
         where: { id: lot.id },
-        data: { paymentStatus: 'paid', winnerId: req.userId },
+        data: { paymentStatus: 'paid', winnerId: req.userId, soldPrice: amount },
       }),
       prisma.order.create({
         data: {
@@ -209,6 +211,9 @@ router.get('/past', async (req, res) => {
         orderBy: { amount: 'desc' },
         take: 1,
         include: { user: { select: { name: true } } },
+      },
+      order: {
+        select: { amount: true, user: { select: { name: true } } },
       },
     },
   });
@@ -272,7 +277,7 @@ router.post('/dev-simulate-payment', requireAuth, async (req, res) => {
     const [, order] = await prisma.$transaction([
       prisma.lot.update({
         where: { id: lot.id },
-        data: { paymentStatus: 'paid', winnerId: req.userId },
+        data: { paymentStatus: 'paid', winnerId: req.userId, soldPrice: amount },
       }),
       prisma.order.create({
         data: {

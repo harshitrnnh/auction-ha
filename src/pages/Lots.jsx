@@ -4,19 +4,21 @@ import { io as socketIO } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
 import { Hero, Toolbar, Grid } from '../components/lots/LotsGrid';
 import PeekModal from '../components/lots/PeekModal';
-import { buildArchive, LIVE_LOT, getArtworkUrl } from '../data/lotsData';
+import { LIVE_LOT, getArtworkUrl } from '../data/lotsData';
 import '../lots.css';
 
 const API = import.meta.env.VITE_API_URL ?? '';
-
-/* stable mock archive — fills in below real lots */
-const MOCK_ARCHIVE = buildArchive();
-const OWNED_COUNT = MOCK_ARCHIVE.filter((l) => l.owned).length;
 
 /* Shape a real API lot into the archive card format */
 function shapeApiLot(lot) {
   const topBid = lot.bids?.[0];
   const artworkUrl = getArtworkUrl(lot, API);
+  // lot.order is the confirmed payment; winner is whoever actually paid
+  const winner = lot.order?.user
+    ? { name: lot.order.user.name ?? 'Anonymous', hue: 268 }
+    : topBid?.user ? { name: topBid.user.name ?? 'Anonymous', hue: 268 } : null;
+  const soldPrice = lot.soldPrice ?? (lot.order ? Math.round(lot.order.amount / 100) : null) ?? topBid?.amount ?? 0;
+  const isSold = lot.paymentStatus === 'paid';
   return {
     id: lot.id,
     lotNo: String(lot.lotNumber).padStart(3, '0'),
@@ -24,11 +26,11 @@ function shapeApiLot(lot) {
     artist: lot.artist,
     desc: lot.description,
     size: lot.size,
-    status: topBid ? 'sold' : 'unsold',
+    status: isSold ? 'sold' : 'unsold',
     startingBid: lot.startingBid,
-    soldPrice: topBid?.amount ?? 0,
+    soldPrice,
     bids: lot.bids?.length ?? 0,
-    winner: topBid?.user ? { name: topBid.user.name ?? 'Anonymous', hue: 268 } : null,
+    winner,
     artworkUrl,
     hue: (lot.lotNumber * 67 + 180) % 360,
     seed: lot.lotNumber * 37,
@@ -124,6 +126,8 @@ export default function Lots() {
 
   /* real past lots from API */
   const [realPastLots, setRealPastLots] = useState([]);
+  /* lotIds the logged-in user has paid for */
+  const [myLotIds, setMyLotIds] = useState(new Set());
 
   const flash = () => { setBump(true); setTimeout(() => setBump(false), 520); };
 
@@ -153,6 +157,18 @@ export default function Lots() {
       })
       .catch(() => null);
   }, []);
+
+  /* fetch user's orders to know which lots they own */
+  useEffect(() => {
+    if (!token) { setMyLotIds(new Set()); return; }
+    fetch(`${API}/api/orders`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.orders) return;
+        setMyLotIds(new Set(data.orders.map((o) => o.lotId)));
+      })
+      .catch(() => null);
+  }, [token]);
 
   /* watching count — simulated from bid activity, same approach as App.jsx */
   useEffect(() => {
@@ -185,7 +201,7 @@ export default function Lots() {
     return () => socket.disconnect();
   }, [apiLot?.id]);
 
-  /* merge real API data with mock visual data (hue/seed/shots for ArtBloom) */
+  /* merge real API data */
   const heroLot = apiLot ? {
     ...LIVE_LOT,
     title: apiLot.title ?? LIVE_LOT.title,
@@ -193,7 +209,8 @@ export default function Lots() {
     size: apiLot.size ?? LIVE_LOT.size,
     startingBid: apiLot.startingBid ?? LIVE_LOT.startingBid,
     lotNo: String(apiLot.lotNumber ?? LIVE_LOT.lotNo).padStart(3, '0'),
-    totalLots: apiLot.totalLots ?? apiLot.lotNumber ?? 20,
+    lotNumber: apiLot.lotNumber,
+    artworkUrl: apiLot.artworkUrl,
     watching,
   } : { ...LIVE_LOT, watching };
 
@@ -202,34 +219,21 @@ export default function Lots() {
   /* filters */
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('recent');
-  const [priceMin, setPriceMin] = useState('');
-  const [priceMax, setPriceMax] = useState('');
   const [ownedOnly, setOwnedOnly] = useState(false);
 
   /* quick-peek state */
   const [peekIdx, setPeekIdx] = useState(null);
 
-  /* merge real lots (newest first) + mock filler, deduplicated */
   const ARCHIVE = useMemo(() => {
-    const realIds = new Set(realPastLots.map((l) => l.id));
-    const mocks = MOCK_ARCHIVE.filter((l) => !realIds.has(l.id));
-    let combined = [...realPastLots, ...mocks];
-    if (apiLot) {
-      combined = combined.filter((l) => l.id !== apiLot.id && String(l.lotNo) !== String(apiLot.lotNumber).padStart(3, '0'));
-    }
-    return combined;
-  }, [realPastLots, apiLot]);
+    const lots = apiLot ? realPastLots.filter((l) => l.id !== apiLot.id) : realPastLots;
+    return lots.map((l) => myLotIds.has(l.id) ? { ...l, owned: true } : l);
+  }, [realPastLots, apiLot, myLotIds]);
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
-    const lo = priceMin ? Number(priceMin) : -Infinity;
-    const hi = priceMax ? Number(priceMax) : Infinity;
     let list = ARCHIVE.filter((l) => {
       if (ownedOnly && !l.owned) return false;
       if (qq && !l.title.toLowerCase().includes(qq) && !l.lotNo.toLowerCase().includes(qq)) return false;
-      const p = l.soldPrice || 0;
-      if (l.status === 'sold' && (p < lo || p > hi)) return false;
-      if (l.status === 'unsold' && (lo > 0 || hi < Infinity)) return false;
       return true;
     });
     const by = {
@@ -239,7 +243,7 @@ export default function Lots() {
       'bids-desc': (a, b) => b.bids - a.bids,
     }[sort];
     return by ? [...list].sort(by) : list;
-  }, [ARCHIVE, q, sort, priceMin, priceMax, ownedOnly]);
+  }, [ARCHIVE, q, sort, ownedOnly]);
 
   const liveLotForPeek = { ...heroLot, currentBid: displayBid, bids: liveBids };
 
@@ -254,9 +258,7 @@ export default function Lots() {
     ? liveLotForPeek
     : (typeof peekIdx === 'number' && peekIdx >= 0 ? filtered[peekIdx] : null);
 
-  const soldCount = realPastLots.length > 0
-    ? realPastLots.filter((l) => l.status === 'sold').length
-    : MOCK_ARCHIVE.filter((l) => l.status === 'sold').length;
+  const soldCount = ARCHIVE.filter((l) => l.status === 'sold').length;
   const loggedIn = !!user;
   const userInitial = user?.name?.slice(0, 1)?.toUpperCase() ?? user?.email?.slice(0, 1)?.toUpperCase() ?? '?';
 
@@ -292,13 +294,22 @@ export default function Lots() {
       </header>
 
       <div className="lots-wrap">
+        {!lotClosed && (
+          <Hero
+            lot={heroLot}
+            currentBid={displayBid}
+            bids={liveBids}
+            bump={bump}
+            lotClosed={lotClosed}
+            getCountdownTarget={getCountdownTarget}
+          />
+        )}
 
         <div className="archive-head">
           <div>
             <h2 className="archive-title">The Archive</h2>
             <div className="archive-sub">
-              Every Oxide lot that&apos;s come before — {soldCount} sold
-              {loggedIn && `, ${OWNED_COUNT} in your gallery`}.
+              Every Oxide lot that&apos;s come before — {soldCount} sold.
             </div>
           </div>
         </div>
@@ -306,10 +317,7 @@ export default function Lots() {
         <Toolbar
           q={q} setQ={setQ}
           sort={sort} setSort={setSort}
-          priceMin={priceMin} priceMax={priceMax}
-          setPriceMin={setPriceMin} setPriceMax={setPriceMax}
           ownedOnly={ownedOnly} setOwnedOnly={setOwnedOnly}
-          ownedCount={OWNED_COUNT}
           userLoggedIn={loggedIn}
         />
 

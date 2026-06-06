@@ -71,6 +71,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [winner, setWinner] = useState(null);
   const [watching, setWatching] = useState(0);
+  const [minInc, setMinInc] = useState(1);
 
   const myBidRef = useRef(myBid);
   myBidRef.current = myBid;
@@ -98,6 +99,7 @@ export default function App() {
       setLot(data.lot);
       setBids(data.bids);
       setCurrentBid(data.currentBid);
+      setMinInc(data.minInc ?? 1);
       setMyBid(data.myBid ?? null);
       setStatus(data.myStatus ?? 'none');
 
@@ -182,8 +184,7 @@ export default function App() {
   };
 
   const urgent = cd.total < 300 && cd.total > 0 && !lotClosed;
-  const minInc = 50;
-  const startingBid = lot?.startingBid ?? 100;
+  const startingBid = lot?.startingBid ?? 1;
 
   const myRank = (user && lot?.status === 'closed') ? getMyRank(bids, user.id) : null;
 
@@ -236,7 +237,7 @@ export default function App() {
             {lot && (
               <div className="brand-lot-wrap">
                 <span className="brand-lot num">
-                  Lot {String(lot.lotNumber).padStart(3, '0')} / {String(lot.totalLots || lot.lotNumber).padStart(3, '0')}
+                  Drop #{lot.lotNumber}
                 </span>
                 <Link to="/lots" className="brand-view-all">View all lots →</Link>
               </div>

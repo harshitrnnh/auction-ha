@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { fmt, getArtworkUrl } from '../../data/lotsData';
-import ArtBloom from './ArtBloom';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
@@ -18,25 +17,20 @@ function useCountdown(getTarget) {
   return { h: Math.floor(total / 3600), m: Math.floor(total % 3600 / 60), s: total % 60, total };
 }
 
-export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarget, onPeek }) {
+export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarget }) {
   const cd = useCountdown(() => getCountdownTarget(lotClosed));
+  const artUrl = getArtworkUrl(lot, API);
 
   return (
     <section className="lots-hero">
       <div className="hero-spot" />
       <div className="hero-body">
         <div className="live-row">
-          {lotClosed
-            ? <span className="hero-lotno" style={{ color: 'var(--txt-mute)' }}>Auction closed for today</span>
-            : <>
-                <span className="live-badge"><span className="dot" /> Live now</span>
-                <span className="hero-lotno">
-                  Lot {lot.lotNo} / {String(lot.totalLots || lot.lotNo).padStart(3, '0')} · Single edition 1 of 1
-                </span>
-              </>}
+          <span className="live-badge"><span className="dot" /> Live now</span>
+          <span className="hero-lotno">Drop #{parseInt(lot.lotNo, 10)}</span>
         </div>
         <h1 className="hero-title">{lot.title}</h1>
-        <p className="hero-artist">{lot.artist}</p>
+        <p className="hero-edition">Unique piece · 1 of 1 · never reprinted</p>
 
         <div className="hero-stats">
           <div className="hstat">
@@ -51,8 +45,8 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
             <div className="v num">{bids}</div>
           </div>
           <div className="hstat">
-            <div className="k">{lotClosed ? 'Next auction in' : 'Ends in'}</div>
-            <div className={'v cd num' + (lotClosed ? ' cd-closed' : '')}>
+            <div className="k">Ends in</div>
+            <div className="v cd num">
               {cd.h > 0 && <><span>{pad(cd.h)}</span><span className="u">h</span></>}
               <span>{pad(cd.m)}</span><span className="u">m</span>
               <span>{pad(cd.s)}</span><span className="u">s</span>
@@ -62,12 +56,16 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
 
         <div className="hero-cta">
           <a className="btn-primary" href="/">Enter live room <span aria-hidden="true">→</span></a>
-          <button className="btn-ghost" onClick={() => onPeek(lot)}>Quick peek</button>
         </div>
       </div>
 
       <div className="hero-art">
-        <ArtBloom lot={lot} />
+        <div className="hero-tshirt-wrap">
+          <img src="/tshirt_black_front_png.png" alt="" className="hero-tshirt-base" />
+          {artUrl && (
+            <img src={artUrl} alt={lot.title} className="hero-chest-art" />
+          )}
+        </div>
         <span className="hero-watching"><span className="dot" /> {lot.watching} watching</span>
       </div>
     </section>
@@ -85,9 +83,7 @@ const SORTS = [
 export function Toolbar({
   q, setQ,
   sort, setSort,
-  priceMin, priceMax, setPriceMin, setPriceMax,
   ownedOnly, setOwnedOnly,
-  ownedCount,
   userLoggedIn,
 }) {
   return (
@@ -106,27 +102,6 @@ export function Toolbar({
         )}
       </label>
 
-      <div className="tool-field price-field">
-        <span className="lbl">Price</span>
-        <input
-          className="num"
-          inputMode="numeric"
-          value={priceMin}
-          placeholder="Min"
-          onChange={(e) => setPriceMin(e.target.value.replace(/[^0-9]/g, ''))}
-          aria-label="Minimum price"
-        />
-        <span className="dash">–</span>
-        <input
-          className="num"
-          inputMode="numeric"
-          value={priceMax}
-          placeholder="Max"
-          onChange={(e) => setPriceMax(e.target.value.replace(/[^0-9]/g, ''))}
-          aria-label="Maximum price"
-        />
-      </div>
-
       <div className="tool-field">
         <span className="lbl">Sort</span>
         <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -142,7 +117,6 @@ export function Toolbar({
           {ownedOnly && <span className="shine" />}
           <span className="spark">✦</span>
           Your gallery
-          <span className="count num">{ownedCount}</span>
         </button>
       )}
     </div>
