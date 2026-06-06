@@ -56,6 +56,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5177',
   'http://localhost:5190',
   'https://oxide.chemicalfarmers.com',
+  'https://oxide.chemicalfarmers.in',
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
 
@@ -65,7 +66,8 @@ const isOriginAllowed = (origin) => {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   try {
     const url = new URL(origin);
-    if (url.hostname === 'chemicalfarmers.com' || url.hostname.endsWith('.chemicalfarmers.com')) {
+    if (url.hostname === 'chemicalfarmers.com' || url.hostname.endsWith('.chemicalfarmers.com') ||
+        url.hostname === 'chemicalfarmers.in' || url.hostname.endsWith('.chemicalfarmers.in')) {
       return true;
     }
   } catch { /* invalid URL */ }
