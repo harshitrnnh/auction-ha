@@ -44,7 +44,7 @@ function Tee3DViewer({ lot }) {
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     // Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
