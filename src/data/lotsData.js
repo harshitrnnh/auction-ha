@@ -2,29 +2,28 @@ export const fmt = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 export function getArtworkUrl(lot, apiBaseUrl = '') {
   if (!lot) return null;
-  
-  // If we have a valid, non-null artworkUrl, use its filename via proxy
-  if (lot.artworkUrl && lot.artworkUrl !== 'null' && lot.artworkUrl !== 'undefined') {
-    const filename = lot.artworkUrl.split('/').pop();
-    if (filename) {
-      return `${apiBaseUrl}/api/artwork/${filename}`;
-    }
+
+  const raw = lot.artworkUrl;
+  if (raw && raw !== 'null' && raw !== 'undefined') {
+    // Already an external URL (GCS, CDN) — use directly
+    if (/^https?:\/\/(?!localhost|127\.0\.0\.1)/.test(raw)) return raw;
+    // Already a proxied /api/artwork/ path — return as-is (idempotent)
+    if (raw.includes('/api/artwork/')) return raw.startsWith('http') ? raw : `${apiBaseUrl}${raw}`;
+    // Local path or legacy URL — extract filename and proxy
+    const filename = raw.split('/').pop();
+    if (filename) return `${apiBaseUrl}/api/artwork/${filename}`;
   }
 
-  // Otherwise, derive from lot number / lotNo
+  // Derive from lot number / lotNo
   let num = null;
   if (lot.lotNumber != null) {
     num = parseInt(lot.lotNumber, 10);
   } else if (lot.lotNo != null) {
     const match = String(lot.lotNo).match(/\d+/);
-    if (match) {
-      num = parseInt(match[0], 10);
-    }
+    if (match) num = parseInt(match[0], 10);
   }
 
-  if (num != null && !isNaN(num)) {
-    return `${apiBaseUrl}/api/artwork/lot-${num}.png`;
-  }
+  if (num != null && !isNaN(num)) return `${apiBaseUrl}/api/artwork/lot-${num}.png`;
 
   return null;
 }

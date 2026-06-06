@@ -4,7 +4,7 @@ import { io as socketIO } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
 import { Hero, Toolbar, Grid } from '../components/lots/LotsGrid';
 import PeekModal from '../components/lots/PeekModal';
-import { LIVE_LOT, getArtworkUrl } from '../data/lotsData';
+import { LIVE_LOT } from '../data/lotsData';
 import '../lots.css';
 
 const API = import.meta.env.VITE_API_URL ?? '';
@@ -12,7 +12,6 @@ const API = import.meta.env.VITE_API_URL ?? '';
 /* Shape a real API lot into the archive card format */
 function shapeApiLot(lot) {
   const topBid = lot.bids?.[0];
-  const artworkUrl = getArtworkUrl(lot, API);
   // lot.order is the confirmed payment; winner is whoever actually paid
   const winner = lot.order?.user
     ? { name: lot.order.user.name ?? 'Anonymous', hue: 268 }
@@ -22,6 +21,7 @@ function shapeApiLot(lot) {
   return {
     id: lot.id,
     lotNo: String(lot.lotNumber).padStart(3, '0'),
+    lotNumber: lot.lotNumber,
     title: lot.title,
     artist: lot.artist,
     desc: lot.description,
@@ -31,7 +31,7 @@ function shapeApiLot(lot) {
     soldPrice,
     bids: lot.bids?.length ?? 0,
     winner,
-    artworkUrl,
+    artworkUrl: lot.artworkUrl ?? null,
     hue: (lot.lotNumber * 67 + 180) % 360,
     seed: lot.lotNumber * 37,
     shots: 3,
