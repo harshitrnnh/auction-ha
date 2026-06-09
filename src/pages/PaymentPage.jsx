@@ -205,6 +205,7 @@ export default function PaymentPage() {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Failed to create order');
 
+      const selectedAddress = addresses.find((a) => a.id === selectedAddr);
       const rzp = new window.Razorpay({
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         order_id: data.razorpayOrderId,
@@ -212,6 +213,11 @@ export default function PaymentPage() {
         currency: data.currency,
         name: 'Oxide Atelier',
         description: data.lotTitle,
+        prefill: {
+          name: user?.name ?? '',
+          email: user?.email ?? '',
+          contact: selectedAddress?.phone ?? user?.phone ?? '',
+        },
         theme: { color: '#e6c27e' },
         handler: async (response) => {
           try {
