@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { io as socketIO } from 'socket.io-client';
+import SEO from '../components/SEO';
 import { useAuth } from '../contexts/AuthContext';
 import { Hero, Toolbar, Grid } from '../components/lots/LotsGrid';
 import PeekModal from '../components/lots/PeekModal';
@@ -266,6 +267,7 @@ export default function Lots() {
 
   return (
     <div className="lots-app">
+      <SEO page="lots" />
       <LotsStarfield />
 
       <header className="lots-topbar">

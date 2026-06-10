@@ -396,8 +396,16 @@ export default function PaymentPage() {
                 </div>
 
                 {payError && (
-                  <div className="auth-error" style={{ margin: '12px 20px', justifyContent: 'center' }}>
-                    <span>⚠</span> {payError}
+                  <div style={{ margin: '12px 20px' }}>
+                    <div className="auth-error" style={{ justifyContent: 'center' }}>
+                      <span>⚠</span> {payError}
+                    </div>
+                    <p style={{ fontSize: 12, color: '#7d7a8c', textAlign: 'center', margin: '8px 0 0' }}>
+                      Still having trouble?{' '}
+                      <a href="mailto:support-oxide@chemicalfarmers.com" style={{ color: '#b9b6c4', textDecoration: 'underline' }}>
+                        Email support
+                      </a>
+                    </p>
                   </div>
                 )}
 

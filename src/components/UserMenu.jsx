@@ -77,6 +77,17 @@ export default function UserMenu({ user, logout }) {
 
           <div className="user-dropdown-divider" />
 
+          <a
+            className="user-dropdown-item"
+            href="mailto:support-oxide@chemicalfarmers.com"
+            onClick={() => setOpen(false)}
+          >
+            <span className="user-dropdown-icon">✉</span>
+            Support
+          </a>
+
+          <div className="user-dropdown-divider" />
+
           <button
             className="user-dropdown-item user-dropdown-signout"
             onClick={() => { logout(); setOpen(false); }}

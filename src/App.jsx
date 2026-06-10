@@ -6,6 +6,7 @@ import Starfield from './components/Starfield';
 import Stage from './components/Stage';
 import BidRail from './components/BidRail';
 import UserMenu from './components/UserMenu';
+import SEO from './components/SEO';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
@@ -227,6 +228,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <SEO lot={lot} />
       <Starfield />
 
       <header className="topbar">

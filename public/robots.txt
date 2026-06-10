@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /lots
+Disallow: /admin
+Disallow: /pay
+Disallow: /orders
+Disallow: /addresses
+Disallow: /profile
+
+Sitemap: https://oxide.chemicalfarmers.com/sitemap.xml

@@ -16,6 +16,7 @@ import bidRoutes from './routes/bids.js';
 import addressRoutes from './routes/addresses.js';
 import orderRoutes from './routes/orders.js';
 import vendorRoutes from './routes/vendor.js';
+import ogRoutes from './routes/og.js';
 import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
 import { notifyVendor, sendInvoiceEmail, sendShippingEmail } from './vendor/qikink.js';
 
@@ -198,6 +199,7 @@ app.use('/api/lots', bidRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/vendor', vendorRoutes);
+app.use('/api/og', cors({ origin: '*' }), ogRoutes);
 
 app.post('/api/admin/rotate', async (_req, res) => {
   await closeActiveLot();

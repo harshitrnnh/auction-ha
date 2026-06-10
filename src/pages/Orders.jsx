@@ -143,6 +143,15 @@ export default function Orders() {
             ))}
           </div>
         )}
+
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+          <p style={{ fontSize: 12, color: '#7d7a8c', margin: 0 }}>
+            Issue with your order?{' '}
+            <a href="mailto:support-oxide@chemicalfarmers.com" style={{ color: '#b9b6c4', textDecoration: 'underline' }}>
+              support-oxide@chemicalfarmers.com
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
