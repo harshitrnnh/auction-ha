@@ -372,18 +372,20 @@ export default function Stage({ modelCount = 3, lot }) {
 
         new THREE.ImageLoader().load('/logo.png', (img) => {
           const c = document.createElement('canvas');
-          c.width = c.height = 512;
+          c.width = c.height = 1024;
           const ctx = c.getContext('2d');
-          ctx.drawImage(img, 126, 70, 260, 260);
-          ctx.font = 'bold 24px monospace';
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 252, 140, 520, 520);
+          ctx.font = 'bold 48px monospace';
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
           const lotNo   = lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001';
           const lotDate = lot?.startsAt
             ? new Date(lot.startsAt).toLocaleDateString('en-GB')
             : new Date().toLocaleDateString('en-GB');
-          ctx.fillText(`LOT NO. ${lotNo}`, 256, 380);
-          ctx.fillText(`DATE- ${lotDate}`,  256, 420);
+          ctx.fillText(`LOT NO. ${lotNo}`, 512, 760);
+          ctx.fillText(`DATE- ${lotDate}`,  512, 840);
           const logoTex = new THREE.CanvasTexture(c);
           logoTex.colorSpace = THREE.SRGBColorSpace;
           logoTex.anisotropy = maxAniso;
@@ -414,20 +416,25 @@ export default function Stage({ modelCount = 3, lot }) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        const cw = img.naturalWidth;
-        const ch = img.naturalHeight;
+        const targetWidth = 2048;
+        const scale = targetWidth / img.naturalWidth;
+        const cw   = targetWidth;
+        const ch   = Math.round(img.naturalHeight * scale);
         const c   = document.createElement('canvas');
         c.width   = cw;
         c.height  = ch;
         const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, cw, ch);
 
         const place = () => {
           const tex    = new THREE.CanvasTexture(c);
           tex.colorSpace      = THREE.SRGBColorSpace;
           tex.anisotropy      = maxAniso;
-          tex.minFilter       = THREE.LinearFilter;
-          tex.generateMipmaps = false;
+          tex.minFilter       = THREE.LinearMipmapLinearFilter;
+          tex.magFilter       = THREE.LinearFilter;
+          tex.generateMipmaps = true;
           const planeH = SLIDE_H;
           const planeW = planeH * (cw / ch); // correct aspect, no stretching
           const mesh   = new THREE.Mesh(
