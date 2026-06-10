@@ -1,401 +1,671 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
 import { getArtworkUrl } from '../data/lotsData';
 
-const clampZoom = (z) => Math.max(0.6, Math.min(2.2, z));
+const RING_R    = 2.0;   // carousel ring radius
+const CAM_Z     = 3.8;   // camera Z (front item at Z=RING_R, camera 1.8 units behind)
+const CAM_Z_MIN = 2.4;   // closest zoom on slide 0
+const CAM_Z_MAX = 10.0;  // furthest zoom on slide 0
+const SLIDE_H   = 1.0;   // height of every slide in world units
 
-function Tee3DViewer({ lot }) {
-  const containerRef = useRef(null);
+// Thumbnail rail carousel geometry
+const ITEM_W  = 54;
+const ITEM_GAP = 10;
+const STRIDE   = ITEM_W + ITEM_GAP; // 64 px per slot
+
+export default function Stage({ modelCount = 3, lot }) {
+  const mountRef  = useRef(null);
   const canvasRef = useRef(null);
-  const [loading, setLoading] = useState(true);
+  const [view, setView]             = useState(0);
+  const [interacted, setInteracted] = useState(false);
+  const viewRef        = useRef(0);
+  const totalRef       = useRef(0);
+  const camZTarget     = useRef(CAM_Z);
+  const ringAngleRef   = useRef(0);   // current accumulated ring Y rotation
+  const ringTargetRef  = useRef(0);   // target accumulated ring Y rotation
 
-  const API_URL = import.meta.env.VITE_API_URL ?? '';
+  const total = 1 + 2 + modelCount;
+  totalRef.current = total;
+
+  const API_URL    = import.meta.env.VITE_API_URL ?? '';
   const artworkSrc = getArtworkUrl(lot, API_URL);
 
+  // ── Navigation ───────────────────────────────────────────────────────────
+  const goTo = useCallback((n) => {
+    const N       = totalRef.current;
+    const clamped = Math.max(0, Math.min(N - 1, n));
+    viewRef.current = clamped;
+
+    // Target ring angle for this slide, shortest path from current accumulated angle
+    const desired = -clamped * (2 * Math.PI / N);
+    let diff = desired - ringAngleRef.current;
+    diff -= Math.round(diff / (2 * Math.PI)) * (2 * Math.PI); // normalize to (-π, π]
+    ringTargetRef.current = ringAngleRef.current + diff;
+
+    setView(clamped);
+    setInteracted(true);
+    camZTarget.current = CAM_Z;
+  }, []);
+
+  // ── Thumbnail rail carousel ───────────────────────────────────────────────
+  const slides = useMemo(() => [
+    { idx: 0, is3D: true },
+    { idx: 1, label: '2D F' },
+    { idx: 2, label: '2D B' },
+    ...Array.from({ length: modelCount }, (_, i) => ({ idx: i + 3, isModel: true, num: i + 1 })),
+  ], [modelCount]);
+
+  const railOffRef   = useRef(0);
+  const [railOff, setRailOff] = useState(0);
+  const railDragRef  = useRef(null);   // { startX, startOff } while dragging
+  const railMovedRef = useRef(false);  // crossed move threshold in current drag
+  const railAnimRef  = useRef(null);
+
+  // Keep rail in sync when view changes externally (shortest-path animation)
   useEffect(() => {
-    if (!containerRef.current || !canvasRef.current) return;
+    if (railDragRef.current) return;
+    const N      = slides.length;
+    const period = N * STRIDE;
+    const ideal  = view * STRIDE;
+    let diff = ideal - railOffRef.current;
+    diff -= Math.round(diff / period) * period; // shortest path, wraps correctly
+    if (Math.abs(diff) < 1) return;
+    const target = railOffRef.current + diff;
+    cancelAnimationFrame(railAnimRef.current);
+    const tick = () => {
+      const d = target - railOffRef.current;
+      if (Math.abs(d) < 0.3) { railOffRef.current = target; setRailOff(target); return; }
+      railOffRef.current += d * 0.2;
+      setRailOff(railOffRef.current);
+      railAnimRef.current = requestAnimationFrame(tick);
+    };
+    railAnimRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(railAnimRef.current);
+  }, [view, slides.length]);
 
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
+  // Rail drag → snap → goTo
+  useEffect(() => {
+    const N = slides.length;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    const onDown = (e) => {
+      if (!e.target.closest('.rail')) return;
+      cancelAnimationFrame(railAnimRef.current);
+      const x = e.touches ? e.touches[0].clientX : e.clientX;
+      railDragRef.current  = { startX: x, startOff: railOffRef.current };
+      railMovedRef.current = false;
+    };
 
-    const scale = 1.35;
-    const posY = -0.05;
+    const onMove = (e) => {
+      if (!railDragRef.current) return;
+      if (e.cancelable) e.preventDefault();
+      const x  = e.touches ? e.touches[0].clientX : e.clientX;
+      const dx = railDragRef.current.startX - x;
+      if (Math.abs(dx) > 4) railMovedRef.current = true;
+      railOffRef.current = railDragRef.current.startOff + dx;
+      setRailOff(railOffRef.current);
+    };
+
+    const onUp = () => {
+      if (!railDragRef.current) return;
+      const moved = railMovedRef.current;
+      railDragRef.current = null;
+      if (!moved) return;
+      const rawIdx  = Math.round(railOffRef.current / STRIDE);
+      const viewIdx = ((rawIdx % N) + N) % N;
+      const target  = rawIdx * STRIDE;
+      cancelAnimationFrame(railAnimRef.current);
+      const tick = () => {
+        const d = target - railOffRef.current;
+        if (Math.abs(d) < 0.3) {
+          railOffRef.current = target;
+          setRailOff(target);
+          goTo(viewIdx);
+          return;
+        }
+        railOffRef.current += d * 0.22;
+        setRailOff(railOffRef.current);
+        railAnimRef.current = requestAnimationFrame(tick);
+      };
+      railAnimRef.current = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener('mousedown',  onDown);
+    window.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('mousemove',  onMove);
+    window.addEventListener('touchmove',  onMove, { passive: false });
+    window.addEventListener('mouseup',    onUp);
+    window.addEventListener('touchend',   onUp);
+    return () => {
+      window.removeEventListener('mousedown',  onDown);
+      window.removeEventListener('touchstart', onDown);
+      window.removeEventListener('mousemove',  onMove);
+      window.removeEventListener('touchmove',  onMove);
+      window.removeEventListener('mouseup',    onUp);
+      window.removeEventListener('touchend',   onUp);
+      cancelAnimationFrame(railAnimRef.current);
+    };
+  }, [slides.length, goTo]);
+
+  // ── Three.js scene ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!mountRef.current || !canvasRef.current) return;
+    const container = mountRef.current;
+    const canvas    = canvasRef.current;
+    const W = container.clientWidth;
+    const H = container.clientHeight;
 
     // Scene
     const scene = new THREE.Scene();
+    const raycaster = new THREE.Raycaster();
+    const mouse2    = new THREE.Vector2();
 
-    // Camera
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10);
-    camera.position.set(0, 0, 0.85);
+    // Camera — fixed position; only Z changes for zoom; ring rotates instead of translating
+    const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 30);
+    camera.position.set(0, 0, CAM_Z);
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
-      antialias: true,
-      alpha: true,
-      preserveDrawingBuffer: true,
-    });
-    renderer.setSize(width, height);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type    = THREE.PCFShadowMap;
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+    // Shift frustum to center on non-bidrail area on desktop (--canvas-shift: -174px)
+    const applyViewOffset = () => {
+      const nw    = container.clientWidth;
+      const nh    = container.clientHeight;
+      const shift = parseInt(getComputedStyle(container).getPropertyValue('--canvas-shift')) || 0;
+      if (shift !== 0) {
+        camera.setViewOffset(nw, nh, -shift, 0, nw, nh);
+      } else {
+        camera.aspect = nw / nh;
+        camera.clearViewOffset();
+      }
+    };
+    applyViewOffset();
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
-    scene.add(ambientLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    const d1 = new THREE.DirectionalLight(0xffffff, 1.5);
+    d1.position.set(2, 4, 3); d1.castShadow = true; scene.add(d1);
+    const d2 = new THREE.DirectionalLight(0xffffff, 0.5);
+    d2.position.set(-2, 1, 2); scene.add(d2);
+    const rim = new THREE.DirectionalLight(0xffffff, 1.25);
+    rim.position.set(0, 3, -5); scene.add(rim);
+    const pt = new THREE.PointLight(0xffffff, 0.3, 10);
+    pt.position.set(0, 1, 1); scene.add(pt);
 
-    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
-    dirLight1.position.set(2, 4, 3);
-    dirLight1.castShadow = true;
-    scene.add(dirLight1);
+    // ── Carousel ring ─────────────────────────────────────────────────────
+    // All slide pods are children of this group; rotating it changes the focused slide.
+    const ringGroup = new THREE.Group();
+    scene.add(ringGroup);
 
-    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
-    dirLight2.position.set(-2, 1, 2);
-    scene.add(dirLight2);
+    const N       = totalRef.current;
+    const allPods = []; // every pod collected here for per-frame camera-facing
 
-    // Rim light / Backlight to outline the dark T-shirt edges
-    const rimLight = new THREE.DirectionalLight(0xffffff, 1.25);
-    rimLight.position.set(0, 3, -5);
-    scene.add(rimLight);
+    // Make a pod on the ring for slide index i.
+    // Pods are NOT pre-rotated; they face the camera via billboarding every frame.
+    const makePod = (i) => {
+      const pod = new THREE.Group();
+      const θ   = (2 * Math.PI / N) * i;
+      pod.position.set(RING_R * Math.sin(θ), 0, RING_R * Math.cos(θ));
+      ringGroup.add(pod);
+      allPods.push(pod);
+      return { pod, θ };
+    };
 
-    const pointLight = new THREE.PointLight(0xffffff, 0.3, 10);
-    pointLight.position.set(0, 1, 1);
-    scene.add(pointLight);
+    // ── SLIDE 0 — 3D shirt inside its own rotation group (child of pod 0) ──
+    const { pod: shirtPod, θ: shirtθ } = makePod(0);
+    const shirtGroup = new THREE.Group();
+    shirtPod.add(shirtGroup);
 
-    // Controls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.minDistance = 0.4;
-    controls.maxDistance = 1.6;
-    controls.enablePan = false;
-    
-    // Restrict vertical rotation to keep T-shirt looking neat
-    controls.minPolarAngle = Math.PI / 3;
-    controls.maxPolarAngle = Math.PI * 2 / 3;
+    // ── Drag-to-rotate: rotates shirtGroup/tilt flat pod locally, or rotates ring if empty space ──
+    const drag   = { active: false, x: 0, y: 0 };
+    const rotVel = { x: 0, y: 0 };
+    let initialPinchDist = null;
+    let initialCamZ = null;
+    let clickedOnPod = false;
 
-    let model;
-    let animFrame;
-
-    // Load Model
-    const loader = new GLTFLoader();
-    loader.load(
-      '/shirt.glb',
-      (gltf) => {
-        model = gltf.scene;
-        scene.add(model);
-
-        model.position.set(0, posY, 0);
-        model.scale.set(scale, scale, scale);
-
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-
-            // Matte black material
-            child.material = new THREE.MeshStandardMaterial({
-              color: 0x121212,
-              roughness: 0.85,
-              metalness: 0.1,
-            });
-
-            // Create a temporary un-transformed mesh to project decals without warp skewing
-            const tempMesh = new THREE.Mesh(child.geometry, child.material);
-            tempMesh.updateMatrixWorld(true);
-
-            // Decal Projector for Generative Art (Front)
-            if (artworkSrc) {
-              const textureLoader = new THREE.TextureLoader();
-              textureLoader.load(
-                artworkSrc,
-                (texture) => {
-                  texture.colorSpace = THREE.SRGBColorSpace;
-
-                  // Chest is at +Z in local space, projecting along -Z (Euler Y = 0)
-                  const decalPosition = new THREE.Vector3(0, 0.04, 0.15);
-                  const decalOrientation = new THREE.Euler(0, 0, 0);
-                  const decalSize = new THREE.Vector3(0.18, 0.18, 0.18);
-
-                  const decalGeom = new DecalGeometry(tempMesh, decalPosition, decalOrientation, decalSize);
-                  const decalMat = new THREE.MeshStandardMaterial({
-                    map: texture,
-                    transparent: true,
-                    roughness: 0.8,
-                    depthWrite: false,
-                    polygonOffset: true,
-                    polygonOffsetFactor: -4,
-                  });
-
-                  const decalMesh = new THREE.Mesh(decalGeom, decalMat);
-                  child.add(decalMesh);
-                  setLoading(false);
-                },
-                undefined,
-                (err) => {
-                  console.error('[3D Viewer] Error loading texture:', err);
-                  setLoading(false);
-                }
-              );
-            } else {
-              setLoading(false);
-            }
-
-            // Decal Projector for Logo and Details (Back)
-            const logoLoader = new THREE.ImageLoader();
-            logoLoader.load(
-              '/logo.png',
-              (image) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 512;
-                canvas.height = 512;
-                const ctx = canvas.getContext('2d');
-
-                // Draw logo in the center-top
-                const logoW = 260;
-                const logoH = 260;
-                ctx.drawImage(image, (512 - logoW) / 2, 70, logoW, logoH);
-
-                // Write text details (Lot No and Date) below logo
-                const lotDate = lot?.startsAt 
-                  ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
-                  : new Date().toLocaleDateString('en-GB');
-                const lotNo = lot?.lotNumber != null 
-                  ? String(lot.lotNumber).padStart(3, '0') 
-                  : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
-
-                ctx.font = 'bold 24px monospace';
-                ctx.fillStyle = '#ffffff';
-                ctx.textAlign = 'center';
-                ctx.fillText(`LOT NO. ${lotNo}`, 256, 380);
-                ctx.fillText(`DATE- ${lotDate}`, 256, 420);
-
-                const logoTexture = new THREE.CanvasTexture(canvas);
-                logoTexture.colorSpace = THREE.SRGBColorSpace;
-
-                // Back is at -Z in local space, projecting along +Z (Euler Y = Math.PI)
-                const backDecalPosition = new THREE.Vector3(0, 0.09, -0.15);
-                const backDecalOrientation = new THREE.Euler(0, Math.PI, 0);
-                const backDecalSize = new THREE.Vector3(0.09, 0.09, 0.09);
-
-                const backDecalGeom = new DecalGeometry(tempMesh, backDecalPosition, backDecalOrientation, backDecalSize);
-                const backDecalMat = new THREE.MeshStandardMaterial({
-                  map: logoTexture,
-                  transparent: true,
-                  roughness: 0.8,
-                  depthWrite: false,
-                  polygonOffset: true,
-                  polygonOffsetFactor: -4,
-                });
-
-                const backDecalMesh = new THREE.Mesh(backDecalGeom, backDecalMat);
-                child.add(backDecalMesh);
-              },
-              undefined,
-              (err) => console.error('[3D Viewer] Error loading back logo image:', err)
-            );
-          }
-        });
-      },
-      undefined,
-      (err) => {
-        console.error('[3D Viewer] Error loading GLB:', err);
-        setLoading(false);
+    const onDragStart = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        initialPinchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialCamZ = camZTarget.current;
+        drag.active = false;
+        return;
       }
-    );
+      
+      const p = e.touches ? e.touches[0] : e;
+      const rect = canvas.getBoundingClientRect();
+      mouse2.x = ((p.clientX - rect.left)  / rect.width)  * 2 - 1;
+      mouse2.y = -((p.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse2, camera);
+      const hits = raycaster.intersectObjects(clickProxies.map(cp => cp.proxy));
+      clickedOnPod = hits.length > 0;
 
-    // Animation Loop
+      drag.active = true; 
+      drag.x = p.clientX; 
+      drag.y = p.clientY;
+      setInteracted(true);
+    };
+    const onDragMove = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault();
+        if (initialPinchDist === null || initialCamZ === null) {
+          initialPinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          initialCamZ = camZTarget.current;
+        } else {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const diff = initialPinchDist - dist;
+          camZTarget.current = Math.max(CAM_Z_MIN, Math.min(CAM_Z_MAX,
+            initialCamZ + diff * 0.015));
+        }
+        return;
+      }
+
+      if (!drag.active) return;
+      if (e.cancelable) e.preventDefault();
+      const p  = e.touches ? e.touches[0] : e;
+      const dx = p.clientX - drag.x;
+      const dy = p.clientY - drag.y;
+      drag.x = p.clientX; drag.y = p.clientY;
+
+      if (!clickedOnPod) {
+        // Drag empty space to rotate the carousel ring directly
+        ringTargetRef.current += dx * 0.006;
+      } else {
+        if (viewRef.current === 0) {
+          // Shirt: free rotation with inertia
+          rotVel.y = dx * 0.008;
+          rotVel.x = dy * 0.004;
+          shirtGroup.rotation.y += dx * 0.008;
+          shirtGroup.rotation.x  = Math.max(-0.45, Math.min(0.45,
+            shirtGroup.rotation.x + dy * 0.004));
+        } else {
+          // Flat slide: tilt slightly more (clamped to ±0.5 Y and ±0.3 X)
+          const tilt = podTilts[viewRef.current];
+          if (tilt) {
+            tilt.vy = dx * 0.003;
+            tilt.vx = dy * 0.002;
+            tilt.ry = Math.max(-0.5, Math.min(0.5, tilt.ry + dx * 0.003));
+            tilt.rx = Math.max(-0.3, Math.min(0.3, tilt.rx + dy * 0.002));
+          }
+        }
+      }
+    };
+    const onDragEnd = () => {
+      drag.active = false;
+      initialPinchDist = null;
+      initialCamZ = null;
+    };
+    const onWheel = (e) => {
+      e.preventDefault();
+      const speed = e.ctrlKey ? 0.04 : 0.008;
+      camZTarget.current = Math.max(CAM_Z_MIN, Math.min(CAM_Z_MAX,
+        camZTarget.current + e.deltaY * speed));
+    };
+
+    canvas.addEventListener('mousedown',  onDragStart);
+    canvas.addEventListener('touchstart', onDragStart, { passive: true });
+    canvas.addEventListener('wheel',      onWheel,     { passive: false });
+    window.addEventListener('mousemove',  onDragMove);
+    window.addEventListener('touchmove',  onDragMove,  { passive: false });
+    window.addEventListener('mouseup',    onDragEnd);
+    window.addEventListener('touchend',   onDragEnd);
+
+    // ── GLTF shirt ────────────────────────────────────────────────────────
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load('/shirt.glb', (gltf) => {
+      const model = gltf.scene;
+
+      // Scale to match 2D slide height, then center — before adding to scene
+      // so bbox is in the model's own local space (world matrix = identity).
+      const box    = new THREE.Box3().setFromObject(model);
+      const size   = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const s      = SLIDE_H / size.y; // match flat slide height
+      model.scale.setScalar(s);
+      model.position.set(-center.x * s, -center.y * s, -center.z * s);
+
+      shirtGroup.add(model);
+
+      model.traverse((child) => {
+        if (!child.isMesh) return;
+        child.castShadow    = true;
+        child.receiveShadow = true;
+        // transparent: true from the start so opacity updates never need needsUpdate
+        child.material = new THREE.MeshStandardMaterial({
+          color: 0x121212, roughness: 0.85, metalness: 0.1, transparent: true,
+        });
+        const tempMesh = new THREE.Mesh(child.geometry, child.material);
+        tempMesh.updateMatrixWorld(true);
+
+        if (artworkSrc) {
+          new THREE.TextureLoader().load(artworkSrc, (tex) => {
+            tex.colorSpace  = THREE.SRGBColorSpace;
+            tex.anisotropy  = maxAniso;
+            const dg = new DecalGeometry(
+              tempMesh,
+              new THREE.Vector3(0, 0.04, 0.15),
+              new THREE.Euler(0, 0, 0),
+              new THREE.Vector3(0.18, 0.18, 0.18),
+            );
+            child.add(new THREE.Mesh(dg, new THREE.MeshStandardMaterial({
+              map: tex, transparent: true, roughness: 0.8,
+              depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4,
+            })));
+          });
+        }
+
+        new THREE.ImageLoader().load('/logo.png', (img) => {
+          const c = document.createElement('canvas');
+          c.width = c.height = 512;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 126, 70, 260, 260);
+          ctx.font = 'bold 24px monospace';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          const lotNo   = lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001';
+          const lotDate = lot?.startsAt
+            ? new Date(lot.startsAt).toLocaleDateString('en-GB')
+            : new Date().toLocaleDateString('en-GB');
+          ctx.fillText(`LOT NO. ${lotNo}`, 256, 380);
+          ctx.fillText(`DATE- ${lotDate}`,  256, 420);
+          const logoTex = new THREE.CanvasTexture(c);
+          logoTex.colorSpace = THREE.SRGBColorSpace;
+          logoTex.anisotropy = maxAniso;
+          const bdg = new DecalGeometry(
+            tempMesh,
+            new THREE.Vector3(0, 0.09, -0.15),
+            new THREE.Euler(0, Math.PI, 0),
+            new THREE.Vector3(0.09, 0.09, 0.09),
+          );
+          child.add(new THREE.Mesh(bdg, new THREE.MeshStandardMaterial({
+            map: logoTex, transparent: true, roughness: 0.8,
+            depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4,
+          })));
+        });
+      });
+    });
+
+    // ── SLIDES 1+ — flat 2D planes, each in its own ring pod ─────────────
+    // { mesh, θ, idx } for per-frame frontness fade and raycasting
+    const flatSlides = [];
+    // per flat-slide tilt state (pod-local, springs back to 0)
+    const podTilts = {}; // idx → { ry, rx, vy, vx }
+
+    // overlayFn signature: (ctx, cw, ch, place)
+    const addFlatSlide = (tshirtSrc, slideIdx, overlayFn) => {
+      podTilts[slideIdx] = { ry: 0, rx: 0, vy: 0, vx: 0 };
+      const { pod, θ } = makePod(slideIdx);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const cw = img.naturalWidth;
+        const ch = img.naturalHeight;
+        const c   = document.createElement('canvas');
+        c.width   = cw;
+        c.height  = ch;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, cw, ch);
+
+        const place = () => {
+          const tex    = new THREE.CanvasTexture(c);
+          tex.colorSpace      = THREE.SRGBColorSpace;
+          tex.anisotropy      = maxAniso;
+          tex.minFilter       = THREE.LinearFilter;
+          tex.generateMipmaps = false;
+          const planeH = SLIDE_H;
+          const planeW = planeH * (cw / ch); // correct aspect, no stretching
+          const mesh   = new THREE.Mesh(
+            new THREE.PlaneGeometry(planeW, planeH),
+            new THREE.MeshBasicMaterial({
+              map: tex, transparent: true, opacity: 0, side: THREE.DoubleSide,
+            }),
+          );
+          pod.add(mesh);
+          flatSlides.push({ mesh, θ, idx: slideIdx });
+        };
+        overlayFn ? overlayFn(ctx, cw, ch, place) : place();
+      };
+      img.src = tshirtSrc;
+    };
+
+    addFlatSlide('/tshirt_black_front_png.png', 1, (ctx, cw, ch, place) => {
+      if (!artworkSrc) { place(); return; }
+      const art = new Image();
+      art.crossOrigin = 'anonymous';
+      art.onload = () => {
+        const aw = Math.round(cw * 0.273); // chest artwork ~27% of image width
+        ctx.drawImage(art, (cw - aw) / 2, Math.round(ch * 0.31), aw, aw);
+        place();
+      };
+      art.onerror = place;
+      art.src = artworkSrc;
+    });
+
+    addFlatSlide('/tshirt_black_back_png.png', 2, (ctx, cw, ch, place) => {
+      const logo = new Image();
+      logo.crossOrigin = 'anonymous';
+      logo.onload = () => {
+        const lw = Math.round(cw * 0.195); // logo ~19.5% of image width
+        ctx.drawImage(logo, (cw - lw) / 2, Math.round(ch * 0.18), lw, lw);
+        ctx.font      = `bold ${Math.round(ch * 0.022)}px monospace`;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.textAlign = 'center';
+        const lotNo   = lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001';
+        const lotDate = lot?.startsAt
+          ? new Date(lot.startsAt).toLocaleDateString('en-GB')
+          : new Date().toLocaleDateString('en-GB');
+        ctx.fillText(`LOT NO. ${lotNo}`, cw / 2, Math.round(ch * 0.52));
+        ctx.fillText(`DATE- ${lotDate}`,  cw / 2, Math.round(ch * 0.56));
+        place();
+      };
+      logo.onerror = place;
+      logo.src = '/logo.png';
+    });
+
+    // Standardize placeholder size to 1.12 × 1.4 (same aspect as tshirt images)
+    for (let i = 0; i < modelCount; i++) {
+      podTilts[3 + i] = { ry: 0, rx: 0, vy: 0, vx: 0 };
+      const { pod, θ } = makePod(3 + i);
+      const ph = new THREE.Mesh(
+        new THREE.PlaneGeometry(SLIDE_H * 0.8, SLIDE_H),
+        new THREE.MeshBasicMaterial({ color: 0x1a1726, transparent: true, opacity: 0 }),
+      );
+      pod.add(ph);
+      flatSlides.push({ mesh: ph, θ, idx: 3 + i });
+    }
+
+    // ── Click-to-focus: invisible proxy planes in every pod for raycasting ──
+    const proxyGeo = new THREE.PlaneGeometry(SLIDE_H * 1.1, SLIDE_H * 1.2);
+    const proxyMat = new THREE.MeshBasicMaterial({
+      transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const clickProxies = []; // { proxy, idx }
+
+    // Shirt pod (slide 0)
+    const shirtProxy = new THREE.Mesh(proxyGeo, proxyMat.clone());
+    shirtProxy.position.set(0, 0, 0.1);
+    shirtPod.add(shirtProxy);
+    clickProxies.push({ proxy: shirtProxy, idx: 0 });
+
+    // Proxies for slides 1..N-1: iterate ringGroup children (all pods added synchronously above)
+    ringGroup.children.forEach((pod, i) => {
+      if (i === 0) return; // shirtPod already done
+      const pr = new THREE.Mesh(proxyGeo, proxyMat.clone());
+      pr.position.set(0, 0, 0);
+      pod.add(pr);
+      clickProxies.push({ proxy: pr, idx: i });
+    });
+
+
+    let   pointerDownPos = null;
+
+    const onCanvasPointerDown = (e) => {
+      const p = e.touches ? e.touches[0] : e;
+      pointerDownPos = { x: p.clientX, y: p.clientY };
+    };
+    const onCanvasClick = (e) => {
+      if (!pointerDownPos) return;
+      const p  = e.changedTouches ? e.changedTouches[0] : e;
+      const dx = p.clientX - pointerDownPos.x;
+      const dy = p.clientY - pointerDownPos.y;
+      pointerDownPos = null;
+      if (Math.abs(dx) > 12 || Math.abs(dy) > 12) return; // was a drag, not a click
+
+      const rect = canvas.getBoundingClientRect();
+      mouse2.x = ((p.clientX - rect.left)  / rect.width)  * 2 - 1;
+      mouse2.y = -((p.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse2, camera);
+      const hits = raycaster.intersectObjects(clickProxies.map(cp => cp.proxy));
+      if (!hits.length) return;
+      const hitProxy = hits[0].object;
+      const target   = clickProxies.find(cp => cp.proxy === hitProxy);
+      if (target && target.idx !== viewRef.current) goTo(target.idx);
+    };
+
+    canvas.addEventListener('pointerdown', onCanvasPointerDown);
+    canvas.addEventListener('pointerup',   onCanvasClick);
+
+    // ── Animation loop ─────────────────────────────────────────────────────
+    const tmpVec = new THREE.Vector3(); // reused every frame for billboard calc
+    let af;
     const animate = () => {
-      animFrame = requestAnimationFrame(animate);
-      controls.update();
+      af = requestAnimationFrame(animate);
+
+      // Shirt rotation inertia (local to shirtGroup — never affects the ring)
+      if (viewRef.current === 0 && !drag.active) {
+        shirtGroup.rotation.y += rotVel.y;
+        shirtGroup.rotation.x  = Math.max(-0.45, Math.min(0.45,
+          shirtGroup.rotation.x + rotVel.x));
+        rotVel.y *= 0.92;
+        rotVel.x *= 0.92;
+      }
+
+      // Flat slide tilt: inertia + spring back to facing-forward
+      for (const { mesh, idx } of flatSlides) {
+        const tilt = podTilts[idx];
+        if (!tilt) continue;
+        if (!(drag.active && viewRef.current === idx)) {
+          tilt.ry += tilt.vy;
+          tilt.rx += tilt.vx;
+          tilt.vy *= 0.88;
+          tilt.vx *= 0.88;
+          tilt.ry *= 0.93; // spring toward 0
+          tilt.rx *= 0.93;
+        }
+        mesh.rotation.y = tilt.ry;
+        mesh.rotation.x = tilt.rx;
+      }
+
+      // Smooth ring rotation (carousel)
+      ringAngleRef.current += (ringTargetRef.current - ringAngleRef.current) * 0.09;
+      ringGroup.rotation.y  = ringAngleRef.current;
+
+      // Billboard: every pod rotates so its +Z faces the camera regardless of ring angle
+      for (const pod of allPods) {
+        pod.getWorldPosition(tmpVec);
+        pod.rotation.y = Math.atan2(
+          camera.position.x - tmpVec.x,
+          camera.position.z - tmpVec.z,
+        ) - ringGroup.rotation.y;
+      }
+
+      // Smooth zoom (slide 0)
+      camera.position.z += (camZTarget.current - camera.position.z) * 0.1;
+
+      // Fade flat slides: opacity = max(0, cos(world angle)) — front=1, side=0.5, back=0
+      for (const { mesh, θ } of flatSlides) {
+        const worldAngle = θ + ringGroup.rotation.y;
+        mesh.material.opacity = Math.max(0, Math.cos(worldAngle));
+      }
+
+      // Fade 3D shirt by same frontness (transparent was set on material from birth)
+      const shirtFrontness = Math.max(0, Math.cos(shirtθ + ringGroup.rotation.y));
+      shirtGroup.traverse((child) => {
+        if (child.isMesh) child.material.opacity = shirtFrontness;
+      });
+
       renderer.render(scene, camera);
     };
     animate();
 
-    // Resize
-    const handleResize = () => {
-      if (!containerRef.current) return;
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+    // ── Resize ─────────────────────────────────────────────────────────────
+    const onResize = () => {
+      if (!container) return;
+      const nw = container.clientWidth;
+      const nh = container.clientHeight;
+      renderer.setSize(nw, nh);
+      applyViewOffset();
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', onResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animFrame);
+      canvas.removeEventListener('mousedown',   onDragStart);
+      canvas.removeEventListener('touchstart',  onDragStart);
+      canvas.removeEventListener('wheel',       onWheel);
+      canvas.removeEventListener('pointerdown', onCanvasPointerDown);
+      canvas.removeEventListener('pointerup',   onCanvasClick);
+      window.removeEventListener('mousemove',   onDragMove);
+      window.removeEventListener('touchmove',   onDragMove);
+      window.removeEventListener('mouseup',     onDragEnd);
+      window.removeEventListener('touchend',    onDragEnd);
+      window.removeEventListener('resize',      onResize);
+      cancelAnimationFrame(af);
       renderer.dispose();
       scene.clear();
     };
   }, [artworkSrc]);
 
-  return (
-    <div ref={containerRef} className="mockup-slide" style={{ background: 'radial-gradient(circle at 50% 50%, #5c5c66 0%, #16151c 100%)' }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
-      {loading && (
-        <div className="mockup-artwork-placeholder" style={{ background: 'rgba(12,10,18,0.85)' }}>
-          <div className="spinner" />
-          <span style={{ marginTop: '14px', fontSize: '10px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold-bright)' }}>
-            Loading 3D Canvas...
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Tee2DFrontViewer({ lot, zoom }) {
-  const [hovered, setHovered] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL ?? '';
-  const artworkSrc = getArtworkUrl(lot, API_URL);
-
-  return (
-    <div 
-      className="mockup-slide" 
-      style={{ background: 'radial-gradient(circle at 50% 50%, #5c5c66 0%, #16151c 100%)' }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div 
-        className="tee-2d-viewer" 
-        style={{ 
-          transform: hovered ? `scale(${zoom * 2.8})` : `scale(${zoom})`, 
-          transformOrigin: '50% 48%', 
-          transition: 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)' 
+  // ── Rail items ───────────────────────────────────────────────────────────
+  const N_sl    = slides.length;
+  const vCenter = railOff / STRIDE;
+  const vFrom   = Math.floor(vCenter) - 3;
+  const vTo     = Math.ceil(vCenter)  + 3;
+  const railItems = [];
+  for (let v = vFrom; v <= vTo; v++) {
+    const actualIdx = ((v % N_sl) + N_sl) % N_sl;
+    const slide     = slides[actualIdx];
+    const px        = v * STRIDE - railOff; // px from container centre
+    const distU     = Math.abs(px) / STRIDE;
+    const scale     = Math.max(0.72, 1 - distU * 0.1);
+    const opacity   = Math.max(0.25, 1 - distU * 0.28);
+    railItems.push(
+      <button
+        key={v}
+        className={`thumb${slide.isModel ? ' model-thumb' : ''}${actualIdx === view ? ' on' : ''}`}
+        onClick={() => { if (!railMovedRef.current) goTo(actualIdx); }}
+        style={{
+          left: `calc(50% + ${px - ITEM_W / 2}px)`,
+          transform: `scale(${scale.toFixed(3)})`,
+          opacity: opacity.toFixed(3),
         }}
       >
-        <div className="tee-2d-single-col">
-          <img src="/tshirt_black_front_png.png" className="tee-2d-shirt" alt="Tshirt Front" />
-          {artworkSrc && <img src={artworkSrc} className="tee-2d-artwork" alt="Artwork" />}
-          <span className="tee-2d-label" style={{ opacity: hovered ? 0 : 1, transition: 'opacity 0.3s' }}>Front (2D Mock)</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+        {slide.is3D
+          ? <><div className="tball" /><span className="badge">3D</span></>
+          : slide.isModel
+            ? <span className="tlabel">0{slide.num}</span>
+            : <><div className="tball flat" style={{ borderRadius: '4px' }} /><span className="badge">{slide.label}</span></>
+        }
+      </button>,
+    );
+  }
 
-function Tee2DBackViewer({ lot, zoom }) {
-  const [hovered, setHovered] = useState(false);
-  const lotDate = lot?.startsAt 
-    ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
-    : new Date().toLocaleDateString('en-GB');
-  const lotNo = lot?.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
-    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
-
-  return (
-    <div 
-      className="mockup-slide" 
-      style={{ background: 'radial-gradient(circle at 50% 50%, #5c5c66 0%, #16151c 100%)' }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div 
-        className="tee-2d-viewer" 
-        style={{ 
-          transform: hovered ? `scale(${zoom * 2.8})` : `scale(${zoom})`, 
-          transformOrigin: '50% 30%', 
-          transition: 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)' 
-        }}
-      >
-        <div className="tee-2d-single-col">
-          <img src="/tshirt_black_back_png.png" className="tee-2d-shirt" alt="Tshirt Back" />
-          <div className="tee-2d-logo-area">
-            <img src="/logo.png" className="tee-2d-logo" alt="Logo" />
-            <div className="tee-2d-details">
-              <div>Lot No. {lotNo}</div>
-              <div>Date- {lotDate}</div>
-            </div>
-          </div>
-          <span className="tee-2d-label" style={{ opacity: hovered ? 0 : 1, transition: 'opacity 0.3s' }}>Back (2D Mock)</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModelSlide({ n, count, zoom }) {
-  return (
-    <div className="model-card" style={{ transform: `scale(${zoom})` }}>
-      <div className="ph-icon">◐</div>
-      <span className="ph-big">Model wearing the tee</span>
-      <span className="ph-small">Editorial shot {n} / {count}</span>
-    </div>
-  );
-}
-
-export default function Stage({ modelCount = 3, lot }) {
-  const total = modelCount + 3; // 1 3D viewer + 2 2D viewers (front, back) + modelCount editorial slides
-  const [view, setView] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [interacted, setInteracted] = useState(false);
-  const [swipeDX, setSwipeDX] = useState(0);
-  const swipe = useRef(null);
-  const viewRef = useRef(view);
-  viewRef.current = view;
-
-  const goTo = (n) => { setView(n); setZoom(1); setInteracted(false); };
-  const go = (d) => goTo(Math.max(0, Math.min(total - 1, view + d)));
-
-  const onDown = (e) => {
-    const p = e.touches ? e.touches[0] : e;
-    // Let OrbitControls handle touch/drag on Slide 0 (3D Viewer)
-    if (viewRef.current === 0) return;
-    setInteracted(true);
-    swipe.current = { x: p.clientX, dx: 0 };
-  };
-
-  useEffect(() => {
-    const onMove = (e) => {
-      const p = e.touches ? e.touches[0] : e;
-      if (swipe.current) {
-        swipe.current.dx = p.clientX - swipe.current.x;
-        setSwipeDX(swipe.current.dx);
-      }
-    };
-    const onUp = () => {
-      if (swipe.current) {
-        const dx = swipe.current.dx;
-        if (dx < -55) go(1); else if (dx > 55) go(-1);
-        swipe.current = null;
-        setSwipeDX(0);
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('touchend', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onUp);
-    };
-  }, []);
-
-  const onWheel = (e) => {
-    // Only zoom in viewer if it's not the 3D model (OrbitControls handles 3D zoom internally)
-    if (viewRef.current === 0) return;
-    setInteracted(true);
-    setZoom((z) => clampZoom(z - e.deltaY * 0.0014));
-  };
-  const bumpZoom = (d) => {
-    if (viewRef.current === 0) return; // Controls handled by orbit controls
-    setInteracted(true);
-    setZoom((z) => clampZoom(z + d));
-  };
-  const reset = () => { setZoom(1); setInteracted(false); };
-
-  const STEP = 108;
-
+  // ── JSX ──────────────────────────────────────────────────────────────────
   return (
     <div className="stage">
       <div className="stage-floor">
@@ -405,88 +675,25 @@ export default function Stage({ modelCount = 3, lot }) {
       </div>
 
       <div
+        ref={mountRef}
         className="canvas"
-        onMouseDown={onDown}
-        onTouchStart={onDown}
-        onWheel={onWheel}
-        style={{ cursor: view === 0 ? 'grab' : (swipe.current ? 'grabbing' : 'grab') }}
+        style={{ cursor: 'grab' }}
       >
-        <div className="carousel-track">
-          {Array.from({ length: total }).map((_, i) => {
-            const rel = i - view;
-            const base = rel * STEP + (swipe.current ? swipeDX / 7 : 0);
-            const center = i === view;
-            return (
-              <div
-                key={i}
-                className={'slide' + (center ? '' : ' bg-slide')}
-                onMouseDown={!center ? (e) => e.stopPropagation() : undefined}
-                onClick={!center ? () => goTo(i) : undefined}
-                style={{
-                  transform: `translateX(${base}%) scale(${center ? 1 : 0.75}) rotateY(${rel * -7}deg)`,
-                  opacity: Math.abs(rel) > 1 ? 0 : center ? 1 : undefined,
-                  zIndex: 10 - Math.abs(rel),
-                  transition: swipe.current ? 'none' : undefined,
-                }}
-              >
-                {i === 0 ? (
-                  <Tee3DViewer lot={lot} />
-                ) : i === 1 ? (
-                  <Tee2DFrontViewer lot={lot} zoom={zoom} />
-                ) : i === 2 ? (
-                  <Tee2DBackViewer lot={lot} zoom={zoom} />
-                ) : (
-                  <ModelSlide n={i - 2} count={modelCount} zoom={zoom} />
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <canvas
+          ref={canvasRef}
+          aria-label="3D carousel viewer"
+          style={{ width: '100%', height: '100%', outline: 'none' }}
+        />
 
         <div className="drag-hint" style={{ opacity: interacted ? 0 : 0.9 }}>
-          <span>✦</span> {view === 0 ? 'drag to rotate 3D shirt · scroll to zoom' : 'drag to swipe · scroll to zoom'}
-        </div>
-
-        <div className="zoom-controls" onMouseDown={(e) => e.stopPropagation()}>
-          <button className="zoom-btn" onClick={() => bumpZoom(0.25)} aria-label="Zoom in">+</button>
-          <button className="zoom-btn" onClick={() => bumpZoom(-0.25)} aria-label="Zoom out">−</button>
-          <button className="zoom-btn small" onClick={reset} aria-label="Reset view">⟳</button>
+          <span>✦</span>
+          {view === 0 ? 'drag to rotate · scroll to zoom' : 'drag to browse · scroll to zoom'}
         </div>
       </div>
 
       <div className="rail">
-        <button className="rail-nav" onClick={() => go(-1)} disabled={view === 0} aria-label="Previous">‹</button>
-        
-        {/* 3D Viewer Thumb */}
-        <button className={'thumb' + (view === 0 ? ' on' : '')} onClick={() => goTo(0)}>
-          <div className="tball" />
-          <span className="badge">3D</span>
-        </button>
-
-        {/* 2D Front Viewer Thumb */}
-        <button className={'thumb' + (view === 1 ? ' on' : '')} onClick={() => goTo(1)}>
-          <div className="tball flat" style={{ borderRadius: '4px' }} />
-          <span className="badge">2D F</span>
-        </button>
-
-        {/* 2D Back Viewer Thumb */}
-        <button className={'thumb' + (view === 2 ? ' on' : '')} onClick={() => goTo(2)}>
-          <div className="tball flat" style={{ borderRadius: '4px' }} />
-          <span className="badge">2D B</span>
-        </button>
-
-        {/* Model thumbs */}
-        {Array.from({ length: modelCount }).map((_, i) => (
-          <button
-            key={i}
-            className={'thumb model-thumb' + (view === i + 3 ? ' on' : '')}
-            onClick={() => goTo(i + 3)}
-          >
-            <span className="tlabel">0{i + 1}</span>
-          </button>
-        ))}
-
-        <button className="rail-nav" onClick={() => go(1)} disabled={view === total - 1} aria-label="Next">›</button>
+        <div className="rail-center" />
+        {railItems}
       </div>
     </div>
   );
