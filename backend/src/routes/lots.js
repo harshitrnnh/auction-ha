@@ -4,7 +4,6 @@ import Razorpay from 'razorpay';
 import { prisma } from '../prisma.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
-import { closeActiveLot, checkPaymentExpirations } from '../scheduler.js';
 import { notifyVendor, sendInvoiceEmail } from '../vendor/qikink.js';
 import { MIN_INCREMENT } from '../constants.js';
 
@@ -37,30 +36,24 @@ function stringHue(str) {
 
 /* GET /api/lots/current */
 router.get('/current', optionalAuth, async (req, res) => {
-  try {
-    const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
-    if (activeLot && new Date(activeLot.endsAt) < new Date()) {
-      console.log('[API] Active lot has expired — closing now');
-      await closeActiveLot();
-    }
-    await checkPaymentExpirations();
-  } catch (err) {
-    console.error('[API] Error in pre-check active lot:', err);
-  }
-
+  // NOTE: lot closing and payment-window expiry are handled by the background
+  // scheduler (cron, every minute) in scheduler.js. Do NOT run that work inline
+  // here — this is a hot read endpoint hit on every page load, and doing DB
+  // mutations + email sends on the request path stalls the single-process server.
   const lot = await prisma.lot.findFirst({
     orderBy: { lotNumber: 'desc' },
   });
   if (!lot) return res.status(404).json({ error: 'No active lot' });
 
-  const bids = await prisma.bid.findMany({
-    where: { lotId: lot.id },
-    orderBy: { amount: 'desc' },
-    take: 50,
-    include: { user: { select: { name: true } } },
-  });
-
-  const totalLots = await prisma.lot.count();
+  const [bids, totalLots] = await Promise.all([
+    prisma.bid.findMany({
+      where: { lotId: lot.id },
+      orderBy: { amount: 'desc' },
+      take: 50,
+      include: { user: { select: { name: true } } },
+    }),
+    prisma.lot.count(),
+  ]);
 
   const topBid = bids[0] ?? null;
   const currentBid = topBid?.amount ?? lot.startingBid;
