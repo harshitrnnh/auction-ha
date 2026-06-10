@@ -1,65 +1,152 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
 import { getArtworkUrl } from '../data/lotsData';
 
-const SPACING = 2.5;   // horizontal distance between slides in world units
-const CAM_Z   = 2.0;   // default camera Z
+const RING_R    = 2.0;   // carousel ring radius
+const CAM_Z     = 3.8;   // camera Z (front item at Z=RING_R, camera 1.8 units behind)
+const CAM_Z_MIN = 2.4;   // closest zoom on slide 0
+const CAM_Z_MAX = 10.0;  // furthest zoom on slide 0
+const SLIDE_H   = 1.0;   // height of every slide in world units
+
+// Thumbnail rail carousel geometry
+const ITEM_W  = 54;
+const ITEM_GAP = 10;
+const STRIDE   = ITEM_W + ITEM_GAP; // 64 px per slot
 
 export default function Stage({ modelCount = 3, lot }) {
-  const mountRef   = useRef(null);
-  const canvasRef  = useRef(null);
-  const [view, setView]           = useState(0);
+  const mountRef  = useRef(null);
+  const canvasRef = useRef(null);
+  const [view, setView]             = useState(0);
   const [interacted, setInteracted] = useState(false);
-  const viewRef    = useRef(0);
-  const targetXRef = useRef(0);
-  const totalRef   = useRef(0);
-  const controlsRef = useRef(null);
-  const swipeRef   = useRef(null);
+  const viewRef        = useRef(0);
+  const totalRef       = useRef(0);
+  const camZTarget     = useRef(CAM_Z);
+  const ringAngleRef   = useRef(0);   // current accumulated ring Y rotation
+  const ringTargetRef  = useRef(0);   // target accumulated ring Y rotation
 
-  const total = 1 + 2 + modelCount; // 3D + front 2D + back 2D + model shots
+  const total = 1 + 2 + modelCount;
   totalRef.current = total;
 
   const API_URL    = import.meta.env.VITE_API_URL ?? '';
   const artworkSrc = getArtworkUrl(lot, API_URL);
 
   // ── Navigation ───────────────────────────────────────────────────────────
-  const goTo = (n) => {
-    const clamped = Math.max(0, Math.min(totalRef.current - 1, n));
-    viewRef.current    = clamped;
-    targetXRef.current = clamped * SPACING;
+  const goTo = useCallback((n) => {
+    const N       = totalRef.current;
+    const clamped = Math.max(0, Math.min(N - 1, n));
+    viewRef.current = clamped;
+
+    // Target ring angle for this slide, shortest path from current accumulated angle
+    const desired = -clamped * (2 * Math.PI / N);
+    let diff = desired - ringAngleRef.current;
+    diff -= Math.round(diff / (2 * Math.PI)) * (2 * Math.PI); // normalize to (-π, π]
+    ringTargetRef.current = ringAngleRef.current + diff;
+
     setView(clamped);
     setInteracted(true);
-    // disable controls during slide transition; re-enabled on arrival (see animate loop)
-    if (controlsRef.current) controlsRef.current.enabled = false;
-  };
-
-  // ── Swipe gesture (for non-3D slides) ───────────────────────────────────
-  const onPointerDown = (e) => {
-    if (viewRef.current === 0) return; // OrbitControls owns 3D touch
-    const p = e.touches ? e.touches[0] : e;
-    swipeRef.current = { x: p.clientX };
-    setInteracted(true);
-  };
-
-  useEffect(() => {
-    const onUp = (e) => {
-      if (!swipeRef.current || viewRef.current === 0) { swipeRef.current = null; return; }
-      const p   = e.changedTouches ? e.changedTouches[0] : e;
-      const dx  = (p?.clientX ?? 0) - swipeRef.current.x;
-      const dir = dx < -50 ? 1 : dx > 50 ? -1 : 0;
-      if (dir) goTo(viewRef.current + dir);
-      swipeRef.current = null;
-    };
-    window.addEventListener('mouseup',  onUp);
-    window.addEventListener('touchend', onUp);
-    return () => {
-      window.removeEventListener('mouseup',  onUp);
-      window.removeEventListener('touchend', onUp);
-    };
+    camZTarget.current = CAM_Z;
   }, []);
+
+  // ── Thumbnail rail carousel ───────────────────────────────────────────────
+  const slides = useMemo(() => [
+    { idx: 0, is3D: true },
+    { idx: 1, label: '2D F' },
+    { idx: 2, label: '2D B' },
+    ...Array.from({ length: modelCount }, (_, i) => ({ idx: i + 3, isModel: true, num: i + 1 })),
+  ], [modelCount]);
+
+  const railOffRef   = useRef(0);
+  const [railOff, setRailOff] = useState(0);
+  const railDragRef  = useRef(null);   // { startX, startOff } while dragging
+  const railMovedRef = useRef(false);  // crossed move threshold in current drag
+  const railAnimRef  = useRef(null);
+
+  // Keep rail in sync when view changes externally (shortest-path animation)
+  useEffect(() => {
+    if (railDragRef.current) return;
+    const N      = slides.length;
+    const period = N * STRIDE;
+    const ideal  = view * STRIDE;
+    let diff = ideal - railOffRef.current;
+    diff -= Math.round(diff / period) * period; // shortest path, wraps correctly
+    if (Math.abs(diff) < 1) return;
+    const target = railOffRef.current + diff;
+    cancelAnimationFrame(railAnimRef.current);
+    const tick = () => {
+      const d = target - railOffRef.current;
+      if (Math.abs(d) < 0.3) { railOffRef.current = target; setRailOff(target); return; }
+      railOffRef.current += d * 0.2;
+      setRailOff(railOffRef.current);
+      railAnimRef.current = requestAnimationFrame(tick);
+    };
+    railAnimRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(railAnimRef.current);
+  }, [view, slides.length]);
+
+  // Rail drag → snap → goTo
+  useEffect(() => {
+    const N = slides.length;
+
+    const onDown = (e) => {
+      if (!e.target.closest('.rail')) return;
+      cancelAnimationFrame(railAnimRef.current);
+      const x = e.touches ? e.touches[0].clientX : e.clientX;
+      railDragRef.current  = { startX: x, startOff: railOffRef.current };
+      railMovedRef.current = false;
+    };
+
+    const onMove = (e) => {
+      if (!railDragRef.current) return;
+      if (e.cancelable) e.preventDefault();
+      const x  = e.touches ? e.touches[0].clientX : e.clientX;
+      const dx = railDragRef.current.startX - x;
+      if (Math.abs(dx) > 4) railMovedRef.current = true;
+      railOffRef.current = railDragRef.current.startOff + dx;
+      setRailOff(railOffRef.current);
+    };
+
+    const onUp = () => {
+      if (!railDragRef.current) return;
+      const moved = railMovedRef.current;
+      railDragRef.current = null;
+      if (!moved) return;
+      const rawIdx  = Math.round(railOffRef.current / STRIDE);
+      const viewIdx = ((rawIdx % N) + N) % N;
+      const target  = rawIdx * STRIDE;
+      cancelAnimationFrame(railAnimRef.current);
+      const tick = () => {
+        const d = target - railOffRef.current;
+        if (Math.abs(d) < 0.3) {
+          railOffRef.current = target;
+          setRailOff(target);
+          goTo(viewIdx);
+          return;
+        }
+        railOffRef.current += d * 0.22;
+        setRailOff(railOffRef.current);
+        railAnimRef.current = requestAnimationFrame(tick);
+      };
+      railAnimRef.current = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener('mousedown',  onDown);
+    window.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('mousemove',  onMove);
+    window.addEventListener('touchmove',  onMove, { passive: false });
+    window.addEventListener('mouseup',    onUp);
+    window.addEventListener('touchend',   onUp);
+    return () => {
+      window.removeEventListener('mousedown',  onDown);
+      window.removeEventListener('touchstart', onDown);
+      window.removeEventListener('mousemove',  onMove);
+      window.removeEventListener('touchmove',  onMove);
+      window.removeEventListener('mouseup',    onUp);
+      window.removeEventListener('touchend',   onUp);
+      cancelAnimationFrame(railAnimRef.current);
+    };
+  }, [slides.length, goTo]);
 
   // ── Three.js scene ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -71,9 +158,11 @@ export default function Stage({ modelCount = 3, lot }) {
 
     // Scene
     const scene = new THREE.Scene();
+    const raycaster = new THREE.Raycaster();
+    const mouse2    = new THREE.Vector2();
 
-    // Camera
-    const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 20);
+    // Camera — fixed position; only Z changes for zoom; ring rotates instead of translating
+    const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 30);
     camera.position.set(0, 0, CAM_Z);
 
     // Renderer
@@ -81,8 +170,24 @@ export default function Stage({ modelCount = 3, lot }) {
     renderer.setSize(W, H);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFShadowMap;
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+    // Shift frustum to center on non-bidrail area on desktop (--canvas-shift: -174px)
+    const applyViewOffset = () => {
+      const nw    = container.clientWidth;
+      const nh    = container.clientHeight;
+      const shift = parseInt(getComputedStyle(container).getPropertyValue('--canvas-shift')) || 0;
+      if (shift !== 0) {
+        camera.setViewOffset(nw, nh, -shift, 0, nw, nh);
+      } else {
+        camera.aspect = nw / nh;
+        camera.clearViewOffset();
+      }
+    };
+    applyViewOffset();
 
     // Lights
     scene.add(new THREE.AmbientLight(0xffffff, 0.75));
@@ -95,41 +200,163 @@ export default function Stage({ modelCount = 3, lot }) {
     const pt = new THREE.PointLight(0xffffff, 0.3, 10);
     pt.position.set(0, 1, 1); scene.add(pt);
 
-    // OrbitControls — active only on slide 0
-    const controls = new OrbitControls(camera, canvas);
-    controls.enableDamping    = true;
-    controls.dampingFactor    = 0.05;
-    controls.minDistance      = 1.0;
-    controls.maxDistance      = 3.5;
-    controls.enablePan        = false;
-    controls.minPolarAngle    = Math.PI / 3;
-    controls.maxPolarAngle    = (2 * Math.PI) / 3;
-    controls.target.set(0, 0, 0);
-    controls.enabled          = true;
-    controlsRef.current       = controls;
+    // ── Carousel ring ─────────────────────────────────────────────────────
+    // All slide pods are children of this group; rotating it changes the focused slide.
+    const ringGroup = new THREE.Group();
+    scene.add(ringGroup);
 
-    // ── SLIDE 0 — 3D shirt ─────────────────────────────────────────────────
+    const N       = totalRef.current;
+    const allPods = []; // every pod collected here for per-frame camera-facing
+
+    // Make a pod on the ring for slide index i.
+    // Pods are NOT pre-rotated; they face the camera via billboarding every frame.
+    const makePod = (i) => {
+      const pod = new THREE.Group();
+      const θ   = (2 * Math.PI / N) * i;
+      pod.position.set(RING_R * Math.sin(θ), 0, RING_R * Math.cos(θ));
+      ringGroup.add(pod);
+      allPods.push(pod);
+      return { pod, θ };
+    };
+
+    // ── SLIDE 0 — 3D shirt inside its own rotation group (child of pod 0) ──
+    const { pod: shirtPod, θ: shirtθ } = makePod(0);
+    const shirtGroup = new THREE.Group();
+    shirtPod.add(shirtGroup);
+
+    // ── Drag-to-rotate: rotates shirtGroup/tilt flat pod locally, or rotates ring if empty space ──
+    const drag   = { active: false, x: 0, y: 0 };
+    const rotVel = { x: 0, y: 0 };
+    let initialPinchDist = null;
+    let initialCamZ = null;
+    let clickedOnPod = false;
+
+    const onDragStart = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        initialPinchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialCamZ = camZTarget.current;
+        drag.active = false;
+        return;
+      }
+      
+      const p = e.touches ? e.touches[0] : e;
+      const rect = canvas.getBoundingClientRect();
+      mouse2.x = ((p.clientX - rect.left)  / rect.width)  * 2 - 1;
+      mouse2.y = -((p.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse2, camera);
+      const hits = raycaster.intersectObjects(clickProxies.map(cp => cp.proxy));
+      clickedOnPod = hits.length > 0;
+
+      drag.active = true; 
+      drag.x = p.clientX; 
+      drag.y = p.clientY;
+      setInteracted(true);
+    };
+    const onDragMove = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault();
+        if (initialPinchDist === null || initialCamZ === null) {
+          initialPinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          initialCamZ = camZTarget.current;
+        } else {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const diff = initialPinchDist - dist;
+          camZTarget.current = Math.max(CAM_Z_MIN, Math.min(CAM_Z_MAX,
+            initialCamZ + diff * 0.015));
+        }
+        return;
+      }
+
+      if (!drag.active) return;
+      if (e.cancelable) e.preventDefault();
+      const p  = e.touches ? e.touches[0] : e;
+      const dx = p.clientX - drag.x;
+      const dy = p.clientY - drag.y;
+      drag.x = p.clientX; drag.y = p.clientY;
+
+      if (!clickedOnPod) {
+        // Drag empty space to rotate the carousel ring directly
+        ringTargetRef.current += dx * 0.006;
+      } else {
+        if (viewRef.current === 0) {
+          // Shirt: free rotation with inertia
+          rotVel.y = dx * 0.008;
+          rotVel.x = dy * 0.004;
+          shirtGroup.rotation.y += dx * 0.008;
+          shirtGroup.rotation.x  = Math.max(-0.45, Math.min(0.45,
+            shirtGroup.rotation.x + dy * 0.004));
+        } else {
+          // Flat slide: tilt slightly more (clamped to ±0.5 Y and ±0.3 X)
+          const tilt = podTilts[viewRef.current];
+          if (tilt) {
+            tilt.vy = dx * 0.003;
+            tilt.vx = dy * 0.002;
+            tilt.ry = Math.max(-0.5, Math.min(0.5, tilt.ry + dx * 0.003));
+            tilt.rx = Math.max(-0.3, Math.min(0.3, tilt.rx + dy * 0.002));
+          }
+        }
+      }
+    };
+    const onDragEnd = () => {
+      drag.active = false;
+      initialPinchDist = null;
+      initialCamZ = null;
+    };
+    const onWheel = (e) => {
+      e.preventDefault();
+      const speed = e.ctrlKey ? 0.04 : 0.008;
+      camZTarget.current = Math.max(CAM_Z_MIN, Math.min(CAM_Z_MAX,
+        camZTarget.current + e.deltaY * speed));
+    };
+
+    canvas.addEventListener('mousedown',  onDragStart);
+    canvas.addEventListener('touchstart', onDragStart, { passive: true });
+    canvas.addEventListener('wheel',      onWheel,     { passive: false });
+    window.addEventListener('mousemove',  onDragMove);
+    window.addEventListener('touchmove',  onDragMove,  { passive: false });
+    window.addEventListener('mouseup',    onDragEnd);
+    window.addEventListener('touchend',   onDragEnd);
+
+    // ── GLTF shirt ────────────────────────────────────────────────────────
     const gltfLoader = new GLTFLoader();
     gltfLoader.load('/shirt.glb', (gltf) => {
       const model = gltf.scene;
-      model.position.set(0, -0.05, 0);
-      model.scale.set(1.35, 1.35, 1.35);
-      scene.add(model);
+
+      // Scale to match 2D slide height, then center — before adding to scene
+      // so bbox is in the model's own local space (world matrix = identity).
+      const box    = new THREE.Box3().setFromObject(model);
+      const size   = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const s      = SLIDE_H / size.y; // match flat slide height
+      model.scale.setScalar(s);
+      model.position.set(-center.x * s, -center.y * s, -center.z * s);
+
+      shirtGroup.add(model);
 
       model.traverse((child) => {
         if (!child.isMesh) return;
         child.castShadow    = true;
         child.receiveShadow = true;
+        // transparent: true from the start so opacity updates never need needsUpdate
         child.material = new THREE.MeshStandardMaterial({
-          color: 0x121212, roughness: 0.85, metalness: 0.1,
+          color: 0x121212, roughness: 0.85, metalness: 0.1, transparent: true,
         });
         const tempMesh = new THREE.Mesh(child.geometry, child.material);
         tempMesh.updateMatrixWorld(true);
 
-        // Front artwork decal
         if (artworkSrc) {
           new THREE.TextureLoader().load(artworkSrc, (tex) => {
-            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.colorSpace  = THREE.SRGBColorSpace;
+            tex.anisotropy  = maxAniso;
             const dg = new DecalGeometry(
               tempMesh,
               new THREE.Vector3(0, 0.04, 0.15),
@@ -143,7 +370,6 @@ export default function Stage({ modelCount = 3, lot }) {
           });
         }
 
-        // Back logo + lot details decal
         new THREE.ImageLoader().load('/logo.png', (img) => {
           const c = document.createElement('canvas');
           c.width = c.height = 512;
@@ -160,6 +386,7 @@ export default function Stage({ modelCount = 3, lot }) {
           ctx.fillText(`DATE- ${lotDate}`,  256, 420);
           const logoTex = new THREE.CanvasTexture(c);
           logoTex.colorSpace = THREE.SRGBColorSpace;
+          logoTex.anisotropy = maxAniso;
           const bdg = new DecalGeometry(
             tempMesh,
             new THREE.Vector3(0, 0.09, -0.15),
@@ -174,108 +401,205 @@ export default function Stage({ modelCount = 3, lot }) {
       });
     });
 
-    // ── SLIDES 1+ — flat 2D planes ─────────────────────────────────────────
-    // Composites a shirt PNG + optional overlay onto a canvas texture then
-    // places a PlaneGeometry at the correct slide position.
-    const addFlatSlide = (tshirtSrc, slideIndex, overlayFn) => {
-      const c   = document.createElement('canvas');
-      c.width   = 1024;
-      c.height  = 1280;
-      const ctx = c.getContext('2d');
+    // ── SLIDES 1+ — flat 2D planes, each in its own ring pod ─────────────
+    // { mesh, θ, idx } for per-frame frontness fade and raycasting
+    const flatSlides = [];
+    // per flat-slide tilt state (pod-local, springs back to 0)
+    const podTilts = {}; // idx → { ry, rx, vy, vx }
+
+    // overlayFn signature: (ctx, cw, ch, place)
+    const addFlatSlide = (tshirtSrc, slideIdx, overlayFn) => {
+      podTilts[slideIdx] = { ry: 0, rx: 0, vy: 0, vx: 0 };
+      const { pod, θ } = makePod(slideIdx);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, 1024, 1280);
+        const cw = img.naturalWidth;
+        const ch = img.naturalHeight;
+        const c   = document.createElement('canvas');
+        c.width   = cw;
+        c.height  = ch;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, cw, ch);
+
         const place = () => {
           const tex    = new THREE.CanvasTexture(c);
-          const planeH = 1.4;
-          const planeW = planeH * (1024 / 1280);
+          tex.colorSpace      = THREE.SRGBColorSpace;
+          tex.anisotropy      = maxAniso;
+          tex.minFilter       = THREE.LinearFilter;
+          tex.generateMipmaps = false;
+          const planeH = SLIDE_H;
+          const planeW = planeH * (cw / ch); // correct aspect, no stretching
           const mesh   = new THREE.Mesh(
             new THREE.PlaneGeometry(planeW, planeH),
-            new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide }),
+            new THREE.MeshBasicMaterial({
+              map: tex, transparent: true, opacity: 0, side: THREE.DoubleSide,
+            }),
           );
-          mesh.position.set(SPACING * slideIndex, -0.05, 0);
-          scene.add(mesh);
+          pod.add(mesh);
+          flatSlides.push({ mesh, θ, idx: slideIdx });
         };
-        overlayFn ? overlayFn(ctx, place) : place();
+        overlayFn ? overlayFn(ctx, cw, ch, place) : place();
       };
       img.src = tshirtSrc;
     };
 
-    // Slide 1 — front with artwork
-    addFlatSlide('/tshirt_black_front_png.png', 1, (ctx, place) => {
+    addFlatSlide('/tshirt_black_front_png.png', 1, (ctx, cw, ch, place) => {
       if (!artworkSrc) { place(); return; }
       const art = new Image();
       art.crossOrigin = 'anonymous';
       art.onload = () => {
-        const aw = 280;
-        ctx.drawImage(art, (1024 - aw) / 2, Math.round(1280 * 0.31), aw, aw);
+        const aw = Math.round(cw * 0.273); // chest artwork ~27% of image width
+        ctx.drawImage(art, (cw - aw) / 2, Math.round(ch * 0.31), aw, aw);
         place();
       };
       art.onerror = place;
       art.src = artworkSrc;
     });
 
-    // Slide 2 — back with logo + lot details
-    addFlatSlide('/tshirt_black_back_png.png', 2, (ctx, place) => {
+    addFlatSlide('/tshirt_black_back_png.png', 2, (ctx, cw, ch, place) => {
       const logo = new Image();
       logo.crossOrigin = 'anonymous';
       logo.onload = () => {
-        const lw = 200;
-        ctx.drawImage(logo, (1024 - lw) / 2, Math.round(1280 * 0.18), lw, lw);
-        ctx.font      = 'bold 28px monospace';
+        const lw = Math.round(cw * 0.195); // logo ~19.5% of image width
+        ctx.drawImage(logo, (cw - lw) / 2, Math.round(ch * 0.18), lw, lw);
+        ctx.font      = `bold ${Math.round(ch * 0.022)}px monospace`;
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
         ctx.textAlign = 'center';
         const lotNo   = lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001';
         const lotDate = lot?.startsAt
           ? new Date(lot.startsAt).toLocaleDateString('en-GB')
           : new Date().toLocaleDateString('en-GB');
-        ctx.fillText(`LOT NO. ${lotNo}`, 512, Math.round(1280 * 0.52));
-        ctx.fillText(`DATE- ${lotDate}`,  512, Math.round(1280 * 0.56));
+        ctx.fillText(`LOT NO. ${lotNo}`, cw / 2, Math.round(ch * 0.52));
+        ctx.fillText(`DATE- ${lotDate}`,  cw / 2, Math.round(ch * 0.56));
         place();
       };
       logo.onerror = place;
       logo.src = '/logo.png';
     });
 
-    // Slides 3+ — model shot placeholders
+    // Standardize placeholder size to 1.12 × 1.4 (same aspect as tshirt images)
     for (let i = 0; i < modelCount; i++) {
+      podTilts[3 + i] = { ry: 0, rx: 0, vy: 0, vx: 0 };
+      const { pod, θ } = makePod(3 + i);
       const ph = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.1, 1.4),
-        new THREE.MeshBasicMaterial({ color: 0x1a1726, transparent: true, opacity: 0.7 }),
+        new THREE.PlaneGeometry(SLIDE_H * 0.8, SLIDE_H),
+        new THREE.MeshBasicMaterial({ color: 0x1a1726, transparent: true, opacity: 0 }),
       );
-      ph.position.set(SPACING * (3 + i), 0, 0);
-      scene.add(ph);
+      pod.add(ph);
+      flatSlides.push({ mesh: ph, θ, idx: 3 + i });
     }
 
+    // ── Click-to-focus: invisible proxy planes in every pod for raycasting ──
+    const proxyGeo = new THREE.PlaneGeometry(SLIDE_H * 1.1, SLIDE_H * 1.2);
+    const proxyMat = new THREE.MeshBasicMaterial({
+      transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const clickProxies = []; // { proxy, idx }
+
+    // Shirt pod (slide 0)
+    const shirtProxy = new THREE.Mesh(proxyGeo, proxyMat.clone());
+    shirtProxy.position.set(0, 0, 0.1);
+    shirtPod.add(shirtProxy);
+    clickProxies.push({ proxy: shirtProxy, idx: 0 });
+
+    // Proxies for slides 1..N-1: iterate ringGroup children (all pods added synchronously above)
+    ringGroup.children.forEach((pod, i) => {
+      if (i === 0) return; // shirtPod already done
+      const pr = new THREE.Mesh(proxyGeo, proxyMat.clone());
+      pr.position.set(0, 0, 0);
+      pod.add(pr);
+      clickProxies.push({ proxy: pr, idx: i });
+    });
+
+
+    let   pointerDownPos = null;
+
+    const onCanvasPointerDown = (e) => {
+      const p = e.touches ? e.touches[0] : e;
+      pointerDownPos = { x: p.clientX, y: p.clientY };
+    };
+    const onCanvasClick = (e) => {
+      if (!pointerDownPos) return;
+      const p  = e.changedTouches ? e.changedTouches[0] : e;
+      const dx = p.clientX - pointerDownPos.x;
+      const dy = p.clientY - pointerDownPos.y;
+      pointerDownPos = null;
+      if (Math.abs(dx) > 12 || Math.abs(dy) > 12) return; // was a drag, not a click
+
+      const rect = canvas.getBoundingClientRect();
+      mouse2.x = ((p.clientX - rect.left)  / rect.width)  * 2 - 1;
+      mouse2.y = -((p.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse2, camera);
+      const hits = raycaster.intersectObjects(clickProxies.map(cp => cp.proxy));
+      if (!hits.length) return;
+      const hitProxy = hits[0].object;
+      const target   = clickProxies.find(cp => cp.proxy === hitProxy);
+      if (target && target.idx !== viewRef.current) goTo(target.idx);
+    };
+
+    canvas.addEventListener('pointerdown', onCanvasPointerDown);
+    canvas.addEventListener('pointerup',   onCanvasClick);
+
     // ── Animation loop ─────────────────────────────────────────────────────
+    const tmpVec = new THREE.Vector3(); // reused every frame for billboard calc
     let af;
     const animate = () => {
       af = requestAnimationFrame(animate);
-      const tx = targetXRef.current;
 
-      if (!controls.enabled) {
-        // Slide camera to new position and return to front-facing default
-        const k = 0.09;
-        camera.position.x += (tx - camera.position.x) * k;
-        camera.position.y += (0  - camera.position.y) * k;
-        camera.position.z += (CAM_Z - camera.position.z) * k;
-        controls.target.x += (tx - controls.target.x) * k;
-
-        // Re-enable orbit controls once camera has settled on slide 0
-        if (
-          viewRef.current === 0 &&
-          Math.abs(camera.position.x - tx) < 0.01 &&
-          Math.abs(camera.position.y)       < 0.01 &&
-          Math.abs(camera.position.z - CAM_Z) < 0.01
-        ) {
-          camera.position.set(0, 0, CAM_Z);
-          controls.target.set(0, 0, 0);
-          controls.enabled = true;
-        }
+      // Shirt rotation inertia (local to shirtGroup — never affects the ring)
+      if (viewRef.current === 0 && !drag.active) {
+        shirtGroup.rotation.y += rotVel.y;
+        shirtGroup.rotation.x  = Math.max(-0.45, Math.min(0.45,
+          shirtGroup.rotation.x + rotVel.x));
+        rotVel.y *= 0.92;
+        rotVel.x *= 0.92;
       }
 
-      controls.update();
+      // Flat slide tilt: inertia + spring back to facing-forward
+      for (const { mesh, idx } of flatSlides) {
+        const tilt = podTilts[idx];
+        if (!tilt) continue;
+        if (!(drag.active && viewRef.current === idx)) {
+          tilt.ry += tilt.vy;
+          tilt.rx += tilt.vx;
+          tilt.vy *= 0.88;
+          tilt.vx *= 0.88;
+          tilt.ry *= 0.93; // spring toward 0
+          tilt.rx *= 0.93;
+        }
+        mesh.rotation.y = tilt.ry;
+        mesh.rotation.x = tilt.rx;
+      }
+
+      // Smooth ring rotation (carousel)
+      ringAngleRef.current += (ringTargetRef.current - ringAngleRef.current) * 0.09;
+      ringGroup.rotation.y  = ringAngleRef.current;
+
+      // Billboard: every pod rotates so its +Z faces the camera regardless of ring angle
+      for (const pod of allPods) {
+        pod.getWorldPosition(tmpVec);
+        pod.rotation.y = Math.atan2(
+          camera.position.x - tmpVec.x,
+          camera.position.z - tmpVec.z,
+        ) - ringGroup.rotation.y;
+      }
+
+      // Smooth zoom (slide 0)
+      camera.position.z += (camZTarget.current - camera.position.z) * 0.1;
+
+      // Fade flat slides: opacity = max(0, cos(world angle)) — front=1, side=0.5, back=0
+      for (const { mesh, θ } of flatSlides) {
+        const worldAngle = θ + ringGroup.rotation.y;
+        mesh.material.opacity = Math.max(0, Math.cos(worldAngle));
+      }
+
+      // Fade 3D shirt by same frontness (transparent was set on material from birth)
+      const shirtFrontness = Math.max(0, Math.cos(shirtθ + ringGroup.rotation.y));
+      shirtGroup.traverse((child) => {
+        if (child.isMesh) child.material.opacity = shirtFrontness;
+      });
+
       renderer.render(scene, camera);
     };
     animate();
@@ -285,20 +609,61 @@ export default function Stage({ modelCount = 3, lot }) {
       if (!container) return;
       const nw = container.clientWidth;
       const nh = container.clientHeight;
-      camera.aspect = nw / nh;
-      camera.updateProjectionMatrix();
       renderer.setSize(nw, nh);
+      applyViewOffset();
     };
     window.addEventListener('resize', onResize);
 
     return () => {
-      window.removeEventListener('resize', onResize);
+      canvas.removeEventListener('mousedown',   onDragStart);
+      canvas.removeEventListener('touchstart',  onDragStart);
+      canvas.removeEventListener('wheel',       onWheel);
+      canvas.removeEventListener('pointerdown', onCanvasPointerDown);
+      canvas.removeEventListener('pointerup',   onCanvasClick);
+      window.removeEventListener('mousemove',   onDragMove);
+      window.removeEventListener('touchmove',   onDragMove);
+      window.removeEventListener('mouseup',     onDragEnd);
+      window.removeEventListener('touchend',    onDragEnd);
+      window.removeEventListener('resize',      onResize);
       cancelAnimationFrame(af);
-      controls.dispose();
       renderer.dispose();
       scene.clear();
     };
   }, [artworkSrc]);
+
+  // ── Rail items ───────────────────────────────────────────────────────────
+  const N_sl    = slides.length;
+  const vCenter = railOff / STRIDE;
+  const vFrom   = Math.floor(vCenter) - 3;
+  const vTo     = Math.ceil(vCenter)  + 3;
+  const railItems = [];
+  for (let v = vFrom; v <= vTo; v++) {
+    const actualIdx = ((v % N_sl) + N_sl) % N_sl;
+    const slide     = slides[actualIdx];
+    const px        = v * STRIDE - railOff; // px from container centre
+    const distU     = Math.abs(px) / STRIDE;
+    const scale     = Math.max(0.72, 1 - distU * 0.1);
+    const opacity   = Math.max(0.25, 1 - distU * 0.28);
+    railItems.push(
+      <button
+        key={v}
+        className={`thumb${slide.isModel ? ' model-thumb' : ''}${actualIdx === view ? ' on' : ''}`}
+        onClick={() => { if (!railMovedRef.current) goTo(actualIdx); }}
+        style={{
+          left: `calc(50% + ${px - ITEM_W / 2}px)`,
+          transform: `scale(${scale.toFixed(3)})`,
+          opacity: opacity.toFixed(3),
+        }}
+      >
+        {slide.is3D
+          ? <><div className="tball" /><span className="badge">3D</span></>
+          : slide.isModel
+            ? <span className="tlabel">0{slide.num}</span>
+            : <><div className="tball flat" style={{ borderRadius: '4px' }} /><span className="badge">{slide.label}</span></>
+        }
+      </button>,
+    );
+  }
 
   // ── JSX ──────────────────────────────────────────────────────────────────
   return (
@@ -312,45 +677,23 @@ export default function Stage({ modelCount = 3, lot }) {
       <div
         ref={mountRef}
         className="canvas"
-        onMouseDown={onPointerDown}
-        onTouchStart={onPointerDown}
         style={{ cursor: 'grab' }}
       >
         <canvas
           ref={canvasRef}
-          aria-label="3D shirt viewer"
+          aria-label="3D carousel viewer"
           style={{ width: '100%', height: '100%', outline: 'none' }}
         />
 
         <div className="drag-hint" style={{ opacity: interacted ? 0 : 0.9 }}>
           <span>✦</span>
-          {view === 0 ? 'drag to rotate · scroll to zoom' : 'drag to browse'}
+          {view === 0 ? 'drag to rotate · scroll to zoom' : 'drag to browse · scroll to zoom'}
         </div>
       </div>
 
       <div className="rail">
-        <button className="rail-nav" onClick={() => goTo(view - 1)} disabled={view === 0} aria-label="Previous">‹</button>
-
-        <button className={'thumb' + (view === 0 ? ' on' : '')} onClick={() => goTo(0)}>
-          <div className="tball" /><span className="badge">3D</span>
-        </button>
-        <button className={'thumb' + (view === 1 ? ' on' : '')} onClick={() => goTo(1)}>
-          <div className="tball flat" style={{ borderRadius: '4px' }} /><span className="badge">2D F</span>
-        </button>
-        <button className={'thumb' + (view === 2 ? ' on' : '')} onClick={() => goTo(2)}>
-          <div className="tball flat" style={{ borderRadius: '4px' }} /><span className="badge">2D B</span>
-        </button>
-        {Array.from({ length: modelCount }).map((_, i) => (
-          <button
-            key={i}
-            className={'thumb model-thumb' + (view === i + 3 ? ' on' : '')}
-            onClick={() => goTo(i + 3)}
-          >
-            <span className="tlabel">0{i + 1}</span>
-          </button>
-        ))}
-
-        <button className="rail-nav" onClick={() => goTo(view + 1)} disabled={view === total - 1} aria-label="Next">›</button>
+        <div className="rail-center" />
+        {railItems}
       </div>
     </div>
   );
