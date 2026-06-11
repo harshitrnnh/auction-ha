@@ -4,6 +4,148 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
 import { getArtworkUrl } from '../data/lotsData';
 
+// Canvas generators for front and back decals
+function createFrontCanvas(artworkImage, lot, callback) {
+  let title = lot?.title || '';
+  if (lot?.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      title = parsed.title || title;
+    } catch (e) {}
+  }
+
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  const rawDate = lot?.startsAt || new Date();
+  let dateStr = '';
+  try {
+    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {
+    dateStr = '';
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = artworkImage;
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1600;
+    const ctx = canvas.getContext('2d');
+
+    // Transparent background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    
+    // Top line 1: Field Notes From the Day
+    ctx.font = '32px Georgia, serif';
+    ctx.fillText('Field Notes From the Day', 600, 100);
+
+    // Top line 2: Date • Lot # • Edition 1/1
+    ctx.font = '22px Georgia, serif';
+    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 145);
+
+    // Draw central artwork
+    ctx.drawImage(img, 150, 180, 900, 1200);
+
+    // Bottom line: Title
+    ctx.font = '32px Georgia, serif';
+    ctx.fillText(title, 600, 1460);
+
+    callback(canvas);
+  };
+  img.onerror = () => {
+    callback(null);
+  };
+}
+
+function createBackCanvas(logoImage, lot, callback) {
+  let signalsSummarized = [];
+  if (lot?.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      signalsSummarized = parsed.data_signals_used_summarized || [];
+    } catch (e) {}
+  }
+
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  const lotDate = lot?.startsAt 
+    ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
+    : new Date().toLocaleDateString('en-GB');
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = logoImage;
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1200;
+    const ctx = canvas.getContext('2d');
+
+    // Transparent background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const logoSize = 400;
+    ctx.drawImage(img, (1200 - logoSize) / 2, 100, logoSize, logoSize);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+
+    // Lot number and Date
+    ctx.font = '22px Georgia, serif';
+    ctx.fillText(`LOT NO. ${lotNo}`, 600, 600);
+    ctx.fillText(`DATE - ${lotDate}`, 600, 645);
+
+    // Summarized signals
+    if (signalsSummarized.length > 0) {
+      ctx.font = '18px Georgia, serif';
+      const signalsText = signalsSummarized.join('   •   ');
+      
+      const words = signalsText.split(' ');
+      let line = '';
+      const lines = [];
+      const maxWidth = 900;
+      const lineHeight = 30;
+
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          lines.push(line.trim());
+          line = words[n] + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line.trim());
+
+      let currentY = 720;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], 600, currentY);
+        currentY += lineHeight;
+      }
+    }
+
+    callback(canvas);
+  };
+  img.onerror = () => {
+    callback(null);
+  };
+}
+
+const clampZoom = (z) => Math.max(0.6, Math.min(2.2, z));
 const RING_R    = 2.0;   // carousel ring radius
 const CAM_Z     = 3.8;   // camera Z (front item at Z=RING_R, camera 1.8 units behind)
 const CAM_Z_MIN = 2.4;   // closest zoom on slide 0
@@ -354,49 +496,37 @@ export default function Stage({ modelCount = 3, lot }) {
         tempMesh.updateMatrixWorld(true);
 
         if (artworkSrc) {
-          new THREE.TextureLoader().load(artworkSrc, (tex) => {
-            tex.colorSpace  = THREE.SRGBColorSpace;
-            tex.anisotropy  = maxAniso;
+          createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
+            if (!frontCanvas) return;
+            const texture = new THREE.CanvasTexture(frontCanvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = maxAniso;
             const dg = new DecalGeometry(
               tempMesh,
-              new THREE.Vector3(0, 0.04, 0.15),
+              new THREE.Vector3(0, 0.03, 0.15),
               new THREE.Euler(0, 0, 0),
-              new THREE.Vector3(0.18, 0.18, 0.18),
+              new THREE.Vector3(0.18, 0.24, 0.18),
             );
             child.add(new THREE.Mesh(dg, new THREE.MeshStandardMaterial({
-              map: tex, transparent: true, roughness: 0.8,
+              map: texture, transparent: true, roughness: 0.8,
               depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4,
             })));
           });
         }
 
-        new THREE.ImageLoader().load('/logo.png', (img) => {
-          const c = document.createElement('canvas');
-          c.width = c.height = 1024;
-          const ctx = c.getContext('2d');
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 252, 140, 520, 520);
-          ctx.font = 'bold 48px monospace';
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'center';
-          const lotNo   = lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001';
-          const lotDate = lot?.startsAt
-            ? new Date(lot.startsAt).toLocaleDateString('en-GB')
-            : new Date().toLocaleDateString('en-GB');
-          ctx.fillText(`LOT NO. ${lotNo}`, 512, 760);
-          ctx.fillText(`DATE- ${lotDate}`,  512, 840);
-          const logoTex = new THREE.CanvasTexture(c);
-          logoTex.colorSpace = THREE.SRGBColorSpace;
-          logoTex.anisotropy = maxAniso;
+        createBackCanvas('/logo.png', lot, (backCanvas) => {
+          if (!backCanvas) return;
+          const logoTexture = new THREE.CanvasTexture(backCanvas);
+          logoTexture.colorSpace = THREE.SRGBColorSpace;
+          logoTexture.anisotropy = maxAniso;
           const bdg = new DecalGeometry(
             tempMesh,
-            new THREE.Vector3(0, 0.09, -0.15),
+            new THREE.Vector3(0, 0.07, -0.15),
             new THREE.Euler(0, Math.PI, 0),
-            new THREE.Vector3(0.09, 0.09, 0.09),
+            new THREE.Vector3(0.14, 0.14, 0.14),
           );
           child.add(new THREE.Mesh(bdg, new THREE.MeshStandardMaterial({
-            map: logoTex, transparent: true, roughness: 0.8,
+            map: logoTexture, transparent: true, roughness: 0.8,
             depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4,
           })));
         });
@@ -453,36 +583,27 @@ export default function Stage({ modelCount = 3, lot }) {
 
     addFlatSlide('/tshirt_black_front_png.png', 1, (ctx, cw, ch, place) => {
       if (!artworkSrc) { place(); return; }
-      const art = new Image();
-      art.crossOrigin = 'anonymous';
-      art.onload = () => {
-        const aw = Math.round(cw * 0.273); // chest artwork ~27% of image width
-        ctx.drawImage(art, (cw - aw) / 2, Math.round(ch * 0.31), aw, aw);
+      createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
+        if (!frontCanvas) { place(); return; }
+        const decW = Math.round(cw * 0.36);
+        const decH = Math.round(decW * 4 / 3);
+        const decX = Math.round((cw - decW) / 2);
+        const decY = Math.round(ch * 0.23);
+        ctx.drawImage(frontCanvas, decX, decY, decW, decH);
         place();
-      };
-      art.onerror = place;
-      art.src = artworkSrc;
+      });
     });
 
     addFlatSlide('/tshirt_black_back_png.png', 2, (ctx, cw, ch, place) => {
-      const logo = new Image();
-      logo.crossOrigin = 'anonymous';
-      logo.onload = () => {
-        const lw = Math.round(cw * 0.195); // logo ~19.5% of image width
-        ctx.drawImage(logo, (cw - lw) / 2, Math.round(ch * 0.18), lw, lw);
-        ctx.font      = `bold ${Math.round(ch * 0.022)}px monospace`;
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.textAlign = 'center';
-        const lotNo   = lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001';
-        const lotDate = lot?.startsAt
-          ? new Date(lot.startsAt).toLocaleDateString('en-GB')
-          : new Date().toLocaleDateString('en-GB');
-        ctx.fillText(`LOT NO. ${lotNo}`, cw / 2, Math.round(ch * 0.52));
-        ctx.fillText(`DATE- ${lotDate}`,  cw / 2, Math.round(ch * 0.56));
+      createBackCanvas('/logo.png', lot, (backCanvas) => {
+        if (!backCanvas) { place(); return; }
+        const decW = Math.round(cw * 0.40);
+        const decH = decW;
+        const decX = Math.round((cw - decW) / 2);
+        const decY = Math.round(ch * 0.20);
+        ctx.drawImage(backCanvas, decX, decY, decW, decH);
         place();
-      };
-      logo.onerror = place;
-      logo.src = '/logo.png';
+      });
     });
 
     // Standardize placeholder size to 1.12 × 1.4 (same aspect as tshirt images)

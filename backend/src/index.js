@@ -385,11 +385,11 @@ app.get('/api/artwork/:filename', async (req, res) => {
       const storage = new Storage();
       const bucket = storage.bucket(bucketName);
       const file = bucket.file(`artwork/${filename}`);
-      
+
       const [exists] = await file.exists();
       if (exists) {
         const [buffer] = await file.download();
-        
+
         // Save to local cache directory for future requests
         const { writeFile } = await import('node:fs/promises');
         try {
@@ -416,7 +416,7 @@ app.get('/api/artwork/:filename', async (req, res) => {
     if (!r.ok) throw new Error('Picsum fetch failed');
 
     const buffer = Buffer.from(await r.arrayBuffer());
-    
+
     // Save to local cache directory
     const { writeFile } = await import('node:fs/promises');
     await writeFile(localPath, buffer);
