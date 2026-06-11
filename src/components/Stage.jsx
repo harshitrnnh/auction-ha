@@ -70,19 +70,19 @@ function createFrontCanvas(artworkImage, lot, callback) {
     ctx.textAlign = 'center';
     
     // Top line 1: Field Notes From the Day
-    ctx.font = '44px Georgia, serif';
-    ctx.fillText('Field Notes From the Day', 600, 85);
+    ctx.font = '52px Georgia, serif';
+    ctx.fillText('Field Notes From the Day', 600, 80);
 
     // Top line 2: Date • Lot # • Edition 1/1
-    ctx.font = '30px Georgia, serif';
-    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 135);
+    ctx.font = '36px Georgia, serif';
+    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 125);
 
     // Draw central artwork (increased size to 1020x1360, centered, lesser gap to bottom title)
     ctx.drawImage(tempCanvas, 90, 150, 1020, 1360);
 
     // Bottom line: Title
-    ctx.font = '44px Georgia, serif';
-    ctx.fillText(title, 600, 1545);
+    ctx.font = '52px Georgia, serif';
+    ctx.fillText(title, 600, 1555);
 
     callback(canvas);
   };
@@ -127,20 +127,20 @@ function createBackCanvas(logoImage, lot, callback) {
     ctx.textAlign = 'center';
 
     // Lot number and Date
-    ctx.font = '38px Georgia, serif';
-    ctx.fillText(`LOT NO. ${lotNo}`, 600, 630);
-    ctx.fillText(`DATE - ${lotDate}`, 600, 690);
+    ctx.font = '46px Georgia, serif';
+    ctx.fillText(`LOT NO. ${lotNo}`, 600, 640);
+    ctx.fillText(`DATE - ${lotDate}`, 600, 705);
 
     // Summarized signals
     if (signalsSummarized.length > 0) {
-      ctx.font = '28px Georgia, serif';
+      ctx.font = '36px Georgia, serif';
       const signalsText = signalsSummarized.join('   •   ');
       
       const words = signalsText.split(' ');
       let line = '';
       const lines = [];
       const maxWidth = 960;
-      const lineHeight = 42;
+      const lineHeight = 50;
 
       for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
@@ -155,7 +155,7 @@ function createBackCanvas(logoImage, lot, callback) {
       }
       lines.push(line.trim());
 
-      let currentY = 780;
+      let currentY = 800;
       for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i], 600, currentY);
         currentY += lineHeight;
@@ -539,7 +539,7 @@ export default function Stage({ modelCount = 0, lot }) {
           });
         }
 
-        createBackCanvas('/logo.png', lot, (backCanvas) => {
+        createBackCanvas('/cf_logo.png', lot, (backCanvas) => {
           if (!backCanvas) return;
           const logoTexture = new THREE.CanvasTexture(backCanvas);
           logoTexture.colorSpace = THREE.SRGBColorSpace;
@@ -620,7 +620,7 @@ export default function Stage({ modelCount = 0, lot }) {
     });
 
     addFlatSlide('/tshirt_back_black_transparent.png', 2, (ctx, cw, ch, place) => {
-      createBackCanvas('/logo.png', lot, (backCanvas) => {
+      createBackCanvas('/cf_logo.png', lot, (backCanvas) => {
         if (!backCanvas) { place(); return; }
         const decW = Math.round(cw * 0.46);
         const decH = decW;
