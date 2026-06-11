@@ -303,6 +303,7 @@ body.lots-page #root {
   object-fit: contain;
   pointer-events: none;
   border-radius: 2px;
+  mix-blend-mode: screen;
 }
 .lots-hero .hero-watching {
   position: absolute;
@@ -599,6 +600,7 @@ body.lots-page #root {
   object-fit: contain;
   pointer-events: none;
   border-radius: 2px;
+  mix-blend-mode: screen;
 }
 
 .card-badges {
@@ -847,6 +849,7 @@ body.lots-page #root {
   width: min(26%, 100px);
   object-fit: contain;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 /* modal thumbnails */
 .m-thumb-tshirt {
@@ -869,6 +872,7 @@ body.lots-page #root {
   width: 28%;
   object-fit: contain;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 
 .m-main .model-shot {
