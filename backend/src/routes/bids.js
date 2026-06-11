@@ -2,29 +2,14 @@ import { Router } from 'express';
 import { prisma } from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
+import { MIN_INCREMENT } from '../constants.js';
 
 const router = Router();
-const MIN_INCREMENT = 50;
 
 function stringHue(str) {
   let h = 0;
   for (const c of str) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
   return h % 360;
-}
-
-function isBiddingClosedIST() {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      hour: 'numeric',
-      hourCycle: 'h23'
-    });
-    const hour = parseInt(formatter.format(new Date()), 10);
-    return hour >= 12 && hour < 18;
-  } catch (e) {
-    console.error('Error in isBiddingClosedIST:', e);
-    return false;
-  }
 }
 
 /* POST /api/lots/:id/bids */
@@ -39,7 +24,7 @@ router.post('/:id/bids', requireAuth, async (req, res) => {
 
   const lot = await prisma.lot.findUnique({ where: { id: lotId } });
   if (!lot) return res.status(404).json({ error: 'Lot not found' });
-  if (lot.status !== 'active' || new Date(lot.endsAt) < new Date() || isBiddingClosedIST()) {
+  if (lot.status !== 'active' || new Date(lot.endsAt) < new Date()) {
     return res.status(400).json({ error: 'This auction has ended' });
   }
 

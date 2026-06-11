@@ -9,6 +9,8 @@ function getInitials(name) {
     .join('');
 }
 
+const ADMIN_EMAILS = ['harshit.rnnh@gmail.com', 'prabhat1992@gmail.com', 'abmzone@gmail.com'];
+
 const MENU_ITEMS = [
   { label: 'Profile', path: '/profile', icon: '👤' },
   { label: 'Orders', path: '/orders', icon: '📦' },
@@ -62,6 +64,27 @@ export default function UserMenu({ user, logout }) {
               {label}
             </button>
           ))}
+
+          {ADMIN_EMAILS.includes(user.email) && (
+            <>
+              <div className="user-dropdown-divider" />
+              <button className="user-dropdown-item" onClick={() => go('/admin')}>
+                <span className="user-dropdown-icon">⚙</span>
+                Admin
+              </button>
+            </>
+          )}
+
+          <div className="user-dropdown-divider" />
+
+          <a
+            className="user-dropdown-item"
+            href="mailto:support-oxide@chemicalfarmers.com"
+            onClick={() => setOpen(false)}
+          >
+            <span className="user-dropdown-icon">✉</span>
+            Support
+          </a>
 
           <div className="user-dropdown-divider" />
 

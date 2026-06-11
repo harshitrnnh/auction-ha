@@ -2,16 +2,23 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import crypto from 'node:crypto';
 import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { setIo } from './socket.js';
+import { setIo, getIo } from './socket.js';
+import { prisma } from './prisma.js';
+import { requireAdmin } from './middleware/auth.js';
 import authRoutes from './routes/auth.js';
 import lotRoutes from './routes/lots.js';
 import bidRoutes from './routes/bids.js';
+import addressRoutes from './routes/addresses.js';
+import orderRoutes from './routes/orders.js';
+import vendorRoutes from './routes/vendor.js';
+import ogRoutes from './routes/og.js';
 import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
-import { prisma } from './prisma.js';
+import { notifyVendor, sendInvoiceEmail, sendShippingEmail } from './vendor/qikink.js';
 
 // Load .env from backend directory
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -50,6 +57,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5177',
   'http://localhost:5190',
   'https://oxide.chemicalfarmers.com',
+  'https://oxide.chemicalfarmers.in',
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
 
@@ -59,7 +67,8 @@ const isOriginAllowed = (origin) => {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   try {
     const url = new URL(origin);
-    if (url.hostname === 'chemicalfarmers.com' || url.hostname.endsWith('.chemicalfarmers.com')) {
+    if (url.hostname === 'chemicalfarmers.com' || url.hostname.endsWith('.chemicalfarmers.com') ||
+        url.hostname === 'chemicalfarmers.in' || url.hostname.endsWith('.chemicalfarmers.in')) {
       return true;
     }
   } catch { /* invalid URL */ }
@@ -83,16 +92,165 @@ const io = new Server(httpServer, {
 setIo(io);
 
 app.use(cors(corsOptions));
+
+/* Razorpay webhook — must use raw body for HMAC verification, registered before express.json() */
+app.post('/api/razorpay-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['x-razorpay-signature'];
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+  if (secret) {
+    const expectedSig = crypto
+      .createHmac('sha256', secret)
+      .update(req.body)
+      .digest('hex');
+    if (expectedSig !== sig) {
+      console.warn('[Webhook] Invalid signature — rejecting');
+      return res.status(400).json({ error: 'Invalid webhook signature' });
+    }
+  } else {
+    console.warn('[Webhook] RAZORPAY_WEBHOOK_SECRET not set — skipping signature check');
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(req.body.toString());
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
+  if (payload.event !== 'payment.captured') {
+    return res.status(200).json({ ok: true });
+  }
+
+  const payment = payload.payload?.payment?.entity;
+  if (!payment) return res.status(200).json({ ok: true });
+
+  const razorpayOrderId = payment.order_id;
+  const razorpayPaymentId = payment.id;
+  const { lotId, userId, addressId } = payment.notes ?? {};
+
+  try {
+    const existing = await prisma.order.findFirst({ where: { razorpayOrderId } });
+    if (existing) {
+      console.log(`[Webhook] payment.captured already processed for order ${razorpayOrderId}`);
+      return res.status(200).json({ ok: true, duplicate: true });
+    }
+
+    if (!lotId || !userId || !addressId) {
+      console.error('[Webhook] Missing notes on payment', razorpayPaymentId);
+      return res.status(200).json({ ok: true });
+    }
+
+    const lot = await prisma.lot.findUnique({ where: { id: lotId } });
+    if (!lot || lot.paymentStatus === 'paid') {
+      return res.status(200).json({ ok: true });
+    }
+
+    const [address, user, bids] = await Promise.all([
+      prisma.address.findUnique({ where: { id: addressId } }),
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.bid.findMany({ where: { lotId, userId }, orderBy: { amount: 'desc' }, take: 1 }),
+    ]);
+
+    const amount = bids[0]?.amount ?? lot.startingBid;
+    const year = new Date().getFullYear();
+    const orderCount = await prisma.order.count();
+    const orderNumber = `OX-${year}-${String(orderCount + 1).padStart(3, '0')}`;
+
+    const [, order] = await prisma.$transaction([
+      prisma.lot.update({
+        where: { id: lotId },
+        data: { paymentStatus: 'paid', winnerId: userId, soldPrice: amount },
+      }),
+      prisma.order.create({
+        data: {
+          orderNumber,
+          lotId,
+          userId,
+          addressId,
+          amount: amount * 100,
+          razorpayOrderId,
+          razorpayPaymentId,
+          status: 'processing',
+        },
+      }),
+    ]);
+
+    getIo()?.emit('lot:paid', { lotId, winnerId: userId });
+    notifyVendor(order, lot, address).catch((e) => console.error('[Webhook] vendor notify failed:', e));
+    sendInvoiceEmail(order, lot, address, user.email, user.name).catch((e) => console.error('[Webhook] invoice email failed:', e));
+
+    console.log(`[Webhook] payment.captured — created order ${orderNumber}`);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('[Webhook] Error processing payment:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 app.use(express.json());
 app.use('/public', express.static(join(__dir, '../public')));
+
+app.use('/api/admin', requireAdmin);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api/lots', bidRoutes);
+app.use('/api/addresses', addressRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/vendor', vendorRoutes);
+app.use('/api/og', cors({ origin: '*' }), ogRoutes);
 
 app.post('/api/admin/rotate', async (_req, res) => {
   await closeActiveLot();
   res.json({ ok: true });
+});
+
+app.post('/api/admin/close-bid', async (_req, res) => {
+  try {
+    await closeActiveLot();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] close-bid error:', err);
+    res.status(500).json({ error: 'Failed to close bid' });
+  }
+});
+
+app.post('/api/admin/new-bid', async (_req, res) => {
+  try {
+    // Close the active lot first so the highest bidder is set as winner
+    const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
+    if (activeLot) {
+      await closeActiveLot();
+    }
+    // Use the global max lot number (not just closed lots) to avoid unique-constraint errors
+    const latestLot = await prisma.lot.findFirst({
+      orderBy: { lotNumber: 'desc' },
+    });
+    const nextNum = latestLot ? latestLot.lotNumber + 1 : 1;
+    await createNewLot(nextNum);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] new-bid error:', err);
+    res.status(500).json({ error: 'Failed to create new bid' });
+  }
+});
+
+app.get('/api/admin/orders', async (_req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        lot: { select: { title: true, lotNumber: true, artworkUrl: true, size: true, artist: true, artworkUrl: true } },
+        user: { select: { name: true, email: true, phone: true } },
+        address: true,
+      },
+    });
+    res.json({ orders });
+  } catch (err) {
+    console.error('[Admin] orders error:', err);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
 });
 
 app.post('/api/admin/reset', async (req, res) => {
@@ -127,6 +285,73 @@ app.post('/api/admin/reset', async (req, res) => {
 app.post('/api/admin/check-expirations', async (_req, res) => {
   await checkPaymentExpirations();
   res.json({ ok: true });
+});
+
+app.put('/api/admin/orders/:id/tracking', async (req, res) => {
+  const { status, carrier, trackingNumber, trackingUrl, notes } = req.body;
+  const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  const now = new Date();
+  const update = {};
+  if (status) update.status = status;
+  if (carrier !== undefined) update.carrier = carrier;
+  if (trackingNumber !== undefined) update.trackingNumber = trackingNumber;
+  if (trackingUrl !== undefined) update.trackingUrl = trackingUrl;
+  if (notes !== undefined) update.notes = notes;
+  if (status === 'printing' && !order.printedAt) update.printedAt = now;
+  if (status === 'shipped' && !order.shippedAt) update.shippedAt = now;
+  if (status === 'delivered' && !order.deliveredAt) update.deliveredAt = now;
+
+  const updated = await prisma.order.update({ where: { id: req.params.id }, data: update });
+  getIo()?.to(`user:${order.userId}`).emit('order:updated', { orderId: order.id, status: updated.status });
+
+  if (status === 'shipped' && !order.shippedAt) {
+    try {
+      const [lot, address, user] = await Promise.all([
+        prisma.lot.findUnique({ where: { id: order.lotId } }),
+        prisma.address.findUnique({ where: { id: order.addressId } }),
+        prisma.user.findUnique({ where: { id: order.userId } }),
+      ]);
+      sendShippingEmail(updated, lot, address, user.email, user.name).catch((e) =>
+        console.error('[Shipping email] failed:', e)
+      );
+    } catch (e) {
+      console.error('[Shipping email] lookup failed:', e);
+    }
+  }
+
+  res.json({ ok: true, order: updated });
+});
+
+app.post('/api/admin/orders/:id/resend-invoice', async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { lot: true, address: true, user: true },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    await sendInvoiceEmail(order, order.lot, order.address, order.user.email, order.user.name);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Resend invoice] error:', err);
+    res.status(500).json({ error: 'Failed to resend invoice' });
+  }
+});
+
+app.post('/api/admin/orders/:id/resend-vendor', async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { lot: true, address: true },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    await notifyVendor(order, order.lot, order.address);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Resend vendor] error:', err);
+    res.status(500).json({ error: 'Failed to resend vendor notification' });
+  }
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -208,6 +433,7 @@ app.get('/api/artwork/:filename', async (req, res) => {
 
 io.on('connection', (socket) => {
   socket.on('join:lot', (lotId) => socket.join(`lot:${lotId}`));
+  socket.on('join:user', (userId) => socket.join(`user:${userId}`));
 });
 
 const PORT = Number(process.env.PORT) || 3001;

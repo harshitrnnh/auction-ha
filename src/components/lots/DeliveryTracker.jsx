@@ -79,7 +79,7 @@ export default function DeliveryTracker({ delivery }) {
         </div>
       </div>
 
-      <button className="track-btn" onClick={copy}>
+      <button className="track-btn" onClick={delivery.trackingUrl ? () => window.open(delivery.trackingUrl, '_blank') : copy}>
         {delivery.stage >= 3 ? 'View delivery receipt' : 'Track this shipment →'}
       </button>
     </div>

@@ -6,104 +6,33 @@ import Starfield from './components/Starfield';
 import Stage from './components/Stage';
 import BidRail from './components/BidRail';
 import UserMenu from './components/UserMenu';
+import SEO from './components/SEO';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
 const pad = (n) => String(n).padStart(2, '0');
 
-function getISTParts() {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kolkata',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-    hourCycle: 'h23'
-  });
-  const str = formatter.format(now);
-  const [hStr, mStr, sStr] = str.split(':');
-  return {
-    hour: parseInt(hStr, 10),
-    minute: parseInt(mStr, 10),
-    second: parseInt(sStr, 10)
-  };
-}
+const AUTO_RESTART_DELAY_MS = 6 * 60 * 60 * 1000; // must match backend
 
-function checkBiddingClosed() {
-  try {
-    const parts = getISTParts();
-    return parts.hour >= 12 && parts.hour < 18; // Closed 12:00 PM to 6:00 PM IST
-  } catch (e) {
-    console.error('Error checking bidding closed:', e);
-    return false;
+function getCountdownTarget(lotClosed, endsAt) {
+  if (endsAt) {
+    const endsAtMs = new Date(endsAt).getTime();
+    // Closed lot: endsAt is the actual close time; next lot opens 6h later
+    if (lotClosed) return endsAtMs + AUTO_RESTART_DELAY_MS;
+    // Active lot: count down to when bidding ends
+    return endsAtMs;
   }
+  return Date.now() + 6 * 3600 * 1000;
 }
 
-function getCountdownTarget(isClosed) {
-  try {
-    const now = new Date();
-    // Get current year, month, date, and hour in Asia/Kolkata
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      hour: 'numeric',
-      hourCycle: 'h23'
-    });
-    const parts = formatter.formatToParts(now);
-    const dateMap = {};
-    parts.forEach(p => dateMap[p.type] = p.value);
-    
-    const y = parseInt(dateMap.year, 10);
-    const m = parseInt(dateMap.month, 10);
-    const d = parseInt(dateMap.day, 10);
-    const h = parseInt(dateMap.hour, 10);
-
-    if (isClosed) {
-      // Bidding is closed (between 12:00 PM and 6:00 PM IST). 
-      // Next auction starts at 6:00 PM IST today.
-      const target = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T18:00:00+05:30`;
-      return new Date(target).getTime();
-    } else {
-      // Bidding is active (either >= 18:00 today or < 12:00 today).
-      // If hour >= 18, it ends at 12:00 PM tomorrow.
-      // If hour < 12, it ends at 12:00 PM today.
-      let targetDate = new Date(now);
-      if (h >= 18) {
-        targetDate.setDate(targetDate.getDate() + 1);
-      }
-      
-      const targetParts = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Kolkata',
-        year: 'numeric', month: 'numeric', day: 'numeric'
-      }).formatToParts(targetDate);
-      
-      const tmMap = {};
-      targetParts.forEach(p => tmMap[p.type] = p.value);
-      const ty = parseInt(tmMap.year, 10);
-      const tm = parseInt(tmMap.month, 10);
-      const td = parseInt(tmMap.day, 10);
-
-      const target = `${ty}-${String(tm).padStart(2, '0')}-${String(td).padStart(2, '0')}T12:00:00+05:30`;
-      return new Date(target).getTime();
-    }
-  } catch (e) {
-    console.error('Error calculating countdown target:', e);
-    const now = new Date();
-    // Safe fallback: 6:00 PM IST today = 12:30 UTC today
-    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 30, 0);
-  }
-}
-
-function useCountdown(lotClosed) {
+function useCountdown(lotClosed, endsAt) {
   const [, force] = useState(0);
   useEffect(() => {
     const id = setInterval(() => force((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const targetMs = getCountdownTarget(lotClosed);
+  const targetMs = getCountdownTarget(lotClosed, endsAt);
   const ms = Math.max(0, targetMs - Date.now());
   const total = Math.floor(ms / 1000);
   return {
@@ -112,6 +41,20 @@ function useCountdown(lotClosed) {
     s: total % 60,
     total,
   };
+}
+
+function getMyRank(bids, userId) {
+  if (!userId || !bids.length) return null;
+  const seen = new Set();
+  let rank = 0;
+  for (const bid of bids) {
+    if (!seen.has(bid.userId)) {
+      seen.add(bid.userId);
+      rank++;
+      if (bid.userId === userId) return rank;
+    }
+  }
+  return null;
 }
 
 
@@ -129,11 +72,11 @@ export default function App() {
   const [error, setError] = useState(null);
   const [winner, setWinner] = useState(null);
   const [watching, setWatching] = useState(0);
+  const [minInc, setMinInc] = useState(1);
 
   const myBidRef = useRef(myBid);
   myBidRef.current = myBid;
 
-  // Simulate a viewer count: seed from bid activity, drift slowly over time
   useEffect(() => {
     if (!lot) return;
     const base = 8 + bids.length * 3;
@@ -144,8 +87,8 @@ export default function App() {
     return () => clearInterval(id);
   }, [lot?.id, bids.length]);
 
-  const lotClosed = lot?.status === 'closed' || checkBiddingClosed();
-  const cd = useCountdown(lotClosed);
+  const lotClosed = lot?.status === 'closed';
+  const cd = useCountdown(lotClosed, lot?.endsAt);
   const flash = () => { setBump(true); setTimeout(() => setBump(false), 520); };
 
   const fetchLot = useCallback(async () => {
@@ -157,18 +100,14 @@ export default function App() {
       setLot(data.lot);
       setBids(data.bids);
       setCurrentBid(data.currentBid);
+      setMinInc(data.minInc ?? 1);
       setMyBid(data.myBid ?? null);
       setStatus(data.myStatus ?? 'none');
 
-      // Initialize winner state from the highest bid if the lot is closed
-      const isClosed = data.lot.status === 'closed' || checkBiddingClosed();
+      const isClosed = data.lot.status === 'closed';
       if (isClosed && data.bids && data.bids.length > 0) {
         const top = data.bids[0];
-        setWinner({
-          userId: top.userId,
-          name: top.userName || top.name,
-          amount: top.amount
-        });
+        setWinner({ userId: top.userId, name: top.userName || top.name, amount: top.amount });
       } else {
         setWinner(null);
       }
@@ -180,20 +119,20 @@ export default function App() {
   }, [token]);
 
   useEffect(() => {
-    if (!user) {
-      setMyBid(null);
-      setStatus('none');
-    }
+    if (!user) { setMyBid(null); setStatus('none'); }
   }, [user]);
 
   useEffect(() => { fetchLot(); }, [fetchLot]);
 
-  // Socket.io — join lot room for real-time bid updates
   useEffect(() => {
     if (!lot) return;
     const socket = API
-      ? socketIO(API, { path: '/socket.io' })
-      : socketIO({ path: '/socket.io' });
+      ? socketIO(API, { path: '/socket.io', transports: ['websocket', 'polling'] })
+      : socketIO({ path: '/socket.io', transports: ['websocket', 'polling'] });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] connection error:', err.message);
+    });
 
     socket.emit('join:lot', lot.id);
 
@@ -213,6 +152,7 @@ export default function App() {
     socket.on('lot:closed', ({ winner: w }) => {
       setLot((prev) => prev ? { ...prev, status: 'closed' } : prev);
       setWinner(w);
+      fetchLot();
     });
 
     socket.on('lot:new', ({ lot: newLot }) => {
@@ -224,13 +164,8 @@ export default function App() {
       setWinner(null);
     });
 
-    socket.on('lot:payee_changed', () => {
-      fetchLot();
-    });
-
-    socket.on('lot:paid', () => {
-      fetchLot();
-    });
+    socket.on('lot:payee_changed', () => { fetchLot(); });
+    socket.on('lot:paid', () => { fetchLot(); });
 
     return () => socket.disconnect();
   }, [lot?.id, user?.id]);
@@ -239,47 +174,14 @@ export default function App() {
     if (!user) { navigate('/login', { state: { from: '/' } }); return; }
     const r = await fetch(`${API}/api/lots/${lot.id}/bids`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ amount }),
     });
     if (!r.ok) {
       const data = await r.json();
       throw new Error(data.error || 'Bid failed');
     }
-    // Socket.io will push the update to all clients including us
   }, [user, lot?.id, token, navigate]);
-
-  const handleAdminReset = async () => {
-    const pwd = prompt('Enter admin reset password:');
-    if (!pwd) return;
-    if (pwd !== 'cron1212') {
-      alert('Invalid password!');
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${API}/api/admin/reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password: pwd }),
-      });
-      
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Reset failed');
-      }
-      
-      alert('Auction reset successful! A new lot with generated AI artwork has been drop-created.');
-      fetchLot();
-    } catch (err) {
-      alert(`Error resetting auction: ${err.message}`);
-    }
-  };
 
   const scrollToBid = () => {
     const el = document.querySelector('.bidrail');
@@ -287,13 +189,16 @@ export default function App() {
   };
 
   const urgent = cd.total < 300 && cd.total > 0 && !lotClosed;
-  const minInc = 50;
-  const startingBid = lot?.startingBid ?? 100;
+  const startingBid = lot?.startingBid ?? 1;
+
+  const myRank = (user && lot?.status === 'closed') ? getMyRank(bids, user.id) : null;
 
   const auction = {
     lot, startingBid, currentBid, minInc, myBid, status, bids,
     placeBid, bump, user, winner, watching, lotClosed,
     onLoginPrompt: () => navigate('/login', { state: { from: '/' } }),
+    onPayNow: () => navigate('/pay'),
+    myRank,
   };
 
   if (loading) {
@@ -321,25 +226,10 @@ export default function App() {
     );
   }
 
-  const showCelebration = lot?.status === 'closed' &&
-                          user &&
-                          lot.currentPayeeId === user.id &&
-                          lot.paymentStatus?.startsWith('pending_') &&
-                          lot.payeeExpiresAt &&
-                          new Date(lot.payeeExpiresAt) > new Date();
-
   return (
     <div className="app">
+      <SEO lot={lot} />
       <Starfield />
-      {showCelebration && (
-        <CelebrationOverlay
-          lot={lot}
-          token={token}
-          onPaymentSuccess={() => {
-            fetchLot();
-          }}
-        />
-      )}
 
       <header className="topbar">
         <div className="brand">
@@ -353,7 +243,7 @@ export default function App() {
             {lot && (
               <div className="brand-lot-wrap">
                 <span className="brand-lot num">
-                  Lot {String(lot.lotNumber).padStart(3, '0')} / {String(lot.totalLots || lot.lotNumber).padStart(3, '0')}
+                  Drop #{lot.lotNumber}
                 </span>
                 <Link to="/lots" className="brand-view-all">View all lots →</Link>
               </div>
@@ -368,7 +258,7 @@ export default function App() {
 
         <div className={'countdown' + (urgent ? ' urgent' : '')}>
           <span className="countdown-label">
-            {lotClosed ? 'Next auction starts in' : urgent ? 'Ending soon' : 'Auction ends in'}
+            {lotClosed ? 'Next auction starts in' : urgent ? 'Ending soon' : 'Bidding ends in'}
           </span>
           <span className="countdown-time num">
             {cd.h > 0 && <><span>{pad(cd.h)}</span><span className="u">h</span></>}
@@ -399,125 +289,6 @@ export default function App() {
         </button>
       </div>
 
-      {/* Floating admin reset button */}
-      <button 
-        onClick={handleAdminReset}
-        style={{
-          position: 'fixed',
-          left: '20px',
-          bottom: '80px',
-          zIndex: 1000,
-          background: 'rgba(22, 19, 31, 0.8)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          color: 'var(--txt-mute, #7d7a8c)',
-          padding: '8px 12px',
-          borderRadius: '6px',
-          fontFamily: 'monospace',
-          fontSize: '10px',
-          letterSpacing: '0.15em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          backdropFilter: 'blur(8px)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#e6c27e';
-          e.currentTarget.style.color = '#e6c27e';
-          e.currentTarget.style.boxShadow = '0 0 15px rgba(230, 194, 126, 0.3)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-          e.currentTarget.style.color = 'var(--txt-mute, #7d7a8c)';
-          e.currentTarget.style.boxShadow = 'none';
-        }}
-      >
-        ⟳ Reset Drop
-      </button>
-    </div>
-  );
-}
-
-function CelebrationOverlay({ lot, token, onPaymentSuccess }) {
-  const [timeLeft, setTimeLeft] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [paid, setPaid] = useState(false);
-
-  useEffect(() => {
-    if (!lot?.payeeExpiresAt) return;
-    const updateTimer = () => {
-      const diff = new Date(lot.payeeExpiresAt) - new Date();
-      if (diff <= 0) {
-        setTimeLeft('EXPIRED');
-      } else {
-        const h = Math.floor(diff / 3600000);
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-        setTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
-      }
-    };
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [lot?.payeeExpiresAt]);
-
-  const handlePay = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const API_URL = import.meta.env.VITE_API_URL ?? '';
-      const r = await fetch(`${API_URL}/api/lots/simulate-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Payment failed');
-      setPaid(true);
-    } catch (err) {
-      setError(err.message || 'Payment simulation failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="celebration-overlay">
-      <div className="celebration-card">
-        <div className="celebration-badge">{paid ? '🎉' : '🏆'}</div>
-        {paid ? (
-          <>
-            <h2 className="celebration-title">Payment Confirmed!</h2>
-            <p className="celebration-text" style={{ marginBottom: '24px' }}>
-              You have successfully claimed <strong>{lot.title}</strong>! We will contact you shortly to coordinate delivery.
-            </p>
-            <button className="celebration-pay-btn" onClick={onPaymentSuccess}>
-              Go to Auction Stage
-            </button>
-          </>
-        ) : (
-          <>
-            <h2 className="celebration-title">You Won the Bid!</h2>
-            <p className="celebration-text">
-              Congratulations! You won today's drop: <strong>{lot.title}</strong>. 
-              Please complete your payment within the next 2 hours to claim your product. If you don't pay within this time, the product gets transferred to the 2nd highest bidder.
-            </p>
-            
-            <div className="celebration-timer-box">
-              <div className="celebration-timer-label">Time Remaining to Settle</div>
-              <div className="celebration-timer-val">{timeLeft}</div>
-            </div>
-
-            {error && <div className="auth-error" style={{ marginBottom: '20px', justifyContent: 'center' }}><span>⚠</span> {error}</div>}
-
-            <button className="celebration-pay-btn" onClick={handlePay} disabled={loading || timeLeft === 'EXPIRED'}>
-              {loading ? 'Processing Payment…' : 'Simulate Payment (Razorpay Mock)'}
-            </button>
-          </>
-        )}
-      </div>
     </div>
   );
 }

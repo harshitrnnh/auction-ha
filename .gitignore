@@ -30,3 +30,5 @@ oxide-*.json
 sandbox-artwork*
 sandbox-metadata*
 
+backend/public/artwork/
+*.db

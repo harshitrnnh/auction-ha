@@ -6,6 +6,9 @@ import { generateDailyArtwork } from './artGenerator.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const BIDDING_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
+const AUTO_RESTART_DELAY_MS = 6 * 60 * 60 * 1000; // 6 hours between close and next open
+
 const LOT_TEMPLATES = [
   {
     title: 'Untitled (Drift No. 7)',
@@ -45,53 +48,36 @@ const LOT_TEMPLATES = [
   },
 ];
 
-// Helper to construct IST Date string
-function getISTDateString(date) {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric', month: 'numeric', day: 'numeric'
-  });
-  const parts = formatter.formatToParts(date);
-  const dateMap = {};
-  parts.forEach(p => dateMap[p.type] = p.value);
-  return `${dateMap.year}-${dateMap.month.padStart(2, '0')}-${dateMap.day.padStart(2, '0')}`;
+// Pending auto-start timer handle
+let autoStartTimer = null;
+
+function cancelAutoStart() {
+  if (autoStartTimer) {
+    clearTimeout(autoStartTimer);
+    autoStartTimer = null;
+  }
 }
 
-function getBiddingWindowDates(now) {
-  // Get current hour in IST
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Kolkata',
-    hour: 'numeric',
-    hourCycle: 'h23',
-    year: 'numeric', month: 'numeric', day: 'numeric'
-  });
-  const parts = formatter.formatToParts(now);
-  const dateMap = {};
-  parts.forEach(p => dateMap[p.type] = p.value);
-  
-  const hour = parseInt(dateMap.hour, 10);
-  
-  let startDate = new Date(now);
-  let endDate = new Date(now);
-  
-  if (hour < 12) {
-    // Bidding started yesterday 6:00 PM, ends today 12:00 PM
-    startDate.setDate(startDate.getDate() - 1);
-  } else if (hour >= 12 && hour < 18) {
-    // In payment window. If we create a lot, treat it as the upcoming one starting today 6:00 PM
-    endDate.setDate(endDate.getDate() + 1);
-  } else {
-    // Bidding started today 6:00 PM, ends tomorrow 12:00 PM
-    endDate.setDate(endDate.getDate() + 1);
+function scheduleNextLot(delayMs) {
+  cancelAutoStart();
+  const clampedDelay = Math.max(0, delayMs);
+  if (clampedDelay === 0) {
+    console.log('[Scheduler] Auto-starting new lot immediately.');
+    setImmediate(async () => {
+      const latest = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+      const nextNum = latest ? latest.lotNumber + 1 : 1;
+      await createNewLot(nextNum);
+    });
+    return;
   }
-  
-  const startStr = getISTDateString(startDate);
-  const endStr = getISTDateString(endDate);
-  
-  return {
-    startsAt: new Date(`${startStr}T18:00:00+05:30`),
-    endsAt: new Date(`${endStr}T12:00:00+05:30`)
-  };
+  const minutes = Math.round(clampedDelay / 60000);
+  console.log(`[Scheduler] Next lot auto-starts in ${minutes} minutes.`);
+  autoStartTimer = setTimeout(async () => {
+    autoStartTimer = null;
+    const latest = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+    const nextNum = latest ? latest.lotNumber + 1 : 1;
+    await createNewLot(nextNum);
+  }, clampedDelay);
 }
 
 async function closeActiveLot() {
@@ -101,14 +87,12 @@ async function closeActiveLot() {
     return;
   }
 
-  // Fetch bids for this lot
   const bids = await prisma.bid.findMany({
     where: { lotId: activeLot.id },
     orderBy: { amount: 'desc' },
     include: { user: { select: { id: true, name: true, email: true } } },
   });
 
-  // Determine top 3 distinct bidders
   const distinctBidders = [];
   const seenUsers = new Set();
   for (const bid of bids) {
@@ -124,22 +108,22 @@ async function closeActiveLot() {
   }
 
   const topBid = distinctBidders[0] ?? null;
+  const closedAt = new Date();
 
-  // Mark lot as closed
   await prisma.lot.update({
     where: { id: activeLot.id },
     data: {
       status: 'closed',
-      winnerId: null, // Reset winnerId; winner is confirmed only upon payment
+      endsAt: closedAt,
+      winnerId: null,
       currentPayeeId: topBid?.userId ?? null,
       payeeExpiresAt: topBid ? new Date(Date.now() + 2 * 60 * 60 * 1000) : null,
       paymentStatus: topBid ? 'pending_1st' : null,
     },
   });
 
-  console.log(`[Scheduler] Lot #${activeLot.lotNumber} closed. Highest Bidder: ${topBid?.name ?? 'no bids'}`);
+  console.log(`[Scheduler] Lot #${activeLot.lotNumber} closed. Highest bidder: ${topBid?.name ?? 'none'}`);
 
-  // Emit closed status
   getIo()?.emit('lot:closed', {
     lotId: activeLot.id,
     winner: topBid
@@ -147,21 +131,23 @@ async function closeActiveLot() {
       : null,
   });
 
-  // 1. Send Congratulations Email to 1st highest bidder
   if (topBid?.email) {
     await sendWinnerEmail(topBid, activeLot);
   }
-
-  // 2. Send almost-had-it Email to 2nd highest bidder
   if (distinctBidders.length > 1 && distinctBidders[1].email) {
     await sendSecondPlaceEmail(distinctBidders[1]);
   }
+
+  // Auto-start next lot after 6-hour gap
+  scheduleNextLot(AUTO_RESTART_DELAY_MS);
 }
 
 async function createNewLot(lotNumber) {
+  // Cancel any pending auto-start since we're starting manually or via auto
+  cancelAutoStart();
+
   const template = LOT_TEMPLATES[(lotNumber - 1) % LOT_TEMPLATES.length];
   const now = new Date();
-  const { startsAt, endsAt } = getBiddingWindowDates(now);
 
   let art = { artworkUrl: null, artworkHeadline: null, artworkPrompt: null };
   try {
@@ -174,9 +160,9 @@ async function createNewLot(lotNumber) {
     data: {
       ...template,
       lotNumber,
-      startsAt,
-      endsAt,
-      startingBid: 100,
+      startsAt: now,
+      endsAt: new Date(now.getTime() + BIDDING_DURATION_MS),
+      startingBid: 1,
       status: 'active',
       winnerId: null,
       currentPayeeId: null,
@@ -188,7 +174,7 @@ async function createNewLot(lotNumber) {
     },
   });
 
-  console.log(`[Scheduler] New lot #${lotNumber} created: "${lot.title}" (Active until 12:00 PM IST next day)`);
+  console.log(`[Scheduler] Lot #${lotNumber} created — bidding open for 12 hours.`);
   const totalLots = await prisma.lot.count();
   getIo()?.emit('lot:new', { lot: { ...lot, totalLots } });
 }
@@ -200,91 +186,88 @@ async function checkPaymentExpirations() {
   });
   if (!lot) return;
 
-  const hasExpired = lot.paymentStatus && 
-                     lot.paymentStatus.startsWith('pending_') && 
-                     lot.payeeExpiresAt && 
-                     new Date() > new Date(lot.payeeExpiresAt);
+  const hasExpired =
+    lot.paymentStatus &&
+    lot.paymentStatus.startsWith('pending_') &&
+    lot.payeeExpiresAt &&
+    new Date() > new Date(lot.payeeExpiresAt);
 
-  if (hasExpired) {
-    console.log(`[Scheduler] Payment window expired for lot #${lot.lotNumber}, payee: ${lot.currentPayeeId}`);
+  if (!hasExpired) return;
 
-    // Fetch bids to find top bidders
-    const bids = await prisma.bid.findMany({
-      where: { lotId: lot.id },
-      orderBy: { amount: 'desc' },
-      include: { user: { select: { id: true, name: true, email: true } } },
-    });
+  console.log(`[Scheduler] Payment window expired for lot #${lot.lotNumber}, payee: ${lot.currentPayeeId}`);
 
-    const distinctBidders = [];
-    const seenUsers = new Set();
-    for (const bid of bids) {
-      if (!seenUsers.has(bid.userId)) {
-        seenUsers.add(bid.userId);
-        distinctBidders.push({
-          userId: bid.userId,
-          name: bid.user.name,
-          email: bid.user.email,
-          amount: bid.amount,
-        });
-      }
+  const bids = await prisma.bid.findMany({
+    where: { lotId: lot.id },
+    orderBy: { amount: 'desc' },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+
+  const distinctBidders = [];
+  const seenUsers = new Set();
+  for (const bid of bids) {
+    if (!seenUsers.has(bid.userId)) {
+      seenUsers.add(bid.userId);
+      distinctBidders.push({
+        userId: bid.userId,
+        name: bid.user.name,
+        email: bid.user.email,
+        amount: bid.amount,
+      });
     }
+  }
 
-    if (lot.paymentStatus === 'pending_1st') {
-      if (distinctBidders.length > 1) {
-        const secondBidder = distinctBidders[1];
-        const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
-        await prisma.lot.update({
-          where: { id: lot.id },
-          data: {
-            currentPayeeId: secondBidder.userId,
-            payeeExpiresAt: expiresAt,
-            paymentStatus: 'pending_2nd',
-          },
-        });
-        console.log(`[Scheduler] 1st payee expired. Transitioned to 2nd payee ${secondBidder.name}`);
-        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
-        await sendPaymentLinkEmail(secondBidder, lot, '2nd');
-      } else {
-        await prisma.lot.update({
-          where: { id: lot.id },
-          data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
-        });
-        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
-      }
-    } else if (lot.paymentStatus === 'pending_2nd') {
-      if (distinctBidders.length > 2) {
-        const thirdBidder = distinctBidders[2];
-        const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
-        await prisma.lot.update({
-          where: { id: lot.id },
-          data: {
-            currentPayeeId: thirdBidder.userId,
-            payeeExpiresAt: expiresAt,
-            paymentStatus: 'pending_3rd',
-          },
-        });
-        console.log(`[Scheduler] 2nd payee expired. Transitioned to 3rd payee ${thirdBidder.name}`);
-        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
-        await sendPaymentLinkEmail(thirdBidder, lot, '3rd');
-      } else {
-        await prisma.lot.update({
-          where: { id: lot.id },
-          data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
-        });
-        getIo()?.emit('lot:payee_changed', { lotId: lot.id });
-      }
-    } else if (lot.paymentStatus === 'pending_3rd') {
+  if (lot.paymentStatus === 'pending_1st') {
+    if (distinctBidders.length > 1) {
+      const second = distinctBidders[1];
+      await prisma.lot.update({
+        where: { id: lot.id },
+        data: {
+          currentPayeeId: second.userId,
+          payeeExpiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          paymentStatus: 'pending_2nd',
+        },
+      });
+      console.log(`[Scheduler] Transitioned to 2nd payee: ${second.name}`);
+      getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+      await sendPaymentLinkEmail(second, lot, '2nd');
+    } else {
       await prisma.lot.update({
         where: { id: lot.id },
         data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
       });
-      console.log(`[Scheduler] 3rd payee expired. No more settlement slots.`);
       getIo()?.emit('lot:payee_changed', { lotId: lot.id });
     }
+  } else if (lot.paymentStatus === 'pending_2nd') {
+    if (distinctBidders.length > 2) {
+      const third = distinctBidders[2];
+      await prisma.lot.update({
+        where: { id: lot.id },
+        data: {
+          currentPayeeId: third.userId,
+          payeeExpiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          paymentStatus: 'pending_3rd',
+        },
+      });
+      console.log(`[Scheduler] Transitioned to 3rd payee: ${third.name}`);
+      getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+      await sendPaymentLinkEmail(third, lot, '3rd');
+    } else {
+      await prisma.lot.update({
+        where: { id: lot.id },
+        data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
+      });
+      getIo()?.emit('lot:payee_changed', { lotId: lot.id });
+    }
+  } else if (lot.paymentStatus === 'pending_3rd') {
+    await prisma.lot.update({
+      where: { id: lot.id },
+      data: { currentPayeeId: null, payeeExpiresAt: null, paymentStatus: 'expired' },
+    });
+    console.log(`[Scheduler] 3rd payee expired. No more settlement slots.`);
+    getIo()?.emit('lot:payee_changed', { lotId: lot.id });
   }
 }
 
-// Email Sender Helper for 1st Place Winner
 async function sendWinnerEmail(winner, lot) {
   const { name, email, amount } = winner;
   const { title, artist } = lot;
@@ -336,7 +319,6 @@ Action Required: Pay within 2 hours to claim.
   }
 }
 
-// Email Sender Helper for 2nd Place at Bidding End
 async function sendSecondPlaceEmail(bidder) {
   const { name, email } = bidder;
   if (!process.env.RESEND_API_KEY) {
@@ -364,9 +346,6 @@ The top bidder has 2 hours to pay. If they fail, we will send you a payment link
           <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
             If they do not pay within this time, the opportunity to claim the product shifts to you. We will send you an email with a payment link immediately if that happens — keep an eye on your inbox!
           </p>
-          <p style="font-size: 13px; color: #7d7a8c; margin-top: 20px;">
-            Otherwise, get ready for the next bid starting in 6 hours (at 6:00 PM IST).
-          </p>
         </div>
       `,
     });
@@ -375,7 +354,6 @@ The top bidder has 2 hours to pay. If they fail, we will send you a payment link
   }
 }
 
-// Email Sender Helper for subsequent Payees
 async function sendPaymentLinkEmail(bidder, lot, rank) {
   const { name, email, amount } = bidder;
   const { title } = lot;
@@ -415,7 +393,7 @@ Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('e
             </table>
           </div>
           <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
-            Please log in to the website immediately to finalize your payment and claim your drop. If you do not pay within 2 hours, the opportunity shifts to the next bidder.
+            Please log in to the website immediately to finalize your payment and claim your drop.
           </p>
         </div>
       `,
@@ -427,49 +405,46 @@ Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('e
 
 export async function startScheduler() {
   const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
-  
-  // Expiration check on startup
-  if (activeLot && new Date(activeLot.endsAt) < new Date()) {
-    console.log('[Scheduler] Active lot is expired on startup — closing now');
-    await closeActiveLot();
-  } else if (!activeLot) {
-    // Check if we need to create first lot
-    const closedLot = await prisma.lot.findFirst({ orderBy: { startsAt: 'desc' } });
-    if (!closedLot) {
+
+  if (activeLot) {
+    if (new Date(activeLot.endsAt) < new Date()) {
+      // Lot expired while server was down — close it and schedule next lot
+      const originalEndsAt = new Date(activeLot.endsAt);
+      console.log('[Scheduler] Active lot expired on startup — closing now');
+      await closeActiveLot();
+      // Adjust the auto-start timer based on original expiry, not now
+      const elapsed = Date.now() - originalEndsAt.getTime();
+      scheduleNextLot(AUTO_RESTART_DELAY_MS - elapsed);
+    }
+    // else: lot is still active, let it run naturally
+  } else {
+    const latestLot = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+    if (!latestLot) {
+      // First run ever
       await createNewLot(1);
+    } else {
+      // No active lot — resume the 6h countdown based on when the last lot closed
+      const closedAt = new Date(latestLot.endsAt);
+      const elapsed = Date.now() - closedAt.getTime();
+      scheduleNextLot(AUTO_RESTART_DELAY_MS - elapsed);
     }
   }
 
-  // 1. Every day at 12:00 PM noon IST: Close Bidding
-  cron.schedule('0 12 * * *', async () => {
-    console.log('[Scheduler] Closing active lot (12:00 PM IST)');
-    await closeActiveLot();
-  }, {
-    timezone: "Asia/Kolkata"
+  // Every minute: check if active lot has expired naturally
+  cron.schedule('* * * * *', async () => {
+    const lot = await prisma.lot.findFirst({ where: { status: 'active' } });
+    if (lot && new Date(lot.endsAt) < new Date()) {
+      console.log('[Scheduler] Lot expired naturally — closing');
+      await closeActiveLot();
+    }
   });
 
-  // 2. Every day at 6:00 PM IST: Start New Bidding Lot
-  cron.schedule('0 18 * * *', async () => {
-    console.log('[Scheduler] Creating new bidding lot (6:00 PM IST)');
-    const latestClosed = await prisma.lot.findFirst({
-      where: { status: 'closed' },
-      orderBy: { lotNumber: 'desc' },
-    });
-    const nextNum = latestClosed ? latestClosed.lotNumber + 1 : 1;
-    await createNewLot(nextNum);
-  }, {
-    timezone: "Asia/Kolkata"
-  });
-
-  // 3. Every minute: Check for payee window expirations (2 hour limit per payee)
+  // Every minute: check payment window expirations
   cron.schedule('* * * * *', async () => {
     await checkPaymentExpirations();
-  }, {
-    timezone: "Asia/Kolkata"
   });
 
-  console.log('[Scheduler] Timezone-aware daily schedules and check loops active.');
+  console.log('[Scheduler] Event-driven scheduler active — 12h bidding, 6h gap.');
 }
 
-/* Shortcuts for admin simulation */
 export { closeActiveLot, checkPaymentExpirations, createNewLot };
