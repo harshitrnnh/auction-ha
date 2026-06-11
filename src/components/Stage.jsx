@@ -181,7 +181,7 @@ const ITEM_W  = 54;
 const ITEM_GAP = 10;
 const STRIDE   = ITEM_W + ITEM_GAP; // 64 px per slot
 
-export default function Stage({ modelCount = 3, lot }) {
+export default function Stage({ modelCount = 0, lot }) {
   const mountRef  = useRef(null);
   const canvasRef = useRef(null);
   const [view, setView]             = useState(0);

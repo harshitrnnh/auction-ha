@@ -269,7 +269,7 @@ export default function App() {
       </header>
 
       <div className="stage-wrap">
-        <Stage modelCount={3} lot={lot} />
+        <Stage modelCount={0} lot={lot} />
       </div>
 
       <BidRail auction={auction} />
