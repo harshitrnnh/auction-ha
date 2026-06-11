@@ -34,6 +34,30 @@ function createFrontCanvas(artworkImage, lot, callback) {
   img.crossOrigin = 'anonymous';
   img.src = artworkImage;
   img.onload = () => {
+    // Process image to make black background transparent
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = img.naturalWidth || img.width;
+    tempCanvas.height = img.naturalHeight || img.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(img, 0, 0);
+
+    try {
+      const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      const data = imgData.data;
+      const threshold = 35; // slightly higher to handle minor compression noise in black
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (r < threshold && g < threshold && b < threshold) {
+          data[i + 3] = 0; // Set alpha to 0 (fully transparent)
+        }
+      }
+      tempCtx.putImageData(imgData, 0, 0);
+    } catch (e) {
+      console.warn('Failed to process image transparency:', e);
+    }
+
     const canvas = document.createElement('canvas');
     canvas.width = 1200;
     canvas.height = 1600;
@@ -54,7 +78,7 @@ function createFrontCanvas(artworkImage, lot, callback) {
     ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 145);
 
     // Draw central artwork
-    ctx.drawImage(img, 150, 180, 900, 1200);
+    ctx.drawImage(tempCanvas, 150, 180, 900, 1200);
 
     // Bottom line: Title
     ctx.font = '32px Georgia, serif';
