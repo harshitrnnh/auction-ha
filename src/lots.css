@@ -296,7 +296,7 @@ body.lots-page #root {
 }
 .hero-chest-art {
   position: absolute;
-  top: 30%;
+  top: 26%;
   left: 50%;
   transform: translateX(-50%);
   width: 36%;
@@ -593,7 +593,7 @@ body.lots-page #root {
 .card-chest-art {
   position: absolute;
   /* chest center: horizontally centered, ~36% from top of the card */
-  top: 30%;
+  top: 26%;
   left: 50%;
   transform: translateX(-50%);
   width: 36%;
@@ -845,7 +845,7 @@ body.lots-page #root {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -62%);
+  transform: translate(-50%, -68%);
   width: min(26%, 100px);
   object-fit: contain;
   pointer-events: none;
@@ -868,7 +868,7 @@ body.lots-page #root {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -62%);
+  transform: translate(-50%, -68%);
   width: 28%;
   object-fit: contain;
   pointer-events: none;
