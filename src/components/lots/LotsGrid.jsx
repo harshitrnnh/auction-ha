@@ -17,9 +17,87 @@ function useCountdown(getTarget) {
   return { h: Math.floor(total / 3600), m: Math.floor(total % 3600 / 60), s: total % 60, total };
 }
 
+function createFrontCanvasForCard(artworkImage, lot, callback) {
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  const rawDate = lot?.startsAt || new Date();
+  let dateStr = '';
+  try {
+    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {
+    dateStr = '';
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = artworkImage;
+  img.onload = () => {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = img.naturalWidth || img.width;
+    tempCanvas.height = img.naturalHeight || img.height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(img, 0, 0);
+
+    try {
+      const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      const data = imgData.data;
+      const threshold = 15;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (r < threshold && g < threshold && b < threshold) {
+          data[i + 3] = 0;
+        }
+      }
+      tempCtx.putImageData(imgData, 0, 0);
+    } catch (e) {
+      console.warn('Failed to process image transparency:', e);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1600;
+    const ctx = canvas.getContext('2d');
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    
+    ctx.drawImage(tempCanvas, 124, 70, 952, 1360);
+
+    ctx.font = '46px Georgia, serif';
+    ctx.fillText('Field Notes From the Day', 600, 1495);
+
+    ctx.font = '32px Georgia, serif';
+    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 1545);
+
+    callback(canvas);
+  };
+  img.onerror = () => {
+    callback(null);
+  };
+}
+
 export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarget }) {
   const cd = useCountdown(() => getCountdownTarget(lotClosed));
   const artUrl = getArtworkUrl(lot, API);
+  const [overlaySrc, setOverlaySrc] = useState(null);
+
+  useEffect(() => {
+    if (!artUrl) return;
+    createFrontCanvasForCard(artUrl, lot, (canvas) => {
+      if (canvas) {
+        setOverlaySrc(canvas.toDataURL());
+      }
+    });
+  }, [artUrl, lot]);
 
   return (
     <section className="lots-hero">
@@ -62,8 +140,8 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
       <div className="hero-art">
         <div className="hero-tshirt-wrap">
           <img src="/tshirt_front_black_transparent.png" alt="" className="hero-tshirt-base" />
-          {artUrl && (
-            <img src={artUrl} alt={lot.title} className="hero-chest-art" />
+          {overlaySrc && (
+            <img src={overlaySrc} alt={lot.title} className="hero-chest-art" />
           )}
         </div>
         <span className="hero-watching"><span className="dot" /> {lot.watching} watching</span>
@@ -127,6 +205,17 @@ export function Toolbar({
 export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
   const passed = lot.status === 'unsold';
   const artworkUrl = getArtworkUrl(lot, API);
+  const [overlaySrc, setOverlaySrc] = useState(null);
+
+  useEffect(() => {
+    if (!artworkUrl) return;
+    createFrontCanvasForCard(artworkUrl, lot, (canvas) => {
+      if (canvas) {
+        setOverlaySrc(canvas.toDataURL());
+      }
+    });
+  }, [artworkUrl, lot]);
+
   return (
     <button
       className={'lot-card' + (lot.owned && userLoggedIn ? ' is-owned' : '')}
@@ -142,9 +231,9 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
             className="card-tshirt-base"
           />
           {/* Artwork overlay at chest position */}
-          {artworkUrl && (
+          {overlaySrc && (
             <img
-              src={artworkUrl}
+              src={overlaySrc}
               alt={lot.title}
               className="card-chest-art"
             />
