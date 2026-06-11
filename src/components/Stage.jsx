@@ -44,7 +44,7 @@ function createFrontCanvas(artworkImage, lot, callback) {
     try {
       const imgData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
       const data = imgData.data;
-      const threshold = 35; // slightly higher to handle minor compression noise in black
+      const threshold = 15; // slightly higher to handle minor compression noise in black
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
@@ -77,12 +77,12 @@ function createFrontCanvas(artworkImage, lot, callback) {
     ctx.font = '30px Georgia, serif';
     ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 135);
 
-    // Draw central artwork (increased size to 960x1280, centered)
-    ctx.drawImage(tempCanvas, 120, 170, 960, 1280);
+    // Draw central artwork (increased size to 1020x1360, centered, lesser gap to bottom title)
+    ctx.drawImage(tempCanvas, 90, 150, 1020, 1360);
 
     // Bottom line: Title
     ctx.font = '44px Georgia, serif';
-    ctx.fillText(title, 600, 1515);
+    ctx.fillText(title, 600, 1545);
 
     callback(canvas);
   };
@@ -127,20 +127,20 @@ function createBackCanvas(logoImage, lot, callback) {
     ctx.textAlign = 'center';
 
     // Lot number and Date
-    ctx.font = '30px Georgia, serif';
-    ctx.fillText(`LOT NO. ${lotNo}`, 600, 620);
-    ctx.fillText(`DATE - ${lotDate}`, 600, 670);
+    ctx.font = '38px Georgia, serif';
+    ctx.fillText(`LOT NO. ${lotNo}`, 600, 630);
+    ctx.fillText(`DATE - ${lotDate}`, 600, 690);
 
     // Summarized signals
     if (signalsSummarized.length > 0) {
-      ctx.font = '24px Georgia, serif';
+      ctx.font = '28px Georgia, serif';
       const signalsText = signalsSummarized.join('   •   ');
       
       const words = signalsText.split(' ');
       let line = '';
       const lines = [];
       const maxWidth = 960;
-      const lineHeight = 36;
+      const lineHeight = 42;
 
       for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
@@ -155,7 +155,7 @@ function createBackCanvas(logoImage, lot, callback) {
       }
       lines.push(line.trim());
 
-      let currentY = 750;
+      let currentY = 780;
       for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i], 600, currentY);
         currentY += lineHeight;
@@ -192,7 +192,7 @@ export default function Stage({ modelCount = 3, lot }) {
   const ringAngleRef   = useRef(0);   // current accumulated ring Y rotation
   const ringTargetRef  = useRef(0);   // target accumulated ring Y rotation
 
-  const total = 1 + 2 + modelCount;
+  const total = 1 + 2 + 1 + modelCount;
   totalRef.current = total;
 
   const API_URL    = import.meta.env.VITE_API_URL ?? '';
@@ -220,7 +220,8 @@ export default function Stage({ modelCount = 3, lot }) {
     { idx: 0, is3D: true },
     { idx: 1, label: '2D F' },
     { idx: 2, label: '2D B' },
-    ...Array.from({ length: modelCount }, (_, i) => ({ idx: i + 3, isModel: true, num: i + 1 })),
+    { idx: 3, label: 'PRINT' },
+    ...Array.from({ length: modelCount }, (_, i) => ({ idx: i + 4, isModel: true, num: i + 1 })),
   ], [modelCount]);
 
   const railOffRef   = useRef(0);
@@ -605,7 +606,7 @@ export default function Stage({ modelCount = 3, lot }) {
       img.src = tshirtSrc;
     };
 
-    addFlatSlide('/tshirt_black_front_png.png', 1, (ctx, cw, ch, place) => {
+    addFlatSlide('/tshirt_front_black_transparent.png', 1, (ctx, cw, ch, place) => {
       if (!artworkSrc) { place(); return; }
       createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
         if (!frontCanvas) { place(); return; }
@@ -618,7 +619,7 @@ export default function Stage({ modelCount = 3, lot }) {
       });
     });
 
-    addFlatSlide('/tshirt_black_back_png.png', 2, (ctx, cw, ch, place) => {
+    addFlatSlide('/tshirt_back_black_transparent.png', 2, (ctx, cw, ch, place) => {
       createBackCanvas('/logo.png', lot, (backCanvas) => {
         if (!backCanvas) { place(); return; }
         const decW = Math.round(cw * 0.46);
@@ -630,16 +631,29 @@ export default function Stage({ modelCount = 3, lot }) {
       });
     });
 
+    // Slide 3: Artwork PRINT (no t-shirt background, solid dark frame)
+    addFlatSlide('/tshirt_front_black_transparent.png', 3, (ctx, cw, ch, place) => {
+      if (!artworkSrc) { place(); return; }
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.fillStyle = '#060608';
+      ctx.fillRect(0, 0, cw, ch);
+      createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
+        if (!frontCanvas) { place(); return; }
+        ctx.drawImage(frontCanvas, 0, 0, cw, ch);
+        place();
+      });
+    });
+
     // Standardize placeholder size to 1.12 × 1.4 (same aspect as tshirt images)
     for (let i = 0; i < modelCount; i++) {
-      podTilts[3 + i] = { ry: 0, rx: 0, vy: 0, vx: 0 };
-      const { pod, θ } = makePod(3 + i);
+      podTilts[4 + i] = { ry: 0, rx: 0, vy: 0, vx: 0 };
+      const { pod, θ } = makePod(4 + i);
       const ph = new THREE.Mesh(
         new THREE.PlaneGeometry(SLIDE_H * 0.8, SLIDE_H),
         new THREE.MeshBasicMaterial({ color: 0x1a1726, transparent: true, opacity: 0 }),
       );
       pod.add(ph);
-      flatSlides.push({ mesh: ph, θ, idx: 3 + i });
+      flatSlides.push({ mesh: ph, θ, idx: 4 + i });
     }
 
     // ── Click-to-focus: invisible proxy planes in every pod for raycasting ──
