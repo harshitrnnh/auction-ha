@@ -261,17 +261,30 @@ export default function BidRail({ auction }) {
           <span className="lot-kicker">Drop #{lot?.lotNumber} · Today's auction</span>
           <span className="watching"><span className="dot" /> {watching} watching</span>
         </div>
-        <h1 className="lot-title">{lot?.title ?? 'Loading…'}</h1>
+        <h1 className="lot-title">
+          {(() => {
+            if (lot?.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(lot.artworkHeadline);
+                if (parsed.title) return parsed.title;
+              } catch (e) {}
+            }
+            return lot?.title ?? 'Loading…';
+          })()}
+        </h1>
         <div className="lot-edition">Unique piece · 1 of 1 · never reprinted</div>
-        <p className="lot-desc">{lot?.description ?? ''}</p>
         {(() => {
-          if (!lot?.artworkHeadline) return null;
+          if (!lot?.artworkHeadline) {
+            return <p className="lot-desc">{lot?.description ?? ''}</p>;
+          }
           let signalsUsed = [];
           let isJson = false;
+          let interpretiveStatement = '';
           try {
             if (lot.artworkHeadline.startsWith('{')) {
               const parsed = JSON.parse(lot.artworkHeadline);
               signalsUsed = parsed.data_signals_used || [];
+              interpretiveStatement = parsed.interpretive_statement || '';
               isJson = true;
             }
           } catch (e) {}
@@ -279,32 +292,46 @@ export default function BidRail({ auction }) {
           const cleanSignal = (sig) => sig.replace(/^[^:]+:\s*/, '');
 
           return (
-            <div className="lot-news-banner" style={{
-              marginTop: '14px',
-              padding: '10px 12px',
-              borderRadius: 'var(--r-sm)',
-              border: '1px dashed rgba(230, 194, 126, 0.25)',
-              background: 'rgba(230, 194, 126, 0.04)',
-              fontSize: '12px',
-              textAlign: 'left'
-            }}>
-              <span style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '9.5px', color: 'var(--gold-bright)', marginBottom: '4px', fontWeight: 600 }}>
-                🗞 Inspired by today's happenings
-              </span>
-              {isJson ? (
-                <ul style={{ color: 'var(--txt-dim)', lineHeight: '1.45', margin: 0, paddingLeft: '14px', listStyleType: 'disc' }}>
-                  {signalsUsed.map((sig, idx) => (
-                    <li key={idx} style={{ marginBottom: '4px' }}>
-                      {cleanSignal(sig)}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <span style={{ color: 'var(--txt-dim)', fontStyle: 'italic', lineHeight: '1.4' }}>
-                  &ldquo;{lot.artworkHeadline}&rdquo;
+            <>
+              {(!isJson) && <p className="lot-desc">{lot?.description ?? ''}</p>}
+              <div className="lot-news-banner" style={{
+                marginTop: '14px',
+                padding: '10px 12px',
+                borderRadius: 'var(--r-sm)',
+                border: '1px dashed rgba(230, 194, 126, 0.25)',
+                background: 'rgba(230, 194, 126, 0.04)',
+                fontSize: '12px',
+                textAlign: 'left'
+              }}>
+                <span style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '9.5px', color: 'var(--gold-bright)', marginBottom: '4px', fontWeight: 600 }}>
+                  🗞 Inspired by today's happenings
                 </span>
+                {isJson ? (
+                  <ul style={{ color: 'var(--txt-dim)', lineHeight: '1.45', margin: 0, paddingLeft: '14px', listStyleType: 'disc' }}>
+                    {signalsUsed.map((sig, idx) => (
+                      <li key={idx} style={{ marginBottom: '4px' }}>
+                        {cleanSignal(sig)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span style={{ color: 'var(--txt-dim)', fontStyle: 'italic', lineHeight: '1.4' }}>
+                    &ldquo;{lot.artworkHeadline}&rdquo;
+                  </span>
+                )}
+              </div>
+
+              {isJson && interpretiveStatement && (
+                <div style={{ marginTop: '16px', textAlign: 'left' }}>
+                  <span style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '9.5px', color: 'var(--gold-bright)', marginBottom: '6px', fontWeight: 600 }}>
+                    Artist Interpretive Statement
+                  </span>
+                  <p style={{ color: 'var(--txt-dim)', fontSize: '12.5px', lineHeight: '1.55', margin: 0, fontStyle: 'italic' }}>
+                    {interpretiveStatement}
+                  </p>
+                </div>
               )}
-            </div>
+            </>
           );
         })()}
         <div className="lot-meta">
