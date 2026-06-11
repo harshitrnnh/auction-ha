@@ -528,9 +528,9 @@ export default function Stage({ modelCount = 0, lot }) {
             texture.anisotropy = maxAniso;
             const dg = new DecalGeometry(
               tempMesh,
-              new THREE.Vector3(0, 0.02, 0.15),
+              new THREE.Vector3(0, -0.02, 0.15),
               new THREE.Euler(0, 0, 0),
-              new THREE.Vector3(0.21, 0.28, 0.21),
+              new THREE.Vector3(0.273, 0.364, 0.273),
             );
             child.add(new THREE.Mesh(dg, new THREE.MeshStandardMaterial({
               map: texture, transparent: true, roughness: 0.8,
