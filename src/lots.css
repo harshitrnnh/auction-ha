@@ -296,10 +296,10 @@ body.lots-page #root {
 }
 .hero-chest-art {
   position: absolute;
-  top: 22%;
+  top: 20%;
   left: 50%;
   transform: translateX(-50%);
-  width: 30%;
+  width: 45%;
   object-fit: contain;
   pointer-events: none;
   border-radius: 2px;

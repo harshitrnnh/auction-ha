@@ -205,9 +205,26 @@ export default function Lots() {
   }, [apiLot?.id]);
 
   /* merge real API data */
+  let heroTitle = LIVE_LOT.title;
+  let heroArtworkHeadline = null;
+  let heroStartsAt = null;
+  if (apiLot) {
+    heroTitle = apiLot.title ?? LIVE_LOT.title;
+    heroArtworkHeadline = apiLot.artworkHeadline ?? null;
+    heroStartsAt = apiLot.startsAt ?? null;
+    if (apiLot.artworkHeadline && apiLot.artworkHeadline.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(apiLot.artworkHeadline);
+        if (parsed.title) heroTitle = parsed.title;
+      } catch (e) {}
+    }
+  }
+
   const heroLot = apiLot ? {
     ...LIVE_LOT,
-    title: apiLot.title ?? LIVE_LOT.title,
+    title: heroTitle,
+    artworkHeadline: heroArtworkHeadline,
+    startsAt: heroStartsAt,
     artist: apiLot.artist ?? LIVE_LOT.artist,
     size: apiLot.size ?? LIVE_LOT.size,
     startingBid: apiLot.startingBid ?? LIVE_LOT.startingBid,
