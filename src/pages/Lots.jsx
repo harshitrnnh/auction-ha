@@ -33,6 +33,8 @@ function shapeApiLot(lot) {
     bids: lot.bids?.length ?? 0,
     winner,
     artworkUrl: lot.artworkUrl ?? null,
+    artworkHeadline: lot.artworkHeadline ?? null,
+    startsAt: lot.startsAt ?? null,
     hue: (lot.lotNumber * 67 + 180) % 360,
     seed: lot.lotNumber * 37,
     shots: 3,
