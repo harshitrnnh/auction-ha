@@ -325,9 +325,8 @@ export default function BidRail({ auction }) {
           );
         })()}
         <div className="lot-meta">
-          <div className="m"><span className="k">Size</span><span className="v">{lot?.size ?? 'M'}</span></div>
           <div className="m"><span className="k">Edition</span><span className="v">{lot?.edition ?? '1 / 1'}</span></div>
-          <div className="m"><span className="k">Ships</span><span className="v">India Only</span></div>
+          <div className="m"><span className="k">Ships</span><span className="v">Worldwide</span></div>
         </div>
       </div>
 
