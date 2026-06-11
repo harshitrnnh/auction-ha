@@ -69,20 +69,17 @@ function createFrontCanvas(artworkImage, lot, callback) {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     
-    // Top line 1: Field Notes From the Day
-    ctx.font = '52px Georgia, serif';
-    ctx.fillText('Field Notes From the Day', 600, 80);
+    // Draw central artwork (aspect ratio 7/10: 952x1360, centered, moved slightly up to Y=70)
+    ctx.drawImage(tempCanvas, 124, 70, 952, 1360);
 
-    // Top line 2: Date • Lot # • Edition 1/1
-    ctx.font = '36px Georgia, serif';
-    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 125);
+    // Field Notes and metadata printed below the artwork (font reduced to 90% of previous size)
+    // Line 1: Field Notes From the Day
+    ctx.font = '46px Georgia, serif';
+    ctx.fillText('Field Notes From the Day', 600, 1495);
 
-    // Draw central artwork (increased size to 1020x1360, centered, lesser gap to bottom title)
-    ctx.drawImage(tempCanvas, 90, 150, 1020, 1360);
-
-    // Bottom line: Title
-    ctx.font = '52px Georgia, serif';
-    ctx.fillText(title, 600, 1555);
+    // Line 2: Date • Lot # • Edition 1/1
+    ctx.font = '32px Georgia, serif';
+    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 1545);
 
     callback(canvas);
   };
