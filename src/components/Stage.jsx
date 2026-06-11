@@ -5,6 +5,147 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DecalGeometry } from 'three/examples/jsm/geometries/DecalGeometry.js';
 import { getArtworkUrl } from '../data/lotsData';
 
+// Canvas generators for front and back decals
+function createFrontCanvas(artworkImage, lot, callback) {
+  let title = lot?.title || '';
+  if (lot?.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      title = parsed.title || title;
+    } catch (e) {}
+  }
+
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  const rawDate = lot?.startsAt || new Date();
+  let dateStr = '';
+  try {
+    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {
+    dateStr = '';
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = artworkImage;
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1600;
+    const ctx = canvas.getContext('2d');
+
+    // Transparent background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    
+    // Top line 1: Field Notes From the Day
+    ctx.font = '32px Georgia, serif';
+    ctx.fillText('Field Notes From the Day', 600, 100);
+
+    // Top line 2: Date • Lot # • Edition 1/1
+    ctx.font = '22px Georgia, serif';
+    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 145);
+
+    // Draw central artwork
+    ctx.drawImage(img, 150, 180, 900, 1200);
+
+    // Bottom line: Title
+    ctx.font = '32px Georgia, serif';
+    ctx.fillText(title, 600, 1460);
+
+    callback(canvas);
+  };
+  img.onerror = () => {
+    callback(null);
+  };
+}
+
+function createBackCanvas(logoImage, lot, callback) {
+  let signalsSummarized = [];
+  if (lot?.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      signalsSummarized = parsed.data_signals_used_summarized || [];
+    } catch (e) {}
+  }
+
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  const lotDate = lot?.startsAt 
+    ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
+    : new Date().toLocaleDateString('en-GB');
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = logoImage;
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 1200;
+    const ctx = canvas.getContext('2d');
+
+    // Transparent background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const logoSize = 400;
+    ctx.drawImage(img, (1200 - logoSize) / 2, 100, logoSize, logoSize);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+
+    // Lot number and Date
+    ctx.font = '22px Georgia, serif';
+    ctx.fillText(`LOT NO. ${lotNo}`, 600, 600);
+    ctx.fillText(`DATE - ${lotDate}`, 600, 645);
+
+    // Summarized signals
+    if (signalsSummarized.length > 0) {
+      ctx.font = '18px Georgia, serif';
+      const signalsText = signalsSummarized.join('   •   ');
+      
+      const words = signalsText.split(' ');
+      let line = '';
+      const lines = [];
+      const maxWidth = 900;
+      const lineHeight = 30;
+
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          lines.push(line.trim());
+          line = words[n] + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line.trim());
+
+      let currentY = 720;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], 600, currentY);
+        currentY += lineHeight;
+      }
+    }
+
+    callback(canvas);
+  };
+  img.onerror = () => {
+    callback(null);
+  };
+}
+
 const clampZoom = (z) => Math.max(0.6, Math.min(2.2, z));
 
 function Tee3DViewer({ lot }) {
@@ -112,81 +253,22 @@ function Tee3DViewer({ lot }) {
 
             // Decal Projector for Generative Art (Front)
             if (artworkSrc) {
-              const textureLoader = new THREE.TextureLoader();
-              textureLoader.load(
-                artworkSrc,
-                (texture) => {
-                  texture.colorSpace = THREE.SRGBColorSpace;
-
-                  // Chest is at +Z in local space, projecting along -Z (Euler Y = 0)
-                  const decalPosition = new THREE.Vector3(0, 0.04, 0.15);
-                  const decalOrientation = new THREE.Euler(0, 0, 0);
-                  const decalSize = new THREE.Vector3(0.18, 0.18, 0.18);
-
-                  const decalGeom = new DecalGeometry(tempMesh, decalPosition, decalOrientation, decalSize);
-                  const decalMat = new THREE.MeshStandardMaterial({
-                    map: texture,
-                    transparent: true,
-                    roughness: 0.8,
-                    depthWrite: false,
-                    polygonOffset: true,
-                    polygonOffsetFactor: -4,
-                  });
-
-                  const decalMesh = new THREE.Mesh(decalGeom, decalMat);
-                  child.add(decalMesh);
+              createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
+                if (!frontCanvas) {
                   setLoading(false);
-                },
-                undefined,
-                (err) => {
-                  console.error('[3D Viewer] Error loading texture:', err);
-                  setLoading(false);
+                  return;
                 }
-              );
-            } else {
-              setLoading(false);
-            }
+                const texture = new THREE.CanvasTexture(frontCanvas);
+                texture.colorSpace = THREE.SRGBColorSpace;
 
-            // Decal Projector for Logo and Details (Back)
-            const logoLoader = new THREE.ImageLoader();
-            logoLoader.load(
-              '/logo.png',
-              (image) => {
-                const canvas = document.createElement('canvas');
-                canvas.width = 512;
-                canvas.height = 512;
-                const ctx = canvas.getContext('2d');
+                // Chest is at +Z in local space, projecting along -Z (Euler Y = 0)
+                const decalPosition = new THREE.Vector3(0, 0.03, 0.15);
+                const decalOrientation = new THREE.Euler(0, 0, 0);
+                const decalSize = new THREE.Vector3(0.18, 0.24, 0.18); // 3:4 aspect ratio
 
-                // Draw logo in the center-top
-                const logoW = 260;
-                const logoH = 260;
-                ctx.drawImage(image, (512 - logoW) / 2, 70, logoW, logoH);
-
-                // Write text details (Lot No and Date) below logo
-                const lotDate = lot?.startsAt 
-                  ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
-                  : new Date().toLocaleDateString('en-GB');
-                const lotNo = lot?.lotNumber != null 
-                  ? String(lot.lotNumber).padStart(3, '0') 
-                  : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
-
-                ctx.font = 'bold 24px monospace';
-                ctx.fillStyle = '#ffffff';
-                ctx.textAlign = 'center';
-                ctx.fillText(`LOT NO. ${lotNo}`, 256, 380);
-                ctx.fillText(`DATE- ${lotDate}`, 256, 420);
-
-                const logoTexture = new THREE.CanvasTexture(canvas);
-                logoTexture.colorSpace = THREE.SRGBColorSpace;
-
-                // Back is at -Z in local space, projecting along +Z (Euler Y = Math.PI)
-                const backDecalPosition = new THREE.Vector3(0, 0.09, -0.15);
-                const backDecalOrientation = new THREE.Euler(0, Math.PI, 0);
-                const backDecalSize = new THREE.Vector3(0.09, 0.09, 0.09);
-
-                const backDecalGeom = new DecalGeometry(tempMesh, backDecalPosition, backDecalOrientation, backDecalSize);
-                const backDecalMat = new THREE.MeshStandardMaterial({
-                  map: logoTexture,
+                const decalGeom = new DecalGeometry(tempMesh, decalPosition, decalOrientation, decalSize);
+                const decalMat = new THREE.MeshStandardMaterial({
+                  map: texture,
                   transparent: true,
                   roughness: 0.8,
                   depthWrite: false,
@@ -194,12 +276,38 @@ function Tee3DViewer({ lot }) {
                   polygonOffsetFactor: -4,
                 });
 
-                const backDecalMesh = new THREE.Mesh(backDecalGeom, backDecalMat);
-                child.add(backDecalMesh);
-              },
-              undefined,
-              (err) => console.error('[3D Viewer] Error loading back logo image:', err)
-            );
+                const decalMesh = new THREE.Mesh(decalGeom, decalMat);
+                child.add(decalMesh);
+                setLoading(false);
+              });
+            } else {
+              setLoading(false);
+            }
+
+            // Decal Projector for Logo and Details (Back)
+            createBackCanvas('/logo.png', lot, (backCanvas) => {
+              if (!backCanvas) return;
+              const logoTexture = new THREE.CanvasTexture(backCanvas);
+              logoTexture.colorSpace = THREE.SRGBColorSpace;
+
+              // Back is at -Z in local space, projecting along +Z (Euler Y = Math.PI)
+              const backDecalPosition = new THREE.Vector3(0, 0.07, -0.15);
+              const backDecalOrientation = new THREE.Euler(0, Math.PI, 0);
+              const backDecalSize = new THREE.Vector3(0.14, 0.14, 0.14);
+
+              const backDecalGeom = new DecalGeometry(tempMesh, backDecalPosition, backDecalOrientation, backDecalSize);
+              const backDecalMat = new THREE.MeshStandardMaterial({
+                map: logoTexture,
+                transparent: true,
+                roughness: 0.8,
+                depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -4,
+              });
+
+              const backDecalMesh = new THREE.Mesh(backDecalGeom, backDecalMat);
+              child.add(backDecalMesh);
+            });
           }
         });
       },
@@ -254,8 +362,19 @@ function Tee3DViewer({ lot }) {
 
 function Tee2DFrontViewer({ lot, zoom }) {
   const [hovered, setHovered] = useState(false);
+  const [frontDataUrl, setFrontDataUrl] = useState(null);
   const API_URL = import.meta.env.VITE_API_URL ?? '';
   const artworkSrc = getArtworkUrl(lot, API_URL);
+
+  useEffect(() => {
+    if (artworkSrc) {
+      createFrontCanvas(artworkSrc, lot, (canvas) => {
+        if (canvas) {
+          setFrontDataUrl(canvas.toDataURL('image/png'));
+        }
+      });
+    }
+  }, [artworkSrc, lot]);
 
   return (
     <div 
@@ -274,7 +393,20 @@ function Tee2DFrontViewer({ lot, zoom }) {
       >
         <div className="tee-2d-single-col">
           <img src="/tshirt_black_front_png.png" className="tee-2d-shirt" alt="Tshirt Front" />
-          {artworkSrc && <img src={artworkSrc} className="tee-2d-artwork" alt="Artwork" />}
+          {frontDataUrl && (
+            <img 
+              src={frontDataUrl} 
+              className="tee-2d-artwork" 
+              alt="Artwork" 
+              style={{
+                top: '23%',
+                left: '32%',
+                width: '36%',
+                height: '48%',
+                objectFit: 'contain'
+              }} 
+            />
+          )}
           <span className="tee-2d-label" style={{ opacity: hovered ? 0 : 1, transition: 'opacity 0.3s' }}>Front (2D Mock)</span>
         </div>
       </div>
@@ -284,12 +416,15 @@ function Tee2DFrontViewer({ lot, zoom }) {
 
 function Tee2DBackViewer({ lot, zoom }) {
   const [hovered, setHovered] = useState(false);
-  const lotDate = lot?.startsAt 
-    ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
-    : new Date().toLocaleDateString('en-GB');
-  const lotNo = lot?.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
-    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+  const [backDataUrl, setBackDataUrl] = useState(null);
+
+  useEffect(() => {
+    createBackCanvas('/logo.png', lot, (canvas) => {
+      if (canvas) {
+        setBackDataUrl(canvas.toDataURL('image/png'));
+      }
+    });
+  }, [lot]);
 
   return (
     <div 
@@ -308,13 +443,20 @@ function Tee2DBackViewer({ lot, zoom }) {
       >
         <div className="tee-2d-single-col">
           <img src="/tshirt_black_back_png.png" className="tee-2d-shirt" alt="Tshirt Back" />
-          <div className="tee-2d-logo-area">
-            <img src="/logo.png" className="tee-2d-logo" alt="Logo" />
-            <div className="tee-2d-details">
-              <div>Lot No. {lotNo}</div>
-              <div>Date- {lotDate}</div>
-            </div>
-          </div>
+          {backDataUrl && (
+            <img 
+              src={backDataUrl} 
+              className="tee-2d-artwork" 
+              alt="Back Details" 
+              style={{
+                top: '20%',
+                left: '30%',
+                width: '40%',
+                height: '40%',
+                objectFit: 'contain'
+              }} 
+            />
+          )}
           <span className="tee-2d-label" style={{ opacity: hovered ? 0 : 1, transition: 'opacity 0.3s' }}>Back (2D Mock)</span>
         </div>
       </div>
