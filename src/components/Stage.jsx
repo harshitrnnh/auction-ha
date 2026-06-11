@@ -628,15 +628,15 @@ export default function Stage({ modelCount = 0, lot }) {
       });
     });
 
-    // Slide 3: Artwork PRINT (no t-shirt background, solid dark frame)
+    // Slide 3: Artwork PRINT (no t-shirt background, fully transparent, no stretch)
     addFlatSlide('/tshirt_front_black_transparent.png', 3, (ctx, cw, ch, place) => {
       if (!artworkSrc) { place(); return; }
       ctx.clearRect(0, 0, cw, ch);
-      ctx.fillStyle = '#060608';
-      ctx.fillRect(0, 0, cw, ch);
       createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
         if (!frontCanvas) { place(); return; }
-        ctx.drawImage(frontCanvas, 0, 0, cw, ch);
+        const printW = Math.round(ch * 0.75);
+        const printX = Math.round((cw - printW) / 2);
+        ctx.drawImage(frontCanvas, printX, 0, printW, ch);
         place();
       });
     });
