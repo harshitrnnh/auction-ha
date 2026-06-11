@@ -12,7 +12,7 @@ import Addresses from './pages/Addresses.jsx';
 import Lots from './pages/Lots.jsx';
 import './index.css';
 
-const GOOGLE_CLIENT_ID = "447129401369-5a78d2mdcmbe5mckdiapovcg8pffdtgu.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "933530419477-j18kgi9u914anhe3j8jf1chgfrva2rkr.apps.googleusercontent.com";
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

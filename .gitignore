@@ -27,4 +27,6 @@ client_secret_*.json
 
 .env*
 oxide-*.json
+sandbox-artwork*
+sandbox-metadata*
 
