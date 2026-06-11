@@ -70,19 +70,19 @@ function createFrontCanvas(artworkImage, lot, callback) {
     ctx.textAlign = 'center';
     
     // Top line 1: Field Notes From the Day
-    ctx.font = '32px Georgia, serif';
-    ctx.fillText('Field Notes From the Day', 600, 100);
+    ctx.font = '44px Georgia, serif';
+    ctx.fillText('Field Notes From the Day', 600, 85);
 
     // Top line 2: Date • Lot # • Edition 1/1
-    ctx.font = '22px Georgia, serif';
-    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 145);
+    ctx.font = '30px Georgia, serif';
+    ctx.fillText(`${dateStr}   •   Lot ${lotNo}   •   Edition 1/1`, 600, 135);
 
-    // Draw central artwork
-    ctx.drawImage(tempCanvas, 150, 180, 900, 1200);
+    // Draw central artwork (increased size to 960x1280, centered)
+    ctx.drawImage(tempCanvas, 120, 170, 960, 1280);
 
     // Bottom line: Title
-    ctx.font = '32px Georgia, serif';
-    ctx.fillText(title, 600, 1460);
+    ctx.font = '44px Georgia, serif';
+    ctx.fillText(title, 600, 1515);
 
     callback(canvas);
   };
@@ -120,27 +120,27 @@ function createBackCanvas(logoImage, lot, callback) {
     // Transparent background
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const logoSize = 400;
-    ctx.drawImage(img, (1200 - logoSize) / 2, 100, logoSize, logoSize);
+    const logoSize = 460;
+    ctx.drawImage(img, (1200 - logoSize) / 2, 80, logoSize, logoSize);
 
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
 
     // Lot number and Date
-    ctx.font = '22px Georgia, serif';
-    ctx.fillText(`LOT NO. ${lotNo}`, 600, 600);
-    ctx.fillText(`DATE - ${lotDate}`, 600, 645);
+    ctx.font = '30px Georgia, serif';
+    ctx.fillText(`LOT NO. ${lotNo}`, 600, 620);
+    ctx.fillText(`DATE - ${lotDate}`, 600, 670);
 
     // Summarized signals
     if (signalsSummarized.length > 0) {
-      ctx.font = '18px Georgia, serif';
+      ctx.font = '24px Georgia, serif';
       const signalsText = signalsSummarized.join('   •   ');
       
       const words = signalsText.split(' ');
       let line = '';
       const lines = [];
-      const maxWidth = 900;
-      const lineHeight = 30;
+      const maxWidth = 960;
+      const lineHeight = 36;
 
       for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
@@ -155,7 +155,7 @@ function createBackCanvas(logoImage, lot, callback) {
       }
       lines.push(line.trim());
 
-      let currentY = 720;
+      let currentY = 750;
       for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i], 600, currentY);
         currentY += lineHeight;
@@ -527,9 +527,9 @@ export default function Stage({ modelCount = 3, lot }) {
             texture.anisotropy = maxAniso;
             const dg = new DecalGeometry(
               tempMesh,
-              new THREE.Vector3(0, 0.03, 0.15),
+              new THREE.Vector3(0, 0.02, 0.15),
               new THREE.Euler(0, 0, 0),
-              new THREE.Vector3(0.18, 0.24, 0.18),
+              new THREE.Vector3(0.21, 0.28, 0.21),
             );
             child.add(new THREE.Mesh(dg, new THREE.MeshStandardMaterial({
               map: texture, transparent: true, roughness: 0.8,
@@ -545,9 +545,9 @@ export default function Stage({ modelCount = 3, lot }) {
           logoTexture.anisotropy = maxAniso;
           const bdg = new DecalGeometry(
             tempMesh,
-            new THREE.Vector3(0, 0.07, -0.15),
+            new THREE.Vector3(0, 0.06, -0.15),
             new THREE.Euler(0, Math.PI, 0),
-            new THREE.Vector3(0.14, 0.14, 0.14),
+            new THREE.Vector3(0.165, 0.165, 0.165),
           );
           child.add(new THREE.Mesh(bdg, new THREE.MeshStandardMaterial({
             map: logoTexture, transparent: true, roughness: 0.8,
@@ -609,10 +609,10 @@ export default function Stage({ modelCount = 3, lot }) {
       if (!artworkSrc) { place(); return; }
       createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
         if (!frontCanvas) { place(); return; }
-        const decW = Math.round(cw * 0.36);
+        const decW = Math.round(cw * 0.42);
         const decH = Math.round(decW * 4 / 3);
         const decX = Math.round((cw - decW) / 2);
-        const decY = Math.round(ch * 0.23);
+        const decY = Math.round(ch * 0.205);
         ctx.drawImage(frontCanvas, decX, decY, decW, decH);
         place();
       });
@@ -621,10 +621,10 @@ export default function Stage({ modelCount = 3, lot }) {
     addFlatSlide('/tshirt_black_back_png.png', 2, (ctx, cw, ch, place) => {
       createBackCanvas('/logo.png', lot, (backCanvas) => {
         if (!backCanvas) { place(); return; }
-        const decW = Math.round(cw * 0.40);
+        const decW = Math.round(cw * 0.46);
         const decH = decW;
         const decX = Math.round((cw - decW) / 2);
-        const decY = Math.round(ch * 0.20);
+        const decY = Math.round(ch * 0.17);
         ctx.drawImage(backCanvas, decX, decY, decW, decH);
         place();
       });
