@@ -528,9 +528,9 @@ export default function Stage({ modelCount = 0, lot }) {
             texture.anisotropy = maxAniso;
             const dg = new DecalGeometry(
               tempMesh,
-              new THREE.Vector3(0, -0.02, 0.15),
+              new THREE.Vector3(0, -0.01, 0.15),
               new THREE.Euler(0, 0, 0),
-              new THREE.Vector3(0.273, 0.364, 0.273),
+              new THREE.Vector3(0.246, 0.328, 0.246),
             );
             child.add(new THREE.Mesh(dg, new THREE.MeshStandardMaterial({
               map: texture, transparent: true, roughness: 0.8,
@@ -610,7 +610,7 @@ export default function Stage({ modelCount = 0, lot }) {
       if (!artworkSrc) { place(); return; }
       createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
         if (!frontCanvas) { place(); return; }
-        const decW = Math.round(cw * 0.42);
+        const decW = Math.round(cw * 0.462);
         const decH = Math.round(decW * 4 / 3);
         const decX = Math.round((cw - decW) / 2);
         const decY = Math.round(ch * 0.205);
