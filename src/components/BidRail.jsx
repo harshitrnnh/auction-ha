@@ -222,7 +222,7 @@ function MyBid({ myBid, status }) {
 
 function Feed({ bids }) {
   return (
-    <div className="feed">
+    <div className="feed" style={{ flex: bids.length > 0 ? '1 1 auto' : 'none', minHeight: bids.length > 0 ? '150px' : '0' }}>
       <div className="feed-head">
         <span className="t">Live activity</span>
         <span className="live"><span className="dot" /> Live · {bids.length} bids</span>
@@ -378,7 +378,11 @@ export default function BidRail({ auction }) {
       <Feed bids={bids} />
 
       {isJson && interpretiveStatement && (
-        <div style={{ marginTop: '24px', textAlign: 'left', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '16px' }}>
+        <div style={{
+          padding: '16px 18px 18px',
+          textAlign: 'left',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
           <span style={{ display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '9.5px', color: 'var(--gold-bright)', marginBottom: '6px', fontWeight: 600 }}>
             Artist Interpretive Statement
           </span>
