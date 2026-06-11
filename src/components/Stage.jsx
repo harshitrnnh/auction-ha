@@ -548,7 +548,7 @@ export default function Stage({ modelCount = 0, lot }) {
             tempMesh,
             new THREE.Vector3(0, 0.06, -0.15),
             new THREE.Euler(0, Math.PI, 0),
-            new THREE.Vector3(0.165, 0.165, 0.165),
+            new THREE.Vector3(0.248, 0.248, 0.248),
           );
           child.add(new THREE.Mesh(bdg, new THREE.MeshStandardMaterial({
             map: logoTexture, transparent: true, roughness: 0.8,
