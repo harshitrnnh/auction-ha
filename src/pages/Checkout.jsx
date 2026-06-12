@@ -38,6 +38,16 @@ export default function Checkout() {
 
   const { timeLeft, expired } = useCountdown(lot?.payeeExpiresAt);
 
+  let parsedTitle = lot?.title || 'Unknown Item';
+  if (lot) {
+    try {
+      if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+        const parsed = JSON.parse(lot.artworkHeadline);
+        if (parsed.title) parsedTitle = parsed.title;
+      }
+    } catch (e) {}
+  }
+
   useEffect(() => {
     if (!token) { navigate('/login', { state: { from: '/checkout' } }); return; }
     fetch(`${API}/api/lots/current`, { headers: { Authorization: `Bearer ${token}` } })
@@ -105,7 +115,7 @@ export default function Checkout() {
             <div className="checkout-badge">🏆</div>
             <h2 className="checkout-title">You Won the Bid!</h2>
             <p className="checkout-sub">
-              Congratulations — you won today's drop: <strong>{lot.title}</strong> by {lot.artist}.
+              Congratulations — you won today's drop: <strong>{parsedTitle}</strong> by {lot.artist}.
               Complete payment within your 2-hour window or the piece passes to the next bidder.
             </p>
             <div className="celebration-timer-box" style={{ margin: '24px 0' }}>
@@ -123,7 +133,7 @@ export default function Checkout() {
             <div className="checkout-badge">📦</div>
             <h2 className="checkout-title">Shipping Details</h2>
             <p className="checkout-sub" style={{ marginBottom: 20 }}>
-              Where should we deliver <strong>{lot.title}</strong>?
+              Where should we deliver <strong>{parsedTitle}</strong>?
             </p>
             <div className="checkout-form">
               <div className="checkout-row">
@@ -169,7 +179,7 @@ export default function Checkout() {
             <div className="checkout-badge">🎉</div>
             <h2 className="checkout-title">Order Confirmed!</h2>
             <p className="checkout-sub">
-              You've claimed <strong>{lot?.title}</strong>. We'll start printing and ship it your way.
+              You've claimed <strong>{parsedTitle}</strong>. We'll start printing and ship it your way.
             </p>
             <div className="order-confirm-box" style={{ margin: '24px 0' }}>
               <div className="oc-row">
