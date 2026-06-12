@@ -216,6 +216,22 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
     });
   }, [artworkUrl, lot]);
 
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  const rawDate = lot?.startsAt || new Date();
+  let dateStr = '';
+  try {
+    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {
+    dateStr = '';
+  }
+
   return (
     <button
       className={'lot-card' + (lot.owned && userLoggedIn ? ' is-owned' : '')}
@@ -240,7 +256,7 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
           )}
         </div>
         <div className="card-badges">
-          <span className="l-tag lotno num">Lot {lot.lotNo}</span>
+          <span className="l-tag lotno num">Lot {lotNo}</span>
           {lot.owned && userLoggedIn && showRibbon
             ? <span className="owned-ribbon">✦ Yours</span>
             : <span className={'l-tag ' + (passed ? 'unsold' : 'sold')}>{passed ? 'Passed' : 'Sold'}</span>}
@@ -249,7 +265,9 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
       </div>
       <div className="card-body">
         <h3 className="card-title">{lot.title}</h3>
-        <div className="card-meta">{lot.size} · 1 of 1</div>
+        <div className="card-meta">
+          {dateStr ? `${dateStr} · ` : ''}Lot {lotNo} · Edition 1/1
+        </div>
         <div className="card-result">
           <div>
             <div className="price-k">{passed ? 'Reserve not met' : 'Sold for'}</div>
