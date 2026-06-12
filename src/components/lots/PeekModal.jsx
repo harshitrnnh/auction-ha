@@ -316,65 +316,79 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                     if (!sig) return '';
                     
                     let text = sig.trim();
+                    let source = '';
                     
-                    // 1. Remove category prefix if it exists
+                    // 1. Detect category from the original string before any stripping
+                    const orig = text.toLowerCase();
+                    
+                    if (orig.includes('weird news') || orig.includes('upi_weird_news') || orig.includes('weird') || orig.includes('watch:')) {
+                      source = 'UPI Weird News';
+                    } else if (orig.includes('oddity_central') || orig.includes('oddity')) {
+                      source = 'Oddity Central';
+                    } else if (orig.includes('global attention') || orig.includes('collective attention') || orig.includes('top_wikipedia') || orig.includes('top wikipedia') || orig.includes('pageviews') || orig.includes('wikipedia top search') || orig.includes('daily news') || orig.includes('daily_news') || (orig.includes('wikipedia') && !orig.includes('day') && !orig.includes('event'))) {
+                      source = 'Wikipedia Top Search';
+                    } else if (orig.includes('optimist_daily') || orig.includes('optimist')) {
+                      source = 'Optimist Daily';
+                    } else if (orig.includes('positive_news') || orig.includes('positive news') || orig.includes('good news') || orig.includes('gnn')) {
+                      source = 'Good News Network';
+                    } else if (orig.includes('future prediction') || orig.includes('polymarket') || orig.includes('prediction') || orig.includes('probability') || orig.includes('percent probability') || orig.includes('% probability')) {
+                      source = 'Polymarket Trending';
+                    } else if (orig.includes('cultural resonance') || orig.includes('top_song') || orig.includes('top song') || orig.includes('song') || orig.includes('spotify') || orig.includes('apple music')) {
+                      source = 'Top Song';
+                    } else if (orig.includes('historical lens') || orig.includes('wikipedia_on_this_day') || orig.includes('wikipedia event') || orig.includes('historical') || orig.includes('history') || orig.includes('wikipedia on this day') || orig.includes('day') || orig.match(/^\d{3,4}:/)) {
+                      source = 'Wikipedia On this Day';
+                    }
+                    
+                    // 2. Define patterns to remove category prefixes
                     const categoryPatterns = [
                       /^(weird\s*news|upi_weird_news|oddity_central):\s*/i,
-                      /^(global\s*attention|top_wikipedia):\s*/i,
+                      /^(global\s*attention|top_wikipedia|collective\s*attention):\s*/i,
                       /^(positive\s*news|optimist_daily):\s*/i,
                       /^(future\s*prediction|polymarket):\s*/i,
                       /^(cultural\s*resonance|top_song|song):\s*/i,
-                      /^(historical\s*lens|wikipedia_on_this_day):\s*/i
+                      /^(historical\s*lens|wikipedia_on_this_day|wikipedia\s*event):\s*/i
                     ];
                     
-                    for (const pat of categoryPatterns) {
-                      if (pat.test(text)) {
-                        text = text.replace(pat, '');
-                        break;
-                      }
-                    }
-                    
-                    // 2. Parse and remove source prefix
-                    let source = '';
+                    // 3. Define patterns to remove source prefixes
                     const sourcePatterns = [
                       { pat: /^watch:\s*/i, src: 'UPI Weird News' },
-                      { pat: /^top\s*wikipedia:\s*/i, src: 'Wikipedia Top' },
-                      { pat: /^wikipedia\s*on\s*this\s*day:\s*/i, src: 'Wikipedia' },
+                      { pat: /^upi\s*weird\s*news:\s*/i, src: 'UPI Weird News' },
+                      { pat: /^top\s*wikipedia:\s*/i, src: 'Wikipedia Top Search' },
+                      { pat: /^wikipedia\s*top\s*search:\s*/i, src: 'Wikipedia Top Search' },
+                      { pat: /^wikipedia\s*on\s*this\s*day:\s*/i, src: 'Wikipedia On this Day' },
                       { pat: /^optimist\s*daily:\s*/i, src: 'Optimist Daily' },
-                      { pat: /^positive\s*news:\s*/i, src: 'Positive News' },
-                      { pat: /^polymarket:\s*/i, src: 'Polymarket Predictions' },
+                      { pat: /^positive\s*news:\s*/i, src: 'Good News Network' },
+                      { pat: /^good\s*news\s*network:\s*/i, src: 'Good News Network' },
+                      { pat: /^polymarket:\s*/i, src: 'Polymarket Trending' },
+                      { pat: /^polymarket\s*trending:\s*/i, src: 'Polymarket Trending' },
                       { pat: /^top\s*song:\s*/i, src: 'Top Song' },
                       { pat: /^oddity\s*central:\s*/i, src: 'Oddity Central' }
                     ];
                     
-                    for (const item of sourcePatterns) {
-                      if (item.pat.test(text)) {
-                        source = item.src;
-                        text = text.replace(item.pat, '');
-                        break;
+                    // 4. Repeatedly strip category & source prefixes from the text until stable
+                    let cleaned = true;
+                    while (cleaned) {
+                      cleaned = false;
+                      for (const pat of categoryPatterns) {
+                        if (pat.test(text)) {
+                          text = text.replace(pat, '');
+                          cleaned = true;
+                          break;
+                        }
+                      }
+                      for (const item of sourcePatterns) {
+                        if (item.pat.test(text)) {
+                          if (!source) source = item.src;
+                          text = text.replace(item.pat, '');
+                          cleaned = true;
+                          break;
+                        }
                       }
                     }
                     
-                    // If no source prefix was matched, check if we can infer from the original string
+                    // 5. Ultimate fallback if still no source determined
                     if (!source) {
-                      const orig = sig.toLowerCase();
-                      if (orig.includes('upi') || orig.includes('weird')) {
-                        source = 'UPI Weird News';
-                      } else if (orig.includes('wikipedia') || orig.includes('historical') || orig.includes('history')) {
-                        source = 'Wikipedia';
-                      } else if (orig.includes('oddity')) {
-                        source = 'Oddity Central';
-                      } else if (orig.includes('optimist')) {
-                        source = 'Optimist Daily';
-                      } else if (orig.includes('positive')) {
-                        source = 'Positive News';
-                      } else if (orig.includes('polymarket')) {
-                        source = 'Polymarket Predictions';
-                      } else if (orig.includes('song')) {
-                        source = 'Top Song';
-                      } else {
-                        source = 'Daily News';
-                      }
+                      source = 'Wikipedia Top Search';
                     }
                     
                     // Capitalize first letter of the remaining text
