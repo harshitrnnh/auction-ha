@@ -329,8 +329,8 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                       source = 'Oddity Central';
                     } else if (prefix.includes('positive') || prefix.includes('optimist') || prefix.includes('good news') || prefix.includes('huffpost')) {
                       source = 'HuffPost Positive';
-                    } else if (prefix.includes('polymarket')) {
-                      source = 'Polymarket';
+                    } else if (prefix.includes('polymarket') || prefix.includes('future prediction') || prefix.includes('prediction')) {
+                      source = 'Polymarket Predictions';
                     } else if (prefix.includes('song') || prefix.includes('spotify') || prefix.includes('cultural')) {
                       source = 'Spotify Top';
                     } else if (prefix.includes('meme') || prefix.includes('know your')) {
@@ -343,7 +343,11 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                       source = match[1].split(/[_-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                     }
                     
-                    return `${rest} [${source}]`;
+                    return (
+                      <>
+                        {rest} <span style={{ fontStyle: 'italic' }}>[{source}]</span>
+                      </>
+                    );
                   };
                   return (
                     <ul style={{ color: 'var(--txt-dim)', lineHeight: '1.45', margin: 0, paddingLeft: '14px', listStyleType: 'disc' }}>
