@@ -41,12 +41,12 @@ function ClosedBlob({ lot, bids, user, winner, myRank, onPayNow }) {
 
   return (
     <div className="settlement-info" style={{
-      padding: '24px 20px',
+      padding: '18px 16px',
       border: '1px solid var(--line-strong)',
       borderRadius: 'var(--r-sm)',
       background: 'rgba(0,0,0,0.2)',
       textAlign: 'center',
-      marginTop: '16px',
+      margin: '12px 18px 0',
     }}>
       {isCurrentPayee ? (
         <>
@@ -363,6 +363,7 @@ export default function BidRail({ auction }) {
         <div className="lot-meta">
           <div className="m"><span className="k">Edition</span><span className="v">{lot?.edition ?? '1 / 1'}</span></div>
           <div className="m"><span className="k">Ships</span><span className="v">Worldwide</span></div>
+          <div className="m"><span className="k">Material</span><span className="v">220 GSM, 100% Cotton</span></div>
         </div>
       </div>
 
@@ -410,11 +411,11 @@ export default function BidRail({ auction }) {
         />
       )}
 
-      <Feed bids={bids} />
+      {!lotClosed && <Feed bids={bids} />}
 
       {isJson && interpretiveStatement && (
         <div style={{
-          padding: '16px 18px 18px',
+          padding: '10px 18px 18px',
           textAlign: 'left',
           borderTop: '1px solid rgba(255, 255, 255, 0.08)'
         }}>

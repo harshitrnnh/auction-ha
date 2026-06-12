@@ -379,6 +379,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
           <div className="m-meta">
             <div className="m"><span className="k">Edition</span><span className="v">1 / 1</span></div>
             <div className="m"><span className="k">Ships</span><span className="v">Worldwide</span></div>
+            <div className="m"><span className="k">Material</span><span className="v">220 GSM, 100% Cotton</span></div>
           </div>
 
           {live ? (
