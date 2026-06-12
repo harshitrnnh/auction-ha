@@ -19,11 +19,20 @@ function shapeApiLot(lot) {
     : topBid?.user ? { name: topBid.user.name ?? 'Anonymous', hue: 268 } : null;
   const soldPrice = lot.soldPrice ?? (lot.order ? Math.round(lot.order.amount / 100) : null) ?? topBid?.amount ?? 0;
   const isSold = lot.paymentStatus === 'paid';
+
+  let title = lot.title;
+  if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      if (parsed.title) title = parsed.title;
+    } catch (e) {}
+  }
+
   return {
     id: lot.id,
     lotNo: String(lot.lotNumber).padStart(3, '0'),
     lotNumber: lot.lotNumber,
-    title: lot.title,
+    title,
     artist: lot.artist,
     desc: lot.description,
     size: lot.size,
