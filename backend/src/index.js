@@ -241,7 +241,7 @@ app.get('/api/admin/orders', async (_req, res) => {
     const orders = await prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        lot: { select: { title: true, lotNumber: true, artworkUrl: true, size: true, artist: true, artworkUrl: true } },
+        lot: { select: { title: true, lotNumber: true, artworkUrl: true, size: true, artist: true, artworkHeadline: true } },
         user: { select: { name: true, email: true, phone: true } },
         address: true,
       },
