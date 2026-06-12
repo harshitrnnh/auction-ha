@@ -46,7 +46,7 @@ function ClosedBlob({ lot, bids, user, winner, myRank, onPayNow }) {
       borderRadius: 'var(--r-sm)',
       background: 'rgba(0,0,0,0.2)',
       textAlign: 'center',
-      margin: '12px 18px 0',
+      margin: '18px',
     }}>
       {isCurrentPayee ? (
         <>
