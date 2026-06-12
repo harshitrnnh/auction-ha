@@ -172,6 +172,7 @@ const CAM_Z     = 3.8;   // camera Z (front item at Z=RING_R, camera 1.8 units b
 const CAM_Z_MIN = 2.4;   // closest zoom on slide 0
 const CAM_Z_MAX = 10.0;  // furthest zoom on slide 0
 const SLIDE_H   = 1.0;   // height of every slide in world units
+const SHOW_CAROUSEL_PREVIEWS = true; // Set to false to revert back to 100% hidden side slides
 
 // Thumbnail rail carousel geometry
 const ITEM_W  = 54;
@@ -761,11 +762,15 @@ export default function Stage({ modelCount = 0, lot }) {
       // Fade flat slides: opacity = max(0, cos(world angle)) — front=1, side=0.5, back=0
       for (const { mesh, θ } of flatSlides) {
         const worldAngle = θ + ringGroup.rotation.y;
-        mesh.material.opacity = Math.max(0, Math.cos(worldAngle));
+        mesh.material.opacity = SHOW_CAROUSEL_PREVIEWS
+          ? (Math.cos(worldAngle) * 0.5 + 0.5)
+          : Math.max(0, Math.cos(worldAngle));
       }
 
       // Fade 3D shirt by same frontness (transparent was set on material from birth)
-      const shirtFrontness = Math.max(0, Math.cos(shirtθ + ringGroup.rotation.y));
+      const shirtFrontness = SHOW_CAROUSEL_PREVIEWS
+        ? (Math.cos(shirtθ + ringGroup.rotation.y) * 0.5 + 0.5)
+        : Math.max(0, Math.cos(shirtθ + ringGroup.rotation.y));
       shirtGroup.traverse((child) => {
         if (child.isMesh) child.material.opacity = shirtFrontness;
       });
