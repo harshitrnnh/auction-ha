@@ -223,14 +223,58 @@ async function fetchWikipediaOnThisDay(date) {
 const collectDailyData = async (dateString) => {
   console.log('[Data Collector] Gathering all signals for date:', dateString);
 
-  const upiOddNews = await fetchUpiOddNews();
-  const oddityCentral = await fetchOddityCentral();
-  const wikipediaPageviews = await fetchWikipediaPageviews(dateString);
-  const positiveNews = await fetchPositiveNews();
-  const optimistDaily = await fetchOptimistDaily();
-  const polymarket = await fetchPolymarket();
-  const topSong = await fetchAppleMusic();
-  const wikipediaOnThisDay = await fetchWikipediaOnThisDay(dateString);
+  // 1. Fetch yesterday's signals from the database to exclude
+  let excludedSignals = [];
+  try {
+    const lastLot = await prisma.lot.findFirst({
+      orderBy: { lotNumber: 'desc' },
+    });
+    if (lastLot?.artworkHeadline && lastLot.artworkHeadline.startsWith('{')) {
+      const parsed = JSON.parse(lastLot.artworkHeadline);
+      excludedSignals = parsed.data_signals_used || [];
+    }
+  } catch (err) {
+    console.error('[Data Collector] Failed to load previous lot signals:', err.message);
+  }
+
+  const isExcluded = (sigText) => {
+    if (!sigText || excludedSignals.length === 0) return false;
+    const normSig = String(sigText).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!normSig) return false;
+    for (const excluded of excludedSignals) {
+      const normExcluded = String(excluded).toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normSig.includes(normExcluded) || normExcluded.includes(normSig)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const upiOddNews = (await fetchUpiOddNews()).filter(item => !isExcluded(item));
+  const oddityCentral = (await fetchOddityCentral()).filter(item => !isExcluded(item));
+  const wikipediaPageviews = (await fetchWikipediaPageviews(dateString)).filter(item => !isExcluded(item));
+  
+  let positiveNews = await fetchPositiveNews();
+  if (positiveNews && (isExcluded(positiveNews.headline) || isExcluded(positiveNews.summary))) {
+    positiveNews = null;
+  }
+  
+  let optimistDaily = await fetchOptimistDaily();
+  if (optimistDaily && (isExcluded(optimistDaily.headline) || isExcluded(optimistDaily.summary))) {
+    optimistDaily = null;
+  }
+  
+  const polymarket = (await fetchPolymarket()).filter(item => !isExcluded(item.question));
+  
+  let topSong = await fetchAppleMusic();
+  if (topSong && (isExcluded(topSong.title) || isExcluded(topSong.artist))) {
+    topSong = null;
+  }
+  
+  let wikipediaOnThisDay = await fetchWikipediaOnThisDay(dateString);
+  if (wikipediaOnThisDay && isExcluded(wikipediaOnThisDay.event)) {
+    wikipediaOnThisDay = null;
+  }
 
   return {
     date: dateString,
