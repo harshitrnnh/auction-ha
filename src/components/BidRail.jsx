@@ -290,7 +290,39 @@ export default function BidRail({ auction }) {
             return <p className="lot-desc">{lot?.description ?? ''}</p>;
           }
 
-          const cleanSignal = (sig) => sig.replace(/^[^:]+:\s*/, '');
+          const formatSignalWithSource = (sig) => {
+            if (!sig) return '';
+            const match = sig.match(/^([^:]+):\s*(.*)$/);
+            if (!match) return sig;
+            
+            const prefix = match[1].trim().toLowerCase();
+            const rest = match[2].trim();
+            
+            let source = '';
+            if (prefix.includes('upi') || prefix.includes('weird news') || prefix === 'weird') {
+              source = 'UPI Weid News';
+            } else if (prefix.includes('wikipedia') || prefix.includes('historical')) {
+              source = 'Wikipedia Top';
+            } else if (prefix.includes('oddity')) {
+              source = 'Oddity Central';
+            } else if (prefix.includes('positive') || prefix.includes('optimist') || prefix.includes('good news') || prefix.includes('huffpost')) {
+              source = 'HuffPost Positive';
+            } else if (prefix.includes('polymarket')) {
+              source = 'Polymarket';
+            } else if (prefix.includes('song') || prefix.includes('spotify') || prefix.includes('cultural')) {
+              source = 'Spotify Top';
+            } else if (prefix.includes('meme') || prefix.includes('know your')) {
+              source = 'Know Your Meme';
+            } else if (prefix.includes('google trends') || prefix.includes('collective') || prefix.includes('trends')) {
+              source = 'Google Trends';
+            } else if (prefix.includes('apod') || prefix.includes('nasa')) {
+              source = 'NASA APOD';
+            } else {
+              source = match[1].split(/[_-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            }
+            
+            return `${rest} [${source}]`;
+          };
 
           return (
             <>
@@ -311,7 +343,7 @@ export default function BidRail({ auction }) {
                   <ul style={{ color: 'var(--txt-dim)', lineHeight: '1.45', margin: 0, paddingLeft: '14px', listStyleType: 'disc' }}>
                     {signalsUsed.map((sig, idx) => (
                       <li key={idx} style={{ marginBottom: '4px' }}>
-                        {cleanSignal(sig)}
+                        {formatSignalWithSource(sig)}
                       </li>
                     ))}
                   </ul>

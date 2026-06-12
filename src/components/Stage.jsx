@@ -595,6 +595,9 @@ export default function Stage({ modelCount = 0, lot }) {
               map: tex, transparent: true, opacity: 0, side: THREE.DoubleSide,
             }),
           );
+          if (slideIdx === 3) {
+            mesh.position.y = 0.08;
+          }
           pod.add(mesh);
           flatSlides.push({ mesh, θ, idx: slideIdx });
         };
@@ -670,7 +673,11 @@ export default function Stage({ modelCount = 0, lot }) {
     ringGroup.children.forEach((pod, i) => {
       if (i === 0) return; // shirtPod already done
       const pr = new THREE.Mesh(proxyGeo, proxyMat.clone());
-      pr.position.set(0, 0, 0);
+      if (i === 3) {
+        pr.position.set(0, 0.08, 0);
+      } else {
+        pr.position.set(0, 0, 0);
+      }
       pod.add(pr);
       clickProxies.push({ proxy: pr, idx: i });
     });
