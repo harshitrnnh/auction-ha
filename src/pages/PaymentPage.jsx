@@ -282,6 +282,30 @@ export default function PaymentPage() {
     );
   }
 
+  let parsedTitle = lot?.title || '';
+  let dateStr = '';
+  const lotNo = lot?.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  if (lot) {
+    try {
+      if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+        const parsed = JSON.parse(lot.artworkHeadline);
+        if (parsed.title) parsedTitle = parsed.title;
+      }
+    } catch (e) {}
+
+    try {
+      const rawDate = lot.startsAt || new Date();
+      dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (e) {}
+  }
+
   return (
     <div className="account-page">
       <div className="auth-bg"><div className="auth-nebula-a" /><div className="auth-nebula-b" /></div>
@@ -293,8 +317,13 @@ export default function PaymentPage() {
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
               <h2 style={{ margin: '0 0 10px', fontSize: '22px', color: '#e6c27e' }}>Payment Confirmed!</h2>
               <p style={{ fontSize: '14px', color: '#b9b6c4', lineHeight: '1.6', margin: '0 0 8px' }}>
-                You&apos;ve successfully claimed <strong style={{ color: '#f4f1ea' }}>{lot?.title}</strong>.
+                You&apos;ve successfully claimed <strong style={{ color: '#f4f1ea' }}>{parsedTitle}</strong>.
               </p>
+              {dateStr && (
+                <p style={{ fontSize: '12.5px', color: '#7d7a8c', margin: '0 0 16px' }}>
+                  {dateStr}   •   Lot {lotNo}   •   Edition 1/1
+                </p>
+              )}
               <p style={{ fontSize: '13px', color: '#7d7a8c', margin: '0 0 28px' }}>
                 Order <strong style={{ color: '#e6c27e' }}>{paidOrderNumber}</strong> — a confirmation email is on its way.
               </p>
@@ -322,7 +351,14 @@ export default function PaymentPage() {
               <div style={{ fontSize: '36px', marginBottom: '10px' }}>🏆</div>
               <h3 style={{ margin: '0 0 6px', fontSize: '18px', color: '#e6c27e' }}>You Won the Bid!</h3>
               <p style={{ fontSize: '13px', color: '#b9b6c4', margin: '0', lineHeight: '1.6' }}>
-                Congratulations! You won <strong style={{ color: '#f4f1ea' }}>{lot?.title}</strong>.
+                Congratulations! You won <strong style={{ color: '#f4f1ea' }}>{parsedTitle}</strong>.
+              </p>
+              {dateStr && (
+                <p style={{ fontSize: '12px', color: '#7d7a8c', margin: '4px 0 0' }}>
+                  {dateStr}   •   Lot {lotNo}   •   Edition 1/1
+                </p>
+              )}
+              <p style={{ fontSize: '13px', color: '#b9b6c4', margin: '8px 0 0', lineHeight: '1.6' }}>
                 Complete payment below to claim it.
               </p>
             </div>
