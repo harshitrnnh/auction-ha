@@ -270,14 +270,36 @@ async function checkPaymentExpirations() {
 
 async function sendWinnerEmail(winner, lot) {
   const { name, email, amount } = winner;
-  const { title, artist } = lot;
+  const { artist } = lot;
+
+  let parsedTitle = lot.title;
+  let dateStr = '';
+  const lotNo = lot.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  try {
+    if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      if (parsed.title) parsedTitle = parsed.title;
+    }
+  } catch (e) {}
+
+  try {
+    const rawDate = lot.startsAt || new Date();
+    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {}
 
   if (!process.env.RESEND_API_KEY) {
     console.log(`
 ============================================================
 [Email Mock] Congratulations ${name} (${email})!
 Subject: Congratulations! You won today's bid! 🏆
-You won "${title}" by ${artist}.
+You won "${parsedTitle}" (${dateStr} • Lot ${lotNo}) by ${artist}.
 Winning Bid: ₹${amount.toLocaleString('en-IN')}
 Action Required: Pay within 2 hours to claim.
 ============================================================
@@ -293,8 +315,11 @@ Action Required: Pay within 2 hours to claim.
       html: `
         <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
           <h2 style="color: #e6c27e; margin-top: 0; font-size: 22px;">Congratulations, ${name}!</h2>
-          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4;">
-            You have won the auction for <strong>${title}</strong> by ${artist}!
+          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4; margin-bottom: 4px;">
+            You have won the auction for <strong>${parsedTitle}</strong> by ${artist}!
+          </p>
+          <p style="font-size: 13px; color: #7d7a8c; margin-top: 0; margin-bottom: 16px;">
+            ${dateStr}   •   Lot ${lotNo}   •   Edition 1/1
           </p>
           <div style="background: rgba(230, 194, 126, 0.05); border: 1px solid rgba(230, 194, 126, 0.2); border-radius: 8px; padding: 18px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse;">
@@ -356,13 +381,35 @@ The top bidder has 2 hours to pay. If they fail, we will send you a payment link
 
 async function sendPaymentLinkEmail(bidder, lot, rank) {
   const { name, email, amount } = bidder;
-  const { title } = lot;
+  const { artist } = lot;
+
+  let parsedTitle = lot.title;
+  let dateStr = '';
+  const lotNo = lot.lotNumber != null 
+    ? String(lot.lotNumber).padStart(3, '0') 
+    : (lot.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+  try {
+    if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      if (parsed.title) parsedTitle = parsed.title;
+    }
+  } catch (e) {}
+
+  try {
+    const rawDate = lot.startsAt || new Date();
+    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {}
 
   if (!process.env.RESEND_API_KEY) {
     console.log(`
 ============================================================
 [Email Mock] PAYMENT OFFER FOR ${rank.toUpperCase()} PLACE: ${name} (${email})
-Subject: Your opportunity to claim "${title}"! 🏆
+Subject: Your opportunity to claim "${parsedTitle}"! 🏆
 Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('en-IN')}.
 ============================================================
     `);
@@ -377,8 +424,11 @@ Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('e
       html: `
         <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
           <h2 style="color: #e6c27e; margin-top: 0; font-size: 20px;">Your Opportunity has Arrived!</h2>
-          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4;">
-            The previous bidder failed to make their payment on time. As the next highest bidder, you can now claim <strong>${title}</strong>!
+          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4; margin-bottom: 4px;">
+            The previous bidder failed to make their payment on time. As the next highest bidder, you can now claim <strong>${parsedTitle}</strong> by ${artist}!
+          </p>
+          <p style="font-size: 13px; color: #7d7a8c; margin-top: 0; margin-bottom: 16px;">
+            ${dateStr}   •   Lot ${lotNo}   •   Edition 1/1
           </p>
           <div style="background: rgba(230, 194, 126, 0.05); border: 1px solid rgba(230, 194, 126, 0.2); border-radius: 8px; padding: 18px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse;">

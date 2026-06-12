@@ -106,17 +106,43 @@ export default function Orders() {
           </div>
         ) : (
           <div className="orders-list">
-            {orders.map((order) => (
-              <div key={order.id} className="order-item">
-                <button className="order-row" onClick={() => setExpanded(expanded === order.id ? null : order.id)}>
-                  <div className="order-row-left">
-                    <div className="order-number">{order.orderNumber}</div>
-                    <div className="order-title">{order.lot?.title}</div>
-                    <div className="order-meta">
-                      {fmtDate(order.paidAt)} · ₹{(order.amount / 100).toLocaleString('en-IN')}
-                      {order.lot?.size ? ` · ${order.lot.size}` : ''}
+            {orders.map((order) => {
+              const lot = order.lot;
+              let parsedTitle = lot?.title || 'Unknown Item';
+              let dateStr = '';
+              const lotNo = lot?.lotNumber != null 
+                ? String(lot.lotNumber).padStart(3, '0') 
+                : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+
+              if (lot) {
+                try {
+                  if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+                    const parsed = JSON.parse(lot.artworkHeadline);
+                    if (parsed.title) parsedTitle = parsed.title;
+                  }
+                } catch (e) {}
+
+                try {
+                  const rawDate = lot.startsAt || new Date();
+                  dateStr = new Date(rawDate).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                } catch (e) {}
+              }
+
+              return (
+                <div key={order.id} className="order-item">
+                  <button className="order-row" onClick={() => setExpanded(expanded === order.id ? null : order.id)}>
+                    <div className="order-row-left">
+                      <div className="order-number">{order.orderNumber}</div>
+                      <div className="order-title">{parsedTitle}</div>
+                      <div className="order-meta">
+                        {dateStr && `${dateStr} · `}Lot {lotNo} · ₹{(order.amount / 100).toLocaleString('en-IN')}
+                        {order.lot?.size ? ` · ${order.lot.size}` : ''}
+                      </div>
                     </div>
-                  </div>
                   <div className="order-row-right">
                     <StatusChip status={order.status} />
                     <span className="order-chevron">{expanded === order.id ? '▲' : '▼'}</span>
@@ -140,7 +166,7 @@ export default function Orders() {
                   </div>
                 )}
               </div>
-            ))}
+            })}
           </div>
         )}
 
