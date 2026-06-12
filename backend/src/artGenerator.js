@@ -434,7 +434,7 @@ Return a JSON object with this exact structure:
 
 {
   "date": "YYYY-MM-DD",
-  "data_signals_used": ["A detailed list of at least 5 daily signals selected from the daily run. For each signal, specify the category name followed by the specific headline, song title, probability, or historical event that was fetched and incorporated. Ensure each signal is from a completely different category (maximum 1 per category, across at least 5 of the 6 defined categories)."],
+  "data_signals_used": ["A detailed list of at least 5 daily signals selected from the daily run. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', or 'Wikipedia On this Day' (do NOT use category names like 'Positive News' or generic names like 'Daily News' or 'Wikipedia' or 'Future Prediction'). Ensure each signal is from a completely different category (maximum 1 per category, across at least 5 of the 6 defined categories)."],
   "data_signals_used_summarized": ["A summarized list of the selected signals, using exactly 3-4 words per signal, formatted as a clear and parsable list of strings."],
   "essence": "A brief sentence summarizing the thematic essence of the day.",
   "title": "A surrealist title of 3-4 words maximum.",
