@@ -292,38 +292,77 @@ export default function BidRail({ auction }) {
 
           const formatSignalWithSource = (sig) => {
             if (!sig) return '';
-            const match = sig.match(/^([^:]+):\s*(.*)$/);
-            if (!match) return sig;
             
-            const prefix = match[1].trim().toLowerCase();
-            const rest = match[2].trim();
+            let text = sig.trim();
             
+            // 1. Remove category prefix if it exists
+            const categoryPatterns = [
+              /^(weird\s*news|upi_weird_news|oddity_central):\s*/i,
+              /^(global\s*attention|top_wikipedia):\s*/i,
+              /^(positive\s*news|optimist_daily):\s*/i,
+              /^(future\s*prediction|polymarket):\s*/i,
+              /^(cultural\s*resonance|top_song|song):\s*/i,
+              /^(historical\s*lens|wikipedia_on_this_day):\s*/i
+            ];
+            
+            for (const pat of categoryPatterns) {
+              if (pat.test(text)) {
+                text = text.replace(pat, '');
+                break;
+              }
+            }
+            
+            // 2. Parse and remove source prefix
             let source = '';
-            if (prefix.includes('upi') || prefix.includes('weird news') || prefix === 'weird') {
-              source = 'UPI Weid News';
-            } else if (prefix.includes('wikipedia') || prefix.includes('historical')) {
-              source = 'Wikipedia Top';
-            } else if (prefix.includes('oddity')) {
-              source = 'Oddity Central';
-            } else if (prefix.includes('positive') || prefix.includes('optimist') || prefix.includes('good news') || prefix.includes('huffpost')) {
-              source = 'HuffPost Positive';
-            } else if (prefix.includes('polymarket') || prefix.includes('future prediction') || prefix.includes('prediction')) {
-              source = 'Polymarket Predictions';
-            } else if (prefix.includes('song') || prefix.includes('spotify') || prefix.includes('cultural')) {
-              source = 'Spotify Top';
-            } else if (prefix.includes('meme') || prefix.includes('know your')) {
-              source = 'Know Your Meme';
-            } else if (prefix.includes('google trends') || prefix.includes('collective') || prefix.includes('trends')) {
-              source = 'Google Trends';
-            } else if (prefix.includes('apod') || prefix.includes('nasa')) {
-              source = 'NASA APOD';
-            } else {
-              source = match[1].split(/[_-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            const sourcePatterns = [
+              { pat: /^watch:\s*/i, src: 'UPI Weird News' },
+              { pat: /^top\s*wikipedia:\s*/i, src: 'Wikipedia Top' },
+              { pat: /^wikipedia\s*on\s*this\s*day:\s*/i, src: 'Wikipedia' },
+              { pat: /^optimist\s*daily:\s*/i, src: 'Optimist Daily' },
+              { pat: /^positive\s*news:\s*/i, src: 'Positive News' },
+              { pat: /^polymarket:\s*/i, src: 'Polymarket Predictions' },
+              { pat: /^top\s*song:\s*/i, src: 'Top Song' },
+              { pat: /^oddity\s*central:\s*/i, src: 'Oddity Central' }
+            ];
+            
+            for (const item of sourcePatterns) {
+              if (item.pat.test(text)) {
+                source = item.src;
+                text = text.replace(item.pat, '');
+                break;
+              }
+            }
+            
+            // If no source prefix was matched, check if we can infer from the original string
+            if (!source) {
+              const orig = sig.toLowerCase();
+              if (orig.includes('upi') || orig.includes('weird')) {
+                source = 'UPI Weird News';
+              } else if (orig.includes('wikipedia') || orig.includes('historical') || orig.includes('history')) {
+                source = 'Wikipedia';
+              } else if (orig.includes('oddity')) {
+                source = 'Oddity Central';
+              } else if (orig.includes('optimist')) {
+                source = 'Optimist Daily';
+              } else if (orig.includes('positive')) {
+                source = 'Positive News';
+              } else if (orig.includes('polymarket')) {
+                source = 'Polymarket Predictions';
+              } else if (orig.includes('song')) {
+                source = 'Top Song';
+              } else {
+                source = 'Daily News';
+              }
+            }
+            
+            // Capitalize first letter of the remaining text
+            if (text.length > 0) {
+              text = text.charAt(0).toUpperCase() + text.slice(1);
             }
             
             return (
               <>
-                {rest} <span style={{ fontStyle: 'italic' }}>[{source}]</span>
+                {text} <span style={{ fontStyle: 'italic' }}>[{source}]</span>
               </>
             );
           };
