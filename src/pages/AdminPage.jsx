@@ -34,6 +34,18 @@ function fmtAddress(a) {
   return [a.line1, a.line2, a.city, a.state, a.pincode].filter(Boolean).join(', ');
 }
 
+function getLotTitle(lot) {
+  if (!lot) return '—';
+  let title = lot.title || '—';
+  try {
+    if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
+      const parsed = JSON.parse(lot.artworkHeadline);
+      if (parsed.title) title = parsed.title;
+    }
+  } catch (e) {}
+  return title;
+}
+
 function SectionLabel({ children, style }) {
   return (
     <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -154,7 +166,7 @@ function OrderRow({ order, expanded, onToggle, onUpdate, token }) {
         </div>
         <div style={{ flex: '1 1 160px', overflow: 'hidden' }}>
           <div style={{ fontSize: 13, color: '#f4f1ea', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {order.lot?.title ?? '—'}
+            {getLotTitle(order.lot)}
           </div>
           <div style={{ fontSize: 11, color: '#7d7a8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {order.user?.name} · {order.user?.email}
@@ -363,7 +375,7 @@ export default function AdminPage() {
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((o) =>
-        [o.orderNumber, o.user?.name, o.user?.email, o.lot?.title]
+        [o.orderNumber, o.user?.name, o.user?.email, getLotTitle(o.lot)]
           .some((v) => v?.toLowerCase().includes(q))
       );
     }
