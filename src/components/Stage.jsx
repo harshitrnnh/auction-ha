@@ -609,7 +609,7 @@ export default function Stage({ modelCount = 0, lot, onTap }) {
       img.src = tshirtSrc;
     };
 
-    addFlatSlide('/tshirt_front_black_transparent.png', 1, (ctx, cw, ch, place) => {
+    addFlatSlide('/tshirt_front_black_transparent10small.png', 1, (ctx, cw, ch, place) => {
       if (!artworkSrc) { place(); return; }
       createFrontCanvas(artworkSrc, lot, (frontCanvas) => {
         if (!frontCanvas) { place(); return; }
@@ -622,7 +622,7 @@ export default function Stage({ modelCount = 0, lot, onTap }) {
       });
     });
 
-    addFlatSlide('/tshirt_back_black_transparent.png', 2, (ctx, cw, ch, place) => {
+    addFlatSlide('/tshirt_back_black_transparent10small.png', 2, (ctx, cw, ch, place) => {
       createBackCanvas('/cf_logo.png', lot, (backCanvas) => {
         if (!backCanvas) { place(); return; }
         const decW = Math.round(cw * 0.46);
@@ -635,7 +635,7 @@ export default function Stage({ modelCount = 0, lot, onTap }) {
     });
 
     // Slide 3: Artwork PRINT (no t-shirt background, fully transparent, no stretch)
-    addFlatSlide('/tshirt_front_black_transparent.png', 3, (ctx, cw, ch, place) => {
+    addFlatSlide('/tshirt_front_black_transparent10small.png', 3, (ctx, cw, ch, place) => {
       if (!artworkSrc) { place(); return; }
       ctx.clearRect(0, 0, cw, ch);
       createFrontCanvas(artworkSrc, lot, (frontCanvas) => {

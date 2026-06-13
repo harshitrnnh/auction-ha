@@ -401,7 +401,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               {/* Shot 0: front t-shirt with selected artwork */}
               {(shot === 0 || shot >= 4) && (
                 <div className="m-tshirt-wrap">
-                  <img src="/tshirt_front_black_transparent.png" alt="" className="m-tshirt-base" />
+                  <img src="/tshirt_front_black_transparent10small.png" alt="" className="m-tshirt-base" />
                   {shot === 0 && frontOverlaySrc && (
                     <img src={frontOverlaySrc} alt={lot.title} className="m-chest-art" />
                   )}
@@ -413,7 +413,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               {/* Shot 1: back t-shirt */}
               {shot === 1 && (
                 <div className="m-tshirt-wrap">
-                  <img src="/tshirt_back_black_transparent.png" alt="" className="m-tshirt-base" />
+                  <img src="/tshirt_back_black_transparent10small.png" alt="" className="m-tshirt-base" />
                   {backOverlaySrc && (
                     <img src={backOverlaySrc} alt={lot.title} className="m-chest-art" />
                   )}
@@ -454,8 +454,10 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               title="Front view"
             >
               <div className="m-thumb-tshirt">
-                <img src="/tshirt_front_black_transparent.png" alt="Front" className="m-thumb-img" />
-                {frontOverlaySrc && <img src={frontOverlaySrc} alt="" className="m-thumb-art" />}
+                <img src="/tshirt_front_black_transparent10small.png" alt="Front" className="m-thumb-img" />
+                {frontOverlaySrc && (
+                  <img src={frontOverlaySrc} alt="" className="m-thumb-art" />
+                )}
               </div>
             </button>
             {/* Shot 1: back t-shirt */}
@@ -465,8 +467,10 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               title="Back view"
             >
               <div className="m-thumb-tshirt">
-                <img src="/tshirt_back_black_transparent.png" alt="Back" className="m-thumb-img" />
-                {backOverlaySrc && <img src={backOverlaySrc} alt="" className="m-thumb-art" />}
+                <img src="/tshirt_back_black_transparent10small.png" alt="Back" className="m-thumb-img" />
+                {backOverlaySrc && (
+                  <img src={backOverlaySrc} alt="" className="m-thumb-art" />
+                )}
               </div>
             </button>
             {/* Shot 2: artwork without background */}

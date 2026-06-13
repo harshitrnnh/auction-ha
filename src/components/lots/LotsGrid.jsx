@@ -139,7 +139,7 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
 
       <div className="hero-art">
         <div className="hero-tshirt-wrap">
-          <img src="/tshirt_front_black_transparent.png" alt="" className="hero-tshirt-base" />
+          <img src="/tshirt_front_black_transparent10small.png" alt="" className="hero-tshirt-base" />
           {overlaySrc && (
             <img src={overlaySrc} alt={lot.title} className="hero-chest-art" />
           )}
@@ -228,9 +228,23 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
       onClick={() => onPeek(lot)}
     >
       <div className="card-art">
-        {artworkUrl && (
-          <img src={artworkUrl} alt={lot.title} className="card-artwork-img" />
-        )}
+        {/* Zoom wrapper — scale on hover centered on chest */}
+        <div className="card-tshirt-zoom">
+          {/* Black front t-shirt base */}
+          <img
+            src="/tshirt_front_black_transparent10small.png"
+            alt=""
+            className="card-tshirt-base"
+          />
+          {/* Artwork overlay at chest position */}
+          {overlaySrc && (
+            <img
+              src={overlaySrc}
+              alt={lot.title}
+              className="card-chest-art"
+            />
+          )}
+        </div>
         <div className="card-badges">
           <span className="l-tag lotno num">Lot {lotNo}</span>
           {lot.owned && userLoggedIn && showRibbon
