@@ -140,7 +140,7 @@ export default function Orders() {
                       <div className="order-title">{parsedTitle}</div>
                       <div className="order-meta">
                         {dateStr && `${dateStr} · `}Lot {lotNo} · ₹{(order.amount / 100).toLocaleString('en-IN')}
-                        {order.lot?.size ? ` · ${order.lot.size}` : ''}
+                        {order.tshirtSize ? ` · Size ${order.tshirtSize}` : ''}
                       </div>
                     </div>
                   <div className="order-row-right">

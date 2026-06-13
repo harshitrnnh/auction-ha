@@ -18,6 +18,7 @@ import orderRoutes from './routes/orders.js';
 import vendorRoutes from './routes/vendor.js';
 import ogRoutes from './routes/og.js';
 import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
+import { generateDailyArtwork } from './artGenerator.js';
 import { notifyVendor, sendInvoiceEmail, sendShippingEmail } from './vendor/qikink.js';
 
 // Load .env from backend directory
@@ -216,19 +217,129 @@ app.post('/api/admin/close-bid', async (_req, res) => {
   }
 });
 
-app.post('/api/admin/new-bid', async (_req, res) => {
+const GCS_BUCKET = process.env.GCS_BUCKET_NAME;
+function isAllowedArtworkUrl(url) {
+  if (!url) return true;
+  if (url.startsWith('/public/artwork/')) return true;
+  if (GCS_BUCKET && url.startsWith(`https://storage.googleapis.com/${GCS_BUCKET}/`)) return true;
+  return false;
+}
+
+// Generate artwork, save as a draft — requires an active lot
+app.post('/api/admin/generate-artwork-draft', requireAdmin, async (_req, res) => {
   try {
+    const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
+    if (!activeLot) return res.status(400).json({ error: 'Start a bidding session first before generating artwork.' });
+    const draftNum = `draft-${Date.now()}`;
+    const art = await generateDailyArtwork(draftNum);
+    const draft = await prisma.artworkDraft.create({
+      data: {
+        lotId: activeLot?.id ?? null,
+        artworkUrl: art.artworkUrl,
+        artworkHeadline: art.artworkHeadline,
+        artworkPrompt: art.artworkPrompt,
+      },
+    });
+    res.json({ ok: true, draft });
+  } catch (err) {
+    console.error('[Admin] generate-artwork-draft error:', err);
+    res.status(500).json({ error: err.message || 'Artwork generation failed' });
+  }
+});
+
+// Return all drafts for a given lot
+app.get('/api/admin/artwork-drafts', requireAdmin, async (req, res) => {
+  try {
+    const { lotId } = req.query;
+    const drafts = await prisma.artworkDraft.findMany({
+      where: lotId ? { lotId } : { lotId: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ drafts });
+  } catch (err) {
+    console.error('[Admin] artwork-drafts error:', err);
+    res.status(500).json({ error: 'Failed to fetch drafts' });
+  }
+});
+
+// Return past lots (closed, newest first) with their draft count — for the session repository
+app.get('/api/admin/session-history', requireAdmin, async (_req, res) => {
+  try {
+    const lots = await prisma.lot.findMany({
+      where: { status: 'closed' },
+      orderBy: { lotNumber: 'desc' },
+      select: {
+        id: true, lotNumber: true, title: true, artworkUrl: true, artworkHeadline: true,
+        startsAt: true, endsAt: true,
+        _count: { select: { artworkDrafts: true } },
+      },
+    });
+    res.json({ lots });
+  } catch (err) {
+    console.error('[Admin] session-history error:', err);
+    res.status(500).json({ error: 'Failed to fetch session history' });
+  }
+});
+
+// Promote a draft to be the active artwork on a lot
+app.post('/api/admin/set-artwork', requireAdmin, async (req, res) => {
+  try {
+    const { draftId, lotId } = req.body;
+    const draft = await prisma.artworkDraft.findUnique({ where: { id: draftId } });
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    const targetLot = lotId
+      ? await prisma.lot.findUnique({ where: { id: lotId } })
+      : await prisma.lot.findFirst({ where: { status: 'active' } });
+    if (!targetLot) return res.status(404).json({ error: 'No target lot found' });
+
+    if (!isAllowedArtworkUrl(draft.artworkUrl)) {
+      return res.status(400).json({ error: 'Invalid artwork URL in draft' });
+    }
+
+    const updated = await prisma.lot.update({
+      where: { id: targetLot.id },
+      data: {
+        artworkUrl: draft.artworkUrl,
+        artworkHeadline: draft.artworkHeadline,
+        artworkPrompt: draft.artworkPrompt,
+      },
+    });
+
+    getIo()?.emit('lot:artwork_updated', {
+      lotId: updated.id,
+      artworkUrl: updated.artworkUrl,
+      artworkHeadline: updated.artworkHeadline,
+      artworkPrompt: updated.artworkPrompt,
+      swappedAt: Date.now(),
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] set-artwork error:', err);
+    res.status(500).json({ error: 'Failed to set artwork' });
+  }
+});
+
+app.post('/api/admin/new-bid', requireAdmin, async (req, res) => {
+  try {
+    const { draftId } = req.body ?? {};
+    let artwork = null;
+    if (draftId) {
+      const draft = await prisma.artworkDraft.findUnique({ where: { id: draftId } });
+      if (!draft) return res.status(404).json({ error: 'Draft not found' });
+      if (!isAllowedArtworkUrl(draft.artworkUrl)) return res.status(400).json({ error: 'Invalid artwork URL' });
+      artwork = { artworkUrl: draft.artworkUrl, artworkHeadline: draft.artworkHeadline, artworkPrompt: draft.artworkPrompt };
+    }
     // Close the active lot first so the highest bidder is set as winner
     const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
     if (activeLot) {
       await closeActiveLot();
     }
     // Use the global max lot number (not just closed lots) to avoid unique-constraint errors
-    const latestLot = await prisma.lot.findFirst({
-      orderBy: { lotNumber: 'desc' },
-    });
+    const latestLot = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
     const nextNum = latestLot ? latestLot.lotNumber + 1 : 1;
-    await createNewLot(nextNum);
+    await createNewLot(nextNum, artwork);
     res.json({ ok: true });
   } catch (err) {
     console.error('[Admin] new-bid error:', err);
@@ -360,7 +471,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
    Solves the CORS problem: frontend fetches from this backend, not GCS directly. */
 app.get('/api/artwork/:filename', async (req, res) => {
   const { filename } = req.params;
-  if (!/^lot-\d+\.png$/.test(filename)) return res.status(400).json({ error: 'Invalid filename' });
+  if (!/^lot-[\w-]+\.png$/.test(filename)) return res.status(400).json({ error: 'Invalid filename' });
 
   const localPath = join(__dir, '../public/artwork', filename);
 

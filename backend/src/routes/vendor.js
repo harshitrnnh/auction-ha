@@ -14,7 +14,9 @@ const STATUS_MAP = {
   delivered: 'delivered',
 };
 
-/* POST /api/vendor/webhook */
+/* POST /api/vendor/webhook
+ * SPECULATIVE — Qikink's API docs don't mention webhooks. This endpoint may never be called.
+ * For real status updates, poll GET /api/order?id={vendorOrderId} on a schedule instead. */
 router.post('/webhook', async (req, res) => {
   const secret = process.env.QIKINK_WEBHOOK_SECRET;
   if (secret) {

@@ -1,9 +1,163 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { fmt, getArtworkUrl } from '../../data/lotsData';
-import ArtBloom from './ArtBloom';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 import DeliveryTracker from './DeliveryTracker';
+
+/* ---------- Pinch/scroll zoom wrapper ---------- */
+function ZoomableImage({ children, resetKey }) {
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const lastDist = useRef(null);
+  const dragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const liveOffset = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+    liveOffset.current = { x: 0, y: 0 };
+    lastDist.current = null;
+  }, [resetKey]);
+
+  const clampOffset = (ox, oy, s) => {
+    const maxShift = (s - 1) * 150;
+    return {
+      x: Math.max(-maxShift, Math.min(maxShift, ox)),
+      y: Math.max(-maxShift, Math.min(maxShift, oy)),
+    };
+  };
+
+  const onTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      lastDist.current = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1) {
+      dragging.current = true;
+      dragStart.current = {
+        x: e.touches[0].clientX - liveOffset.current.x,
+        y: e.touches[0].clientY - liveOffset.current.y,
+      };
+    }
+  };
+
+  const onTouchMove = (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (lastDist.current) {
+        const ratio = dist / lastDist.current;
+        setScale((s) => {
+          const ns = Math.min(5, Math.max(1, s * ratio));
+          const clamped = clampOffset(liveOffset.current.x, liveOffset.current.y, ns);
+          liveOffset.current = clamped;
+          setOffset(clamped);
+          return ns;
+        });
+      }
+      lastDist.current = dist;
+    } else if (e.touches.length === 1 && dragging.current) {
+      e.preventDefault();
+      setScale((s) => {
+        if (s <= 1) return s;
+        const nx = e.touches[0].clientX - dragStart.current.x;
+        const ny = e.touches[0].clientY - dragStart.current.y;
+        const clamped = clampOffset(nx, ny, s);
+        liveOffset.current = clamped;
+        setOffset(clamped);
+        return s;
+      });
+    }
+  };
+
+  const onTouchEnd = (e) => {
+    if (e.touches.length < 2) lastDist.current = null;
+    if (e.touches.length === 0) {
+      dragging.current = false;
+      setScale((s) => {
+        if (s <= 1.05) {
+          setOffset({ x: 0, y: 0 });
+          liveOffset.current = { x: 0, y: 0 };
+          return 1;
+        }
+        return s;
+      });
+    }
+  };
+
+  const onWheel = useCallback((e) => {
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+    setScale((s) => {
+      const ns = Math.min(5, Math.max(1, s * factor));
+      if (ns <= 1.05) {
+        setOffset({ x: 0, y: 0 });
+        liveOffset.current = { x: 0, y: 0 };
+        return 1;
+      }
+      const clamped = clampOffset(liveOffset.current.x, liveOffset.current.y, ns);
+      liveOffset.current = clamped;
+      setOffset(clamped);
+      return ns;
+    });
+  }, []);
+
+  const containerRef = useRef(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [onWheel]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        overflow: 'hidden',
+        cursor: scale > 1 ? 'grab' : 'zoom-in',
+        userSelect: 'none',
+        touchAction: 'none',
+        width: '100%',
+        alignSelf: 'stretch',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+      }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <div
+        style={{
+          transform: `scale(${scale}) translate(${offset.x / scale}px, ${offset.y / scale}px)`,
+          transformOrigin: 'center center',
+          transition: dragging.current ? 'none' : 'transform 0.15s ease',
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {children}
+      </div>
+      {scale > 1 && (
+        <div style={{
+          position: 'absolute', bottom: 8, right: 8,
+          background: 'rgba(0,0,0,0.55)', color: '#fff',
+          fontSize: '10px', borderRadius: 4, padding: '2px 6px',
+          pointerEvents: 'none', letterSpacing: '0.04em',
+        }}>
+          {Math.round(scale * 100)}%
+        </div>
+      )}
+    </div>
+  );
+}
 
 function createBackCanvasForCard(logoImage, lot, callback) {
   let signalsSummarized = [];
@@ -158,6 +312,8 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
 
   const [frontOverlaySrc, setFrontOverlaySrc] = useState(null);
   const [backOverlaySrc, setBackOverlaySrc] = useState(null);
+  // draft overlay srcs: array parallel to lot.artworkDrafts
+  const [draftSrcs, setDraftSrcs] = useState([]);
 
   const artworkUrl = getArtworkUrl(lot, API);
 
@@ -185,6 +341,24 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
       if (canvas) setBackOverlaySrc(canvas.toDataURL());
     });
   }, [artworkUrl, lot]);
+
+  // Render draft images
+  useEffect(() => {
+    const drafts = lot.artworkDrafts ?? [];
+    if (drafts.length === 0) { setDraftSrcs([]); return; }
+    const srcs = new Array(drafts.length).fill(null);
+    let mounted = true;
+    drafts.forEach((draft, i) => {
+      const url = getArtworkUrl({ artworkUrl: draft.artworkUrl, lotNumber: lot.lotNumber }, API);
+      if (!url) return;
+      createFrontCanvasForCard(url, lot, (canvas) => {
+        if (!mounted || !canvas) return;
+        srcs[i] = canvas.toDataURL();
+        setDraftSrcs([...srcs]);
+      });
+    });
+    return () => { mounted = false; };
+  }, [lot.id]);
 
   const overStart = !passed && !live && lot.startingBid
     ? Math.round((lot.soldPrice - lot.startingBid) / lot.startingBid * 100)
@@ -223,35 +397,61 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
         {/* gallery — left column */}
         <div className="m-gallery">
           <div className="m-main">
-            <div className="m-tshirt-wrap">
-              {/* Base t-shirt — front or back depending on shot */}
-              <img
-                src={shot === 0 ? '/tshirt_front_black_transparent10small.png' : '/tshirt_back_black_transparent10small.png'}
-                alt=""
-                className="m-tshirt-base"
-              />
-              {/* Artwork overlay on chest (front or back overlay depending on shot) */}
-              {shot === 0 && frontOverlaySrc && (
-                <img
-                  src={frontOverlaySrc}
-                  alt={lot.title}
-                  className="m-chest-art"
-                />
+            <ZoomableImage resetKey={shot}>
+              {/* Shot 0: front t-shirt with selected artwork */}
+              {(shot === 0 || shot >= 4) && (
+                <div className="m-tshirt-wrap">
+                  <img src="/tshirt_front_black_transparent10small.png" alt="" className="m-tshirt-base" />
+                  {shot === 0 && frontOverlaySrc && (
+                    <img src={frontOverlaySrc} alt={lot.title} className="m-chest-art" />
+                  )}
+                  {shot >= 4 && draftSrcs[shot - 4] && (
+                    <img src={draftSrcs[shot - 4]} alt={`Draft ${shot - 3}`} className="m-chest-art" />
+                  )}
+                </div>
               )}
-              {shot === 1 && backOverlaySrc && (
-                <img
-                  src={backOverlaySrc}
-                  alt={lot.title}
-                  className="m-chest-art"
-                />
+              {/* Shot 1: back t-shirt */}
+              {shot === 1 && (
+                <div className="m-tshirt-wrap">
+                  <img src="/tshirt_back_black_transparent10small.png" alt="" className="m-tshirt-base" />
+                  {backOverlaySrc && (
+                    <img src={backOverlaySrc} alt={lot.title} className="m-chest-art" />
+                  )}
+                </div>
               )}
+              {/* Shot 2: artwork with background removed */}
+              {shot === 2 && frontOverlaySrc && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '100%', padding: '12px',
+                }}>
+                  <img
+                    src={frontOverlaySrc}
+                    alt={lot.title}
+                    style={{
+                      maxWidth: 'min(80%, 320px)',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                      borderRadius: 8,
+                    }}
+                  />
+                </div>
+              )}
+            </ZoomableImage>
+            <div style={{
+              position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)',
+              fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '0.05em',
+              pointerEvents: 'none', whiteSpace: 'nowrap',
+            }}>
+              Scroll or pinch to zoom
             </div>
           </div>
           <div className="m-thumbs">
-            {/* Thumbnail 0: front view */}
+            {/* Shot 0: front t-shirt */}
             <button
               className={'m-thumb' + (shot === 0 ? ' on' : '')}
               onClick={() => setShot(0)}
+              title="Front view"
             >
               <div className="m-thumb-tshirt">
                 <img src="/tshirt_front_black_transparent10small.png" alt="Front" className="m-thumb-img" />
@@ -260,10 +460,11 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                 )}
               </div>
             </button>
-            {/* Thumbnail 1: back view */}
+            {/* Shot 1: back t-shirt */}
             <button
               className={'m-thumb' + (shot === 1 ? ' on' : '')}
               onClick={() => setShot(1)}
+              title="Back view"
             >
               <div className="m-thumb-tshirt">
                 <img src="/tshirt_back_black_transparent10small.png" alt="Back" className="m-thumb-img" />
@@ -272,6 +473,48 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                 )}
               </div>
             </button>
+            {/* Shot 2: artwork without background */}
+            {frontOverlaySrc && (
+              <button
+                className={'m-thumb' + (shot === 2 ? ' on' : '')}
+                onClick={() => setShot(2)}
+                title="Artwork image"
+              >
+                <div className="m-thumb-tshirt" style={{ padding: 4 }}>
+                  <img
+                    src={frontOverlaySrc}
+                    alt="Artwork"
+                    style={{ width: '90%', height: '90%', objectFit: 'contain', borderRadius: 4 }}
+                  />
+                </div>
+              </button>
+            )}
+            {/* Shots 4+: draft artwork alternatives */}
+            {(lot.artworkDrafts ?? []).map((draft, i) => (
+              <button
+                key={draft.id ?? i}
+                className={'m-thumb' + (shot === i + 4 ? ' on' : '')}
+                onClick={() => setShot(i + 4)}
+                title={`Generated image ${i + 1}`}
+              >
+                <div className="m-thumb-tshirt">
+                  <img src="/tshirt_front_black_transparent.png" alt="" className="m-thumb-img" />
+                  {draftSrcs[i]
+                    ? <img src={draftSrcs[i]} alt="" className="m-thumb-art" />
+                    : <div style={{
+                        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '10px', color: 'rgba(255,255,255,0.35)',
+                      }}>…</div>
+                  }
+                  <div style={{
+                    position: 'absolute', bottom: 2, right: 2,
+                    fontSize: '8px', color: 'rgba(255,255,255,0.55)',
+                    background: 'rgba(0,0,0,0.45)', borderRadius: 3, padding: '0 3px',
+                    lineHeight: '1.6',
+                  }}>v{i + 1}</div>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
 

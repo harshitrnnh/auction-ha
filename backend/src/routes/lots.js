@@ -4,7 +4,7 @@ import Razorpay from 'razorpay';
 import { prisma } from '../prisma.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { getIo } from '../socket.js';
-import { notifyVendor, sendInvoiceEmail } from '../vendor/qikink.js';
+import { notifyVendor, sendInvoiceEmail, getLotTitle } from '../vendor/qikink.js';
 import { MIN_INCREMENT } from '../constants.js';
 
 const razorpay = new Razorpay({
@@ -108,7 +108,7 @@ router.post('/create-razorpay-order', requireAuth, async (req, res) => {
       },
     });
 
-    res.json({ razorpayOrderId: order.id, amount: order.amount, currency: order.currency, lotId: lot.id, lotTitle: lot.title });
+    res.json({ razorpayOrderId: order.id, amount: order.amount, currency: order.currency, lotId: lot.id, lotTitle: getLotTitle(lot) });
   } catch (err) {
     console.error('[Razorpay] create order error:', err);
     res.status(500).json({ error: 'Failed to create payment order' });
@@ -117,7 +117,7 @@ router.post('/create-razorpay-order', requireAuth, async (req, res) => {
 
 /* POST /api/lots/verify-payment */
 router.post('/verify-payment', requireAuth, async (req, res) => {
-  const { razorpayOrderId, razorpayPaymentId, razorpaySignature, addressId } = req.body;
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature, addressId, tshirtSize } = req.body;
   if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature || !addressId) {
     return res.status(400).json({ error: 'razorpayOrderId, razorpayPaymentId, razorpaySignature, addressId required' });
   }
@@ -167,6 +167,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
           userId: req.userId,
           addressId,
           amount: amount * 100,
+          tshirtSize: tshirtSize || 'M',
           razorpayOrderId,
           razorpayPaymentId,
           status: 'processing',
@@ -176,7 +177,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 
     getIo()?.emit('lot:paid', { lotId: lot.id, winnerId: req.userId });
 
-    notifyVendor(order, lot, address).catch((e) => console.error('[Vendor] notify failed:', e));
+    notifyVendor(order, lot, address, user.email).catch((e) => console.error('[Vendor] notify failed:', e));
     sendInvoiceEmail(order, lot, address, user.email, user.name).catch((e) => console.error('[Invoice] email failed:', e));
 
     res.json({ ok: true, orderId: order.id, orderNumber });
@@ -198,7 +199,7 @@ router.get('/past', async (req, res) => {
   const lots = await prisma.lot.findMany({
     where: { status: 'closed' },
     orderBy: { endsAt: 'desc' },
-    take: 20,
+    take: 50,
     include: {
       bids: {
         orderBy: { amount: 'desc' },
@@ -207,6 +208,10 @@ router.get('/past', async (req, res) => {
       },
       order: {
         select: { amount: true, user: { select: { name: true } } },
+      },
+      artworkDrafts: {
+        select: { id: true, artworkUrl: true },
+        orderBy: { createdAt: 'desc' },
       },
     },
   });
@@ -238,8 +243,9 @@ router.post('/dev-simulate-payment', requireAuth, async (req, res) => {
   if (process.env.RAZORPAY_KEY_ID) {
     return res.status(400).json({ error: 'Simulation not available — Razorpay is configured' });
   }
-  const { addressId } = req.body;
+  const { addressId, tshirtSize } = req.body;
   if (!addressId) return res.status(400).json({ error: 'addressId required' });
+  if (!tshirtSize) return res.status(400).json({ error: 'tshirtSize required' });
 
   try {
     const lot = await prisma.lot.findFirst({
@@ -279,6 +285,7 @@ router.post('/dev-simulate-payment', requireAuth, async (req, res) => {
           userId: req.userId,
           addressId,
           amount: amount * 100,
+          tshirtSize,
           razorpayOrderId: `sim_${Date.now()}`,
           razorpayPaymentId: `sim_pay_${Date.now()}`,
           status: 'processing',
@@ -287,7 +294,7 @@ router.post('/dev-simulate-payment', requireAuth, async (req, res) => {
     ]);
 
     getIo()?.emit('lot:paid', { lotId: lot.id, winnerId: req.userId });
-    notifyVendor(order, lot, address).catch((e) => console.error('[Vendor] notify failed:', e));
+    notifyVendor(order, lot, address, user.email).catch((e) => console.error('[Vendor] notify failed:', e));
     sendInvoiceEmail(order, lot, address, user.email, user.name).catch((e) => console.error('[Invoice] email failed:', e));
 
     res.json({ ok: true, orderId: order.id, orderNumber });

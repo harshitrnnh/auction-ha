@@ -394,6 +394,49 @@ input { font-family: inherit; }
   }
 }
 
+/* ---------- Stage fullscreen (mobile) ---------- */
+.stage-fs-close { display: none; }
+
+@media (max-width: 900px) {
+  /* Fullscreen stage-wrap */
+  .stage-wrap.fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 150 !important;
+    background: var(--bg-0);
+  }
+  .stage-wrap.fullscreen .stage {
+    position: absolute !important;
+    inset: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  /* X close button — top-right */
+  .stage-wrap.fullscreen .stage-fs-close {
+    display: flex;
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    top: max(14px, env(safe-area-inset-top));
+    z-index: 20;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(7,7,12,0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--txt);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .stage-wrap.fullscreen .stage-fs-close:active { transform: scale(0.93); }
+
+}
+
 /* ---------- App loading / error ---------- */
 .app-loading {
   position: absolute; inset: 0; display: flex; flex-direction: column;

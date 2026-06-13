@@ -331,14 +331,19 @@ async function saveAndUploadArtwork(buffer, lotNumber, headline, prompt, filePat
         },
       });
 
+      const gcsUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
       try {
         await file.makePublic();
       } catch (e) {
-        console.log('[Art Generator] GCS makePublic() skipped/failed. Ensure your bucket permissions allow public reads.');
+        // Uniform bucket-level access is enabled — bucket already has allUsers:objectViewer,
+        // so makePublic() throws but the object is already publicly readable. Verify with HEAD.
+        const check = await fetch(gcsUrl, { method: 'HEAD' });
+        if (!check.ok) {
+          console.warn('[Art Generator] GCS object is not publicly accessible. Falling back to local URL.');
+          return { artworkUrl: localUrl, artworkHeadline: headline, artworkPrompt: prompt };
+        }
       }
-
-      const gcsUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
-      console.log(`[Art Generator] Uploaded to GCS successfully! URL: ${gcsUrl}`);
+      console.log(`[Art Generator] Uploaded to GCS. URL: ${gcsUrl}`);
       return { artworkUrl: gcsUrl, artworkHeadline: headline, artworkPrompt: prompt };
     } catch (gcsErr) {
       console.error('[Art Generator] GCS Upload failed, falling back to local URL:', gcsErr.message);

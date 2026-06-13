@@ -28,27 +28,38 @@ model VerificationOtp {
 }
 
 model Lot {
-  id              String    @id @default(cuid())
-  lotNumber       Int       @unique
+  id              String         @id @default(cuid())
+  lotNumber       Int            @unique
   title           String
   artist          String
   description     String
-  size            String    @default("Medium")
-  edition         String    @default("1 / 1")
+  size            String         @default("Medium")
+  edition         String         @default("1 / 1")
   startsAt        DateTime
   endsAt          DateTime
-  startingBid     Int       @default(100)
-  status          String    @default("active")
+  startingBid     Int            @default(100)
+  status          String         @default("active")
   winnerId        String?
   currentPayeeId  String?
   payeeExpiresAt  DateTime?
-  paymentStatus   String?   // 'pending_1st', 'pending_2nd', 'pending_3rd', 'paid', 'expired'
-  soldPrice       Int?      // final paid amount in rupees (set when paymentStatus = 'paid')
+  paymentStatus   String?        // 'pending_1st', 'pending_2nd', 'pending_3rd', 'paid', 'expired'
+  soldPrice       Int?           // final paid amount in rupees (set when paymentStatus = 'paid')
   artworkUrl      String?
   artworkHeadline String?
   artworkPrompt   String?
   bids            Bid[]
   order           Order?
+  artworkDrafts   ArtworkDraft[]
+}
+
+model ArtworkDraft {
+  id              String   @id @default(cuid())
+  lotId           String?
+  artworkUrl      String?
+  artworkHeadline String?
+  artworkPrompt   String?
+  createdAt       DateTime @default(now())
+  lot             Lot?     @relation(fields: [lotId], references: [id])
 }
 
 model Address {
@@ -79,6 +90,7 @@ model Order {
   amount            Int
   razorpayOrderId   String?
   razorpayPaymentId String?
+  tshirtSize        String    @default("M")
   status            String    @default("processing")
   carrier           String?
   trackingNumber    String?

@@ -43,6 +43,7 @@ function shapeApiLot(lot) {
     winner,
     artworkUrl: lot.artworkUrl ?? null,
     artworkHeadline: lot.artworkHeadline ?? null,
+    artworkDrafts: lot.artworkDrafts ?? [],
     startsAt: lot.startsAt ?? null,
     hue: (lot.lotNumber * 67 + 180) % 360,
     seed: lot.lotNumber * 37,
@@ -209,6 +210,12 @@ export default function Lots() {
       setCurrentBid(newLot.startingBid);
       setLiveBids(0);
       setLotClosed(false);
+    });
+    socket.on('lot:artwork_updated', ({ lotId, artworkUrl, artworkHeadline, artworkPrompt }) => {
+      setApiLot((prev) => {
+        if (!prev || prev.id !== lotId) return prev;
+        return { ...prev, artworkUrl, artworkHeadline, artworkPrompt };
+      });
     });
     return () => socket.disconnect();
   }, [apiLot?.id]);

@@ -205,19 +205,9 @@ export function Toolbar({
 export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
   const passed = lot.status === 'unsold';
   const artworkUrl = getArtworkUrl(lot, API);
-  const [overlaySrc, setOverlaySrc] = useState(null);
 
-  useEffect(() => {
-    if (!artworkUrl) return;
-    createFrontCanvasForCard(artworkUrl, lot, (canvas) => {
-      if (canvas) {
-        setOverlaySrc(canvas.toDataURL());
-      }
-    });
-  }, [artworkUrl, lot]);
-
-  const lotNo = lot?.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
+  const lotNo = lot?.lotNumber != null
+    ? String(lot.lotNumber).padStart(3, '0')
     : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
   const rawDate = lot?.startsAt || new Date();

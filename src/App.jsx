@@ -166,6 +166,12 @@ export default function App() {
 
     socket.on('lot:payee_changed', () => { fetchLot(); });
     socket.on('lot:paid', () => { fetchLot(); });
+    socket.on('lot:artwork_updated', ({ lotId, artworkUrl, artworkHeadline, artworkPrompt, swappedAt }) => {
+      setLot((prev) => {
+        if (!prev || prev.id !== lotId) return prev;
+        return { ...prev, artworkUrl, artworkHeadline, artworkPrompt, _artworkSwappedAt: swappedAt ?? Date.now() };
+      });
+    });
 
     return () => socket.disconnect();
   }, [lot?.id, user?.id]);
@@ -188,6 +194,16 @@ export default function App() {
     if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 70, behavior: 'smooth' });
   };
 
+  const [stageFullscreen, setStageFullscreen] = useState(false);
+
+  const openFullscreen = () => {
+    setStageFullscreen(true);
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  };
+  const closeFullscreen = () => {
+    setStageFullscreen(false);
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  };
   const urgent = cd.total < 300 && cd.total > 0 && !lotClosed;
   const startingBid = lot?.startingBid ?? 1;
 
@@ -268,8 +284,18 @@ export default function App() {
         </div>
       </header>
 
-      <div className="stage-wrap">
-        <Stage modelCount={0} lot={lot} />
+      <div className={'stage-wrap' + (stageFullscreen ? ' fullscreen' : '')}>
+        <Stage modelCount={0} lot={lot} onTap={stageFullscreen ? undefined : openFullscreen} />
+
+        {stageFullscreen && (
+          <>
+            <button className="stage-fs-close" onClick={closeFullscreen} aria-label="Exit full view">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
 
       <BidRail auction={auction} />
