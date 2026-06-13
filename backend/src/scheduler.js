@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import { prisma } from './prisma.js';
 import { getIo } from './socket.js';
 import { generateDailyArtwork } from './artGenerator.js';
-import { getLotTitle, lotNo, lotDateStr, getAppUrl, productImageBlock, ctaButton, emailWrapper } from './email-helpers.js';
+import { getLotTitle, lotNo, lotDateStr, getAppUrl, productImageBlock, ctaButton, emailWrapper, escHtml } from './email-helpers.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -308,12 +308,12 @@ Winning Bid: ₹${amount.toLocaleString('en-IN')} · Pay within 2 hours
       to: email,
       subject: `You won today's auction! 🏆`,
       html: emailWrapper(`
-        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 21px;">Congratulations, ${name}! 🏆</h2>
+        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 21px;">Congratulations, ${escHtml(name)}! 🏆</h2>
         <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">You have won today's Oxide auction.</p>
         ${productImageBlock(lot)}
         <div style="margin-bottom: 4px;">
-          <div style="font-size: 19px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${title}</div>
-          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${lot.artist}</div>` : ''}
+          <div style="font-size: 19px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${escHtml(title)}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${escHtml(lot.artist)}</div>` : ''}
           <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
             ${dateStr} · Lot #${no} · Edition 1/1
           </div>
@@ -364,12 +364,12 @@ The top bidder has 2 hours to pay. You'll be notified if the opportunity shifts.
       to: email,
       subject: `You almost had it! ⚡`,
       html: emailWrapper(`
-        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 20px;">This was close, ${name}! ⚡</h2>
+        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 20px;">This was close, ${escHtml(name)}! ⚡</h2>
         <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">You were the 2nd highest bidder on today's drop.</p>
         ${productImageBlock(lot)}
         <div style="margin-bottom: 4px;">
-          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${title}</div>
-          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${lot.artist}</div>` : ''}
+          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${escHtml(title)}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${escHtml(lot.artist)}</div>` : ''}
           <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
             Lot #${no} · Edition 1/1
           </div>
@@ -415,11 +415,11 @@ Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('e
       subject: `Your opportunity to claim today's drop! 🏆`,
       html: emailWrapper(`
         <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 20px;">Your Opportunity Has Arrived!</h2>
-        <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">Hi ${name}, you're next in line for today's drop.</p>
+        <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">Hi ${escHtml(name)}, you're next in line for today's drop.</p>
         ${productImageBlock(lot)}
         <div style="margin-bottom: 4px;">
-          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${title}</div>
-          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${lot.artist}</div>` : ''}
+          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${escHtml(title)}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${escHtml(lot.artist)}</div>` : ''}
           <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
             ${dateStr} · Lot #${no} · Edition 1/1
           </div>

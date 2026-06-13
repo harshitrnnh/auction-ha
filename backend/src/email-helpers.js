@@ -7,7 +7,7 @@ function escAttr(s) {
     .replace(/>/g, '&gt;');
 }
 
-function escHtml(s) {
+export function escHtml(s) {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
