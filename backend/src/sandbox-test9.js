@@ -131,20 +131,24 @@ async function fetchPositiveNews() {
         if (res.ok) {
             const xml = await res.text();
             const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
-            if (items.length > 0) {
-                const title = items[0].match(/<title>(.*?)<\/title>/)?.[1] || '';
-                let desc = items[0].match(/<description>(.*?)<\/description>/)?.[1] || '';
+            const stories = [];
+            for (const item of items) {
+                const title = item.match(/<title>(.*?)<\/title>/)?.[1] || '';
+                let desc = item.match(/<description>(.*?)<\/description>/)?.[1] || '';
                 desc = desc.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]*>/g, '').trim();
-                return {
-                    headline: cleanText(title),
-                    summary: cleanText(desc) || 'An inspiring story of progress and community-driven success.'
-                };
+                if (title) {
+                    stories.push({
+                        headline: cleanText(title),
+                        summary: cleanText(desc) || 'An inspiring story of progress and community-driven success.'
+                    });
+                }
             }
+            return stories.slice(0, 10);
         }
     } catch (e) {
         console.log('[Data Collector - Good News Network] Fetch failed:', e.message);
     }
-    return null;
+    return [];
 }
 
 // Oddity Central RSS Fetcher (Weird News)
@@ -176,26 +180,30 @@ async function fetchOptimistDaily() {
         if (res.ok) {
             const xml = await res.text();
             const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
-            if (items.length > 0) {
-                const title = items[0].match(/<title>(.*?)<\/title>/)?.[1] || '';
-                let desc = items[0].match(/<description>(.*?)<\/description>/)?.[1] || '';
+            const stories = [];
+            for (const item of items) {
+                const title = item.match(/<title>(.*?)<\/title>/)?.[1] || '';
+                let desc = item.match(/<description>(.*?)<\/description>/)?.[1] || '';
                 desc = desc.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]*>/g, '').trim();
-                return {
-                    headline: cleanText(title),
-                    summary: cleanText(desc) || 'A constructive solutions journalism story.'
-                };
+                if (title) {
+                    stories.push({
+                        headline: cleanText(title),
+                        summary: cleanText(desc) || 'A constructive solutions journalism story.'
+                    });
+                }
             }
+            return stories.slice(0, 10);
         }
     } catch (e) {
         console.log('[Data Collector - Optimist Daily] Fetch failed:', e.message);
     }
-    return null;
+    return [];
 }
 
 // 8. Polymarket (Top 3 markets by volume)
 async function fetchPolymarket() {
     try {
-        const res = await fetch('https://gamma-api.polymarket.com/markets?limit=3&order=volume_24hr&ascending=false&active=true');
+        const res = await fetch('https://gamma-api.polymarket.com/markets?limit=15&order=volume_24hr&ascending=false&active=true');
         if (res.ok) {
             const data = await res.json();
             return data.map(m => {
@@ -215,28 +223,23 @@ async function fetchPolymarket() {
     return [];
 }
 
-// 9. Apple Music Top Songs
 async function fetchAppleMusic() {
     try {
         const res = await fetch('https://rss.applemarketingtools.com/api/v2/us/music/most-played/10/songs.json');
         if (res.ok) {
             const data = await res.json();
             const results = data.feed?.results || [];
-            if (results.length > 0) {
-                return {
-                    title: cleanText(results[0].name),
-                    artist: cleanText(results[0].artistName)
-                };
-            }
+            return results.map(r => ({
+                title: cleanText(r.name),
+                artist: cleanText(r.artistName)
+            }));
         }
     } catch (e) {
         console.log('[Data Collector - Apple Music] Fetch failed:', e.message);
     }
-    return null;
+    return [];
 }
 
-
-// 11. Wikipedia On This Day
 async function fetchWikipediaOnThisDay(date) {
     try {
         const [yearStr, monthStr, dayStr] = date.split('-');
@@ -246,18 +249,15 @@ async function fetchWikipediaOnThisDay(date) {
         if (res.ok) {
             const data = await res.json();
             const filtered = data.events.filter(ev => ev.year < (new Date().getFullYear() - 30));
-            if (filtered.length > 0) {
-                const randomEvent = filtered[Math.floor(Math.random() * filtered.length)];
-                return {
-                    year: String(randomEvent.year),
-                    event: cleanText(randomEvent.text)
-                };
-            }
+            return filtered.map(ev => ({
+                year: String(ev.year),
+                event: cleanText(ev.text)
+            }));
         }
     } catch (e) {
         console.log('[Data Collector - Wikipedia On This Day] Fetch failed:', e.message);
     }
-    return null;
+    return [];
 }
 
 // ==========================================
@@ -266,14 +266,62 @@ async function fetchWikipediaOnThisDay(date) {
 const collectDailyData = async (dateString) => {
     console.log('[Data Collector] Gathering all signals for date:', dateString);
 
-    const upiOddNews = await fetchUpiOddNews();
-    const oddityCentral = await fetchOddityCentral();
-    const wikipediaPageviews = await fetchWikipediaPageviews(dateString);
-    const positiveNews = await fetchPositiveNews();
-    const optimistDaily = await fetchOptimistDaily();
-    const polymarket = await fetchPolymarket();
-    const topSong = await fetchAppleMusic();
-    const wikipediaOnThisDay = await fetchWikipediaOnThisDay(dateString);
+    // 1. Fetch yesterday's signals from the database to exclude
+    let excludedSignals = [];
+    try {
+        const lastLot = await prisma.lot.findFirst({
+            orderBy: { lotNumber: 'desc' },
+        });
+        if (lastLot?.artworkHeadline && lastLot.artworkHeadline.startsWith('{')) {
+            const parsed = JSON.parse(lastLot.artworkHeadline);
+            excludedSignals = parsed.data_signals_used || [];
+        }
+    } catch (err) {
+        console.error('[Data Collector] Failed to load previous lot signals:', err.message);
+    }
+
+    const isExcluded = (sigText) => {
+        if (!sigText || excludedSignals.length === 0) return false;
+        const normSig = String(sigText).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!normSig) return false;
+        for (const excluded of excludedSignals) {
+            const normExcluded = String(excluded).toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (normSig.includes(normExcluded) || normExcluded.includes(normSig)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const upiOddNews = (await fetchUpiOddNews()).filter(item => !isExcluded(item));
+    const oddityCentral = (await fetchOddityCentral()).filter(item => !isExcluded(item));
+    const wikipediaPageviews = (await fetchWikipediaPageviews(dateString)).filter(item => !isExcluded(item));
+    
+    const positiveNewsRaw = await fetchPositiveNews();
+    const positiveNews = positiveNewsRaw
+        .filter(item => !isExcluded(item.headline) && !isExcluded(item.summary))
+        .slice(0, 3);
+    
+    const optimistDailyRaw = await fetchOptimistDaily();
+    const optimistDaily = optimistDailyRaw
+        .filter(item => !isExcluded(item.headline) && !isExcluded(item.summary))
+        .slice(0, 3);
+    
+    const polymarketRaw = await fetchPolymarket();
+    const polymarket = polymarketRaw
+        .filter(item => !isExcluded(item.question))
+        .slice(0, 5);
+    
+    const topSongRaw = await fetchAppleMusic();
+    const topSong = topSongRaw
+        .filter(item => !isExcluded(item.title) && !isExcluded(item.artist))
+        .slice(0, 5);
+    
+    const wikipediaOnThisDayRaw = await fetchWikipediaOnThisDay(dateString);
+    const wikipediaOnThisDayFiltered = wikipediaOnThisDayRaw.filter(item => !isExcluded(item.event));
+    const wikipediaOnThisDay = wikipediaOnThisDayFiltered.length > 0
+        ? wikipediaOnThisDayFiltered[Math.floor(Math.random() * wikipediaOnThisDayFiltered.length)]
+        : null;
 
     return {
         date: dateString,

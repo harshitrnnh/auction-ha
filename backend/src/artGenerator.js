@@ -97,20 +97,24 @@ async function fetchPositiveNews() {
     if (res.ok) {
       const xml = await res.text();
       const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
-      if (items.length > 0) {
-        const title = items[0].match(/<title>(.*?)<\/title>/)?.[1] || '';
-        let desc = items[0].match(/<description>(.*?)<\/description>/)?.[1] || '';
+      const stories = [];
+      for (const item of items) {
+        const title = item.match(/<title>(.*?)<\/title>/)?.[1] || '';
+        let desc = item.match(/<description>(.*?)<\/description>/)?.[1] || '';
         desc = desc.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]*>/g, '').trim();
-        return {
-          headline: cleanText(title),
-          summary: cleanText(desc) || 'An inspiring story of progress and community-driven success.'
-        };
+        if (title) {
+          stories.push({
+            headline: cleanText(title),
+            summary: cleanText(desc) || 'An inspiring story of progress and community-driven success.'
+          });
+        }
       }
+      return stories.slice(0, 10);
     }
   } catch (e) {
     console.log('[Data Collector - Good News Network] Fetch failed:', e.message);
   }
-  return null;
+  return [];
 }
 
 async function fetchOddityCentral() {
@@ -140,25 +144,29 @@ async function fetchOptimistDaily() {
     if (res.ok) {
       const xml = await res.text();
       const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
-      if (items.length > 0) {
-        const title = items[0].match(/<title>(.*?)<\/title>/)?.[1] || '';
-        let desc = items[0].match(/<description>(.*?)<\/description>/)?.[1] || '';
+      const stories = [];
+      for (const item of items) {
+        const title = item.match(/<title>(.*?)<\/title>/)?.[1] || '';
+        let desc = item.match(/<description>(.*?)<\/description>/)?.[1] || '';
         desc = desc.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]*>/g, '').trim();
-        return {
-          headline: cleanText(title),
-          summary: cleanText(desc) || 'A constructive solutions journalism story.'
-        };
+        if (title) {
+          stories.push({
+            headline: cleanText(title),
+            summary: cleanText(desc) || 'A constructive solutions journalism story.'
+          });
+        }
       }
+      return stories.slice(0, 10);
     }
   } catch (e) {
     console.log('[Data Collector - Optimist Daily] Fetch failed:', e.message);
   }
-  return null;
+  return [];
 }
 
 async function fetchPolymarket() {
   try {
-    const res = await fetch('https://gamma-api.polymarket.com/markets?limit=3&order=volume_24hr&ascending=false&active=true');
+    const res = await fetch('https://gamma-api.polymarket.com/markets?limit=15&order=volume_24hr&ascending=false&active=true');
     if (res.ok) {
       const data = await res.json();
       return data.map(m => {
@@ -184,17 +192,15 @@ async function fetchAppleMusic() {
     if (res.ok) {
       const data = await res.json();
       const results = data.feed?.results || [];
-      if (results.length > 0) {
-        return {
-          title: cleanText(results[0].name),
-          artist: cleanText(results[0].artistName)
-        };
-      }
+      return results.map(r => ({
+        title: cleanText(r.name),
+        artist: cleanText(r.artistName)
+      }));
     }
   } catch (e) {
     console.log('[Data Collector - Apple Music] Fetch failed:', e.message);
   }
-  return null;
+  return [];
 }
 
 async function fetchWikipediaOnThisDay(date) {
@@ -206,18 +212,15 @@ async function fetchWikipediaOnThisDay(date) {
     if (res.ok) {
       const data = await res.json();
       const filtered = data.events.filter(ev => ev.year < (new Date().getFullYear() - 30));
-      if (filtered.length > 0) {
-        const randomEvent = filtered[Math.floor(Math.random() * filtered.length)];
-        return {
-          year: String(randomEvent.year),
-          event: cleanText(randomEvent.text)
-        };
-      }
+      return filtered.map(ev => ({
+        year: String(ev.year),
+        event: cleanText(ev.text)
+      }));
     }
   } catch (e) {
     console.log('[Data Collector - Wikipedia On This Day] Fetch failed:', e.message);
   }
-  return null;
+  return [];
 }
 
 const collectDailyData = async (dateString) => {
@@ -254,27 +257,31 @@ const collectDailyData = async (dateString) => {
   const oddityCentral = (await fetchOddityCentral()).filter(item => !isExcluded(item));
   const wikipediaPageviews = (await fetchWikipediaPageviews(dateString)).filter(item => !isExcluded(item));
   
-  let positiveNews = await fetchPositiveNews();
-  if (positiveNews && (isExcluded(positiveNews.headline) || isExcluded(positiveNews.summary))) {
-    positiveNews = null;
-  }
+  const positiveNewsRaw = await fetchPositiveNews();
+  const positiveNews = positiveNewsRaw
+    .filter(item => !isExcluded(item.headline) && !isExcluded(item.summary))
+    .slice(0, 3);
   
-  let optimistDaily = await fetchOptimistDaily();
-  if (optimistDaily && (isExcluded(optimistDaily.headline) || isExcluded(optimistDaily.summary))) {
-    optimistDaily = null;
-  }
+  const optimistDailyRaw = await fetchOptimistDaily();
+  const optimistDaily = optimistDailyRaw
+    .filter(item => !isExcluded(item.headline) && !isExcluded(item.summary))
+    .slice(0, 3);
   
-  const polymarket = (await fetchPolymarket()).filter(item => !isExcluded(item.question));
+  const polymarketRaw = await fetchPolymarket();
+  const polymarket = polymarketRaw
+    .filter(item => !isExcluded(item.question))
+    .slice(0, 5);
   
-  let topSong = await fetchAppleMusic();
-  if (topSong && (isExcluded(topSong.title) || isExcluded(topSong.artist))) {
-    topSong = null;
-  }
+  const topSongRaw = await fetchAppleMusic();
+  const topSong = topSongRaw
+    .filter(item => !isExcluded(item.title) && !isExcluded(item.artist))
+    .slice(0, 5);
   
-  let wikipediaOnThisDay = await fetchWikipediaOnThisDay(dateString);
-  if (wikipediaOnThisDay && isExcluded(wikipediaOnThisDay.event)) {
-    wikipediaOnThisDay = null;
-  }
+  const wikipediaOnThisDayRaw = await fetchWikipediaOnThisDay(dateString);
+  const wikipediaOnThisDayFiltered = wikipediaOnThisDayRaw.filter(item => !isExcluded(item.event));
+  const wikipediaOnThisDay = wikipediaOnThisDayFiltered.length > 0
+    ? wikipediaOnThisDayFiltered[Math.floor(Math.random() * wikipediaOnThisDayFiltered.length)]
+    : null;
 
   return {
     date: dateString,
