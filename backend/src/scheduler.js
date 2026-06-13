@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import { prisma } from './prisma.js';
 import { getIo } from './socket.js';
 import { generateDailyArtwork } from './artGenerator.js';
+import { getLotTitle, lotNo, lotDateStr, getAppUrl, productImageBlock, ctaButton, emailWrapper } from './email-helpers.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -135,25 +136,27 @@ async function closeActiveLot() {
     await sendWinnerEmail(topBid, activeLot);
   }
   if (distinctBidders.length > 1 && distinctBidders[1].email) {
-    await sendSecondPlaceEmail(distinctBidders[1]);
+    await sendSecondPlaceEmail(distinctBidders[1], activeLot);
   }
 
   // Auto-start next lot after 6-hour gap
   scheduleNextLot(AUTO_RESTART_DELAY_MS);
 }
 
-async function createNewLot(lotNumber) {
+async function createNewLot(lotNumber, preloadedArt = null) {
   // Cancel any pending auto-start since we're starting manually or via auto
   cancelAutoStart();
 
   const template = LOT_TEMPLATES[(lotNumber - 1) % LOT_TEMPLATES.length];
   const now = new Date();
 
-  let art = { artworkUrl: null, artworkHeadline: null, artworkPrompt: null };
-  try {
-    art = await generateDailyArtwork(lotNumber);
-  } catch (err) {
-    console.error('[Scheduler] Failed to generate daily artwork:', err.message);
+  let art = preloadedArt ?? { artworkUrl: null, artworkHeadline: null, artworkPrompt: null };
+  if (!preloadedArt) {
+    try {
+      art = await generateDailyArtwork(lotNumber);
+    } catch (err) {
+      console.error('[Scheduler] Failed to generate daily artwork:', err.message);
+    }
   }
 
   const lot = await prisma.lot.create({
@@ -173,6 +176,18 @@ async function createNewLot(lotNumber) {
       artworkPrompt: art.artworkPrompt,
     },
   });
+
+  // Save the initial artwork as a draft linked to this lot so it appears in the studio
+  if (art.artworkUrl || art.artworkHeadline) {
+    await prisma.artworkDraft.create({
+      data: {
+        lotId: lot.id,
+        artworkUrl: art.artworkUrl,
+        artworkHeadline: art.artworkHeadline,
+        artworkPrompt: art.artworkPrompt,
+      },
+    });
+  }
 
   console.log(`[Scheduler] Lot #${lotNumber} created — bidding open for 12 hours.`);
   const totalLots = await prisma.lot.count();
@@ -270,38 +285,18 @@ async function checkPaymentExpirations() {
 
 async function sendWinnerEmail(winner, lot) {
   const { name, email, amount } = winner;
-  const { artist } = lot;
-
-  let parsedTitle = lot.title;
-  let dateStr = '';
-  const lotNo = lot.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
-    : (lot.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
-
-  try {
-    if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
-      const parsed = JSON.parse(lot.artworkHeadline);
-      if (parsed.title) parsedTitle = parsed.title;
-    }
-  } catch (e) {}
-
-  try {
-    const rawDate = lot.startsAt || new Date();
-    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  } catch (e) {}
+  const title = getLotTitle(lot);
+  const dateStr = lotDateStr(lot);
+  const no = lotNo(lot);
+  const appUrl = getAppUrl();
 
   if (!process.env.RESEND_API_KEY) {
     console.log(`
 ============================================================
-[Email Mock] Congratulations ${name} (${email})!
-Subject: Congratulations! You won today's bid! 🏆
-You won "${parsedTitle}" (${dateStr} • Lot ${lotNo}) by ${artist}.
-Winning Bid: ₹${amount.toLocaleString('en-IN')}
-Action Required: Pay within 2 hours to claim.
+[Email Mock] Winner: ${name} (${email})
+Subject: You won today's auction! 🏆
+"${title}" by ${lot.artist} · Lot #${no} · ${dateStr}
+Winning Bid: ₹${amount.toLocaleString('en-IN')} · Pay within 2 hours
 ============================================================
     `);
     return;
@@ -311,47 +306,53 @@ Action Required: Pay within 2 hours to claim.
     await resend.emails.send({
       from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
       to: email,
-      subject: `Congratulations! You won today's bid! 🏆`,
-      html: `
-        <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #e6c27e; margin-top: 0; font-size: 22px;">Congratulations, ${name}!</h2>
-          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4; margin-bottom: 4px;">
-            You have won the auction for <strong>${parsedTitle}</strong> by ${artist}!
-          </p>
-          <p style="font-size: 13px; color: #7d7a8c; margin-top: 0; margin-bottom: 16px;">
-            ${dateStr}   •   Lot ${lotNo}   •   Edition 1/1
-          </p>
-          <div style="background: rgba(230, 194, 126, 0.05); border: 1px solid rgba(230, 194, 126, 0.2); border-radius: 8px; padding: 18px; margin: 20px 0;">
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 8px;">Winning Bid</td>
-                <td style="color: #e6c27e; font-size: 16px; font-weight: bold; text-align: right; padding-bottom: 8px;">₹${amount.toLocaleString('en-IN')}</td>
-              </tr>
-              <tr>
-                <td style="color: #7d7a8c; font-size: 13px;">Time to Claim</td>
-                <td style="color: #ff6b7d; font-size: 14px; font-weight: bold; text-align: right;">2 Hours (Strict deadline)</td>
-              </tr>
-            </table>
+      subject: `You won today's auction! 🏆`,
+      html: emailWrapper(`
+        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 21px;">Congratulations, ${name}! 🏆</h2>
+        <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">You have won today's Oxide auction.</p>
+        ${productImageBlock(lot)}
+        <div style="margin-bottom: 4px;">
+          <div style="font-size: 19px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${title}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${lot.artist}</div>` : ''}
+          <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
+            ${dateStr} · Lot #${no} · Edition 1/1
           </div>
-          <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
-            Please log into the portal immediately to settle your payment. If you do not pay within 2 hours, the opportunity will get transferred to the 2nd highest bidder.
-          </p>
         </div>
-      `,
+        <div style="background: rgba(230,194,126,0.05); border: 1px solid rgba(230,194,126,0.2); border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 10px;">Winning Bid</td>
+              <td style="color: #e6c27e; font-size: 18px; font-weight: 700; text-align: right; padding-bottom: 10px;">₹${amount.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
+              <td style="color: #7d7a8c; font-size: 13px;">Payment Deadline</td>
+              <td style="color: #ff6b7d; font-size: 14px; font-weight: 700; text-align: right;">2 Hours · Strict</td>
+            </tr>
+          </table>
+        </div>
+        <p style="font-size: 13px; line-height: 1.6; color: #7d7a8c; margin: 0 0 4px;">
+          If payment is not completed within 2 hours, the opportunity passes to the next highest bidder.
+        </p>
+        ${appUrl ? ctaButton('Complete Payment', `${appUrl}/pay`) : ''}
+      `),
     });
   } catch (err) {
     console.error('[Scheduler] Error sending winner email:', err);
   }
 }
 
-async function sendSecondPlaceEmail(bidder) {
+async function sendSecondPlaceEmail(bidder, lot) {
   const { name, email } = bidder;
+  const title = getLotTitle(lot);
+  const no = lotNo(lot);
+  const appUrl = getAppUrl();
+
   if (!process.env.RESEND_API_KEY) {
     console.log(`
 ============================================================
-[Email Mock] ALMOST HAD IT: ${name} (${email})
-Subject: Oxide Auction: You almost had it! ⚡
-The top bidder has 2 hours to pay. If they fail, we will send you a payment link.
+[Email Mock] 2nd Place: ${name} (${email})
+Subject: You almost had it! ⚡ — "${title}" · Lot #${no}
+The top bidder has 2 hours to pay. You'll be notified if the opportunity shifts.
 ============================================================
     `);
     return;
@@ -361,18 +362,28 @@ The top bidder has 2 hours to pay. If they fail, we will send you a payment link
     await resend.emails.send({
       from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
       to: email,
-      subject: `Oxide Auction: You almost had it! ⚡`,
-      html: `
-        <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #e6c27e; margin-top: 0; font-size: 20px;">This was close!</h2>
-          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4;">
-            You almost had the product. The top bidder has a 2-hour window to complete their payment.
+      subject: `You almost had it! ⚡`,
+      html: emailWrapper(`
+        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 20px;">This was close, ${name}! ⚡</h2>
+        <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">You were the 2nd highest bidder on today's drop.</p>
+        ${productImageBlock(lot)}
+        <div style="margin-bottom: 4px;">
+          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${title}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${lot.artist}</div>` : ''}
+          <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
+            Lot #${no} · Edition 1/1
+          </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 16px; margin: 20px 0; line-height: 1.7;">
+          <p style="font-size: 14px; color: #b9b6c4; margin: 0 0 10px;">
+            The top bidder has a <strong style="color: #f4f1ea;">2-hour window</strong> to complete their payment.
           </p>
-          <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
-            If they do not pay within this time, the opportunity to claim the product shifts to you. We will send you an email with a payment link immediately if that happens — keep an eye on your inbox!
+          <p style="font-size: 14px; color: #b9b6c4; margin: 0;">
+            If they don't pay in time, the opportunity to claim this drop shifts directly to you — we'll send you a payment link immediately. Keep an eye on your inbox!
           </p>
         </div>
-      `,
+        ${appUrl ? ctaButton('View Auction', appUrl, '#b9b6c4') : ''}
+      `),
     });
   } catch (err) {
     console.error('[Scheduler] Error sending 2nd place email:', err);
@@ -381,35 +392,16 @@ The top bidder has 2 hours to pay. If they fail, we will send you a payment link
 
 async function sendPaymentLinkEmail(bidder, lot, rank) {
   const { name, email, amount } = bidder;
-  const { artist } = lot;
-
-  let parsedTitle = lot.title;
-  let dateStr = '';
-  const lotNo = lot.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
-    : (lot.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
-
-  try {
-    if (lot.artworkHeadline && lot.artworkHeadline.startsWith('{')) {
-      const parsed = JSON.parse(lot.artworkHeadline);
-      if (parsed.title) parsedTitle = parsed.title;
-    }
-  } catch (e) {}
-
-  try {
-    const rawDate = lot.startsAt || new Date();
-    dateStr = new Date(rawDate).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  } catch (e) {}
+  const title = getLotTitle(lot);
+  const dateStr = lotDateStr(lot);
+  const no = lotNo(lot);
+  const appUrl = getAppUrl();
 
   if (!process.env.RESEND_API_KEY) {
     console.log(`
 ============================================================
-[Email Mock] PAYMENT OFFER FOR ${rank.toUpperCase()} PLACE: ${name} (${email})
-Subject: Your opportunity to claim "${parsedTitle}"! 🏆
+[Email Mock] ${rank} Place Claim Offer: ${name} (${email})
+Subject: Your opportunity to claim "${title}"! 🏆
 Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('en-IN')}.
 ============================================================
     `);
@@ -421,32 +413,37 @@ Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('e
       from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
       to: email,
       subject: `Your opportunity to claim today's drop! 🏆`,
-      html: `
-        <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #e6c27e; margin-top: 0; font-size: 20px;">Your Opportunity has Arrived!</h2>
-          <p style="font-size: 15px; line-height: 1.6; color: #b9b6c4; margin-bottom: 4px;">
-            The previous bidder failed to make their payment on time. As the next highest bidder, you can now claim <strong>${parsedTitle}</strong> by ${artist}!
-          </p>
-          <p style="font-size: 13px; color: #7d7a8c; margin-top: 0; margin-bottom: 16px;">
-            ${dateStr}   •   Lot ${lotNo}   •   Edition 1/1
-          </p>
-          <div style="background: rgba(230, 194, 126, 0.05); border: 1px solid rgba(230, 194, 126, 0.2); border-radius: 8px; padding: 18px; margin: 20px 0;">
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 8px;">Claim Price</td>
-                <td style="color: #e6c27e; font-size: 16px; font-weight: bold; text-align: right; padding-bottom: 8px;">₹${amount.toLocaleString('en-IN')}</td>
-              </tr>
-              <tr>
-                <td style="color: #7d7a8c; font-size: 13px;">Time to Pay</td>
-                <td style="color: #ff6b7d; font-size: 14px; font-weight: bold; text-align: right;">2 Hours (Strict deadline)</td>
-              </tr>
-            </table>
+      html: emailWrapper(`
+        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 20px;">Your Opportunity Has Arrived!</h2>
+        <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">Hi ${name}, you're next in line for today's drop.</p>
+        ${productImageBlock(lot)}
+        <div style="margin-bottom: 4px;">
+          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${title}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${lot.artist}</div>` : ''}
+          <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
+            ${dateStr} · Lot #${no} · Edition 1/1
           </div>
-          <p style="font-size: 14px; line-height: 1.6; color: #b9b6c4;">
-            Please log in to the website immediately to finalize your payment and claim your drop.
-          </p>
         </div>
-      `,
+        <p style="font-size: 14px; color: #b9b6c4; margin: 16px 0 0; line-height: 1.6;">
+          The previous bidder failed to pay on time. As the next highest bidder, you can now claim this drop.
+        </p>
+        <div style="background: rgba(230,194,126,0.05); border: 1px solid rgba(230,194,126,0.2); border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="color: #7d7a8c; font-size: 13px; padding-bottom: 10px;">Claim Price</td>
+              <td style="color: #e6c27e; font-size: 18px; font-weight: 700; text-align: right; padding-bottom: 10px;">₹${amount.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
+              <td style="color: #7d7a8c; font-size: 13px;">Payment Deadline</td>
+              <td style="color: #ff6b7d; font-size: 14px; font-weight: 700; text-align: right;">2 Hours · Strict</td>
+            </tr>
+          </table>
+        </div>
+        ${appUrl ? ctaButton('Claim Now', `${appUrl}/pay`) : ''}
+        <p style="font-size: 12px; color: #4d4a5c; text-align: center; margin: 12px 0 0;">
+          If you don't pay within 2 hours, the opportunity passes to the next bidder.
+        </p>
+      `),
     });
   } catch (err) {
     console.error('[Scheduler] Error sending transition email:', err);

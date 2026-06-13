@@ -166,6 +166,12 @@ export default function App() {
 
     socket.on('lot:payee_changed', () => { fetchLot(); });
     socket.on('lot:paid', () => { fetchLot(); });
+    socket.on('lot:artwork_updated', ({ lotId, artworkUrl, artworkHeadline, artworkPrompt, swappedAt }) => {
+      setLot((prev) => {
+        if (!prev || prev.id !== lotId) return prev;
+        return { ...prev, artworkUrl, artworkHeadline, artworkPrompt, _artworkSwappedAt: swappedAt ?? Date.now() };
+      });
+    });
 
     return () => socket.disconnect();
   }, [lot?.id, user?.id]);

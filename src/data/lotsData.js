@@ -3,23 +3,30 @@ export const fmt = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
 export function getArtworkUrl(lot, apiBaseUrl = '') {
   if (!lot) return null;
 
+  // Cache-bust value: use swappedAt timestamp if present, otherwise fall back to "1"
+  const v = lot._artworkSwappedAt ?? 1;
+
   const raw = lot.artworkUrl;
   if (raw && raw !== 'null' && raw !== 'undefined') {
     // GCS URL — proxy through backend to avoid CORS/403
     if (/^https?:\/\/storage\.googleapis\.com\//.test(raw)) {
       const filename = raw.split('/').pop();
-      if (filename) return `${apiBaseUrl}/api/artwork/${filename}`;
+      if (filename) return `${apiBaseUrl}/api/artwork/${filename}?v=${v}`;
     }
     // Already an external URL (CDN) — use directly
     if (/^https?:\/\/(?!localhost|127\.0\.0\.1)/.test(raw)) return raw;
-    // Already a proxied /api/artwork/ path — return as-is (idempotent)
-    if (raw.includes('/api/artwork/')) return raw.startsWith('http') ? raw : `${apiBaseUrl}${raw}`;
-    // Local path or legacy URL — extract filename and proxy
+    // Already a proxied /api/artwork/ path
+    if (raw.includes('/api/artwork/')) {
+      const base = raw.startsWith('http') ? raw : `${apiBaseUrl}${raw}`;
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}v=${v}`;
+    }
+    // Local path — extract filename and proxy
     const filename = raw.split('/').pop();
-    if (filename) return `${apiBaseUrl}/api/artwork/${filename}`;
+    if (filename) return `${apiBaseUrl}/api/artwork/${filename}?v=${v}`;
   }
 
-  // Derive from lot number / lotNo
+  // Derive from lot number / lotNo (no artwork set yet)
   let num = null;
   if (lot.lotNumber != null) {
     num = parseInt(lot.lotNumber, 10);

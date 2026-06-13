@@ -324,15 +324,36 @@ async function saveAndUploadArtwork(buffer, lotNumber, headline, prompt, filePat
         },
       });
 
+      let publiclyAccessible = false;
       try {
         await file.makePublic();
+        publiclyAccessible = true;
       } catch (e) {
-        console.log('[Art Generator] GCS makePublic() skipped/failed. Ensure your bucket permissions allow public reads.');
+        // Bucket likely uses uniform bucket-level access (IAM); try granting via IAM policy instead
+        try {
+          const [policy] = await bucket.iam.getPolicy({ requestedPolicyVersion: 3 });
+          policy.bindings = policy.bindings ?? [];
+          const viewer = policy.bindings.find((b) => b.role === 'roles/storage.objectViewer');
+          if (viewer) {
+            if (!viewer.members.includes('allUsers')) viewer.members.push('allUsers');
+          } else {
+            policy.bindings.push({ role: 'roles/storage.objectViewer', members: ['allUsers'] });
+          }
+          await bucket.iam.setPolicy(policy);
+          publiclyAccessible = true;
+          console.log('[Art Generator] Granted public read via bucket IAM policy.');
+        } catch (iamErr) {
+          console.warn('[Art Generator] Cannot make GCS file public (ACL + IAM both failed). Falling back to local URL.', iamErr.message);
+        }
       }
 
-      const gcsUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
-      console.log(`[Art Generator] Uploaded to GCS successfully! URL: ${gcsUrl}`);
-      return { artworkUrl: gcsUrl, artworkHeadline: headline, artworkPrompt: prompt };
+      if (publiclyAccessible) {
+        const gcsUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${destination}`;
+        console.log(`[Art Generator] Uploaded to GCS. URL: ${gcsUrl}`);
+        return { artworkUrl: gcsUrl, artworkHeadline: headline, artworkPrompt: prompt };
+      }
+      // GCS file exists but is private — use local URL so the image actually loads
+      console.log('[Art Generator] Using local URL (GCS object is not public).');
     } catch (gcsErr) {
       console.error('[Art Generator] GCS Upload failed, falling back to local URL:', gcsErr.message);
     }

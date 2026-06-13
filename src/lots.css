@@ -293,6 +293,7 @@ body.lots-page #root {
   object-fit: contain;
   display: block;
   filter: drop-shadow(0 6px 18px rgba(0,0,0,0.7));
+  mix-blend-mode: multiply;
 }
 .hero-chest-art {
   position: absolute;
@@ -588,6 +589,7 @@ body.lots-page #root {
   object-fit: contain;
   display: block;
   filter: drop-shadow(0 8px 24px rgba(0,0,0,0.6));
+  mix-blend-mode: multiply;
 }
 /* Artwork overlaid on chest */
 .card-chest-art {
@@ -840,6 +842,7 @@ body.lots-page #root {
   width: min(72%, 280px);
   object-fit: contain;
   filter: drop-shadow(0 12px 32px rgba(0,0,0,0.65));
+  mix-blend-mode: multiply;
 }
 .m-chest-art {
   position: absolute;
@@ -908,6 +911,9 @@ body.lots-page #root {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.5);
+}
+.m-main .model-shot .lots-art-bloom {
+  width: 62%;
 }
 .m-thumbs {
   display: flex;

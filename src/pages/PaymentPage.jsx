@@ -82,6 +82,7 @@ export default function PaymentPage() {
   const [selectedAddr, setSelectedAddr] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loadingAddrs, setLoadingAddrs] = useState(true);
+  const [tshirtSize, setTshirtSize] = useState('M');
   const [payError, setPayError] = useState('');
   const [timeLeft, setTimeLeft] = useState('');
   const [paidOrderId, setPaidOrderId] = useState(null);
@@ -171,7 +172,7 @@ export default function PaymentPage() {
       const r = await fetch(`${API}/api/lots/dev-simulate-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ addressId: selectedAddr }),
+        body: JSON.stringify({ addressId: selectedAddr, tshirtSize }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Simulation failed');
@@ -200,7 +201,7 @@ export default function PaymentPage() {
       const r = await fetch(`${API}/api/lots/create-razorpay-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ addressId: selectedAddr }),
+        body: JSON.stringify({ addressId: selectedAddr, tshirtSize }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Failed to create order');
@@ -229,6 +230,7 @@ export default function PaymentPage() {
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpaySignature: response.razorpay_signature,
                 addressId: selectedAddr,
+                tshirtSize,
               }),
             });
             const vdata = await vr.json();
@@ -324,6 +326,9 @@ export default function PaymentPage() {
                   {dateStr}   •   Lot {lotNo}   •   Edition 1/1
                 </p>
               )}
+              <p style={{ fontSize: '13px', color: '#b9b6c4', margin: '0 0 8px' }}>
+                T-shirt size: <strong style={{ color: '#f4f1ea' }}>{tshirtSize}</strong>
+              </p>
               <p style={{ fontSize: '13px', color: '#7d7a8c', margin: '0 0 28px' }}>
                 Order <strong style={{ color: '#e6c27e' }}>{paidOrderNumber}</strong> — a confirmation email is on its way.
               </p>
@@ -389,6 +394,34 @@ export default function PaymentPage() {
                   <span style={{ fontSize: '18px', fontWeight: 700, color: '#e6c27e', fontFamily: 'monospace' }}>
                     ₹{myBid?.toLocaleString('en-IN')}
                   </span>
+                </div>
+
+                {/* T-shirt size */}
+                <div style={{ padding: '16px 20px 0' }}>
+                  <div className="celebration-section-label">T-shirt size</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                    {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setTshirtSize(s)}
+                        style={{
+                          padding: '7px 16px',
+                          borderRadius: '6px',
+                          border: tshirtSize === s ? '1.5px solid #e6c27e' : '1.5px solid rgba(255,255,255,0.14)',
+                          background: tshirtSize === s ? 'rgba(230,194,126,0.12)' : 'rgba(255,255,255,0.04)',
+                          color: tshirtSize === s ? '#e6c27e' : '#b9b6c4',
+                          fontSize: '13px',
+                          fontWeight: tshirtSize === s ? 600 : 400,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Address section */}

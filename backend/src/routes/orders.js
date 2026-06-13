@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     where: { userId: req.userId },
     orderBy: { createdAt: 'desc' },
     include: {
-      lot: { select: { title: true, artist: true, lotNumber: true, size: true } },
+      lot: { select: { title: true, artist: true, lotNumber: true, size: true, artworkHeadline: true } },
       address: true,
     },
   });

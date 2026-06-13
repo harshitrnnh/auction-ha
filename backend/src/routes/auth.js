@@ -78,20 +78,21 @@ router.post('/email/send-otp', async (req, res) => {
       return res.json({ ok: true, hasPassword });
     }
 
+    const { emailWrapper } = await import('../email-helpers.js');
     await resend.emails.send({
       from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
       to: cleanEmail,
-      subject: 'Your Oxide Verification Code',
-      html: `
-        <div style="font-family: sans-serif; padding: 24px; background: #0c0d15; color: #f4f1ea; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
-          <h2 style="color: #e6c27e; margin-top: 0;">Oxide Auction</h2>
-          <p style="font-size: 14px; color: #b9b6c4;">Please use the following verification code to sign into your account:</p>
-          <div style="font-size: 36px; font-weight: bold; letter-spacing: 0.15em; color: #e6c27e; margin: 24px 0; font-family: monospace;">
-            ${otp}
-          </div>
-          <p style="color: #7d7a8c; font-size: 11.5px; margin-bottom: 0; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">This code is valid for 5 minutes. If you did not request this, you can ignore this email.</p>
+      subject: 'Your Oxide verification code',
+      html: emailWrapper(`
+        <h2 style="color: #e6c27e; margin: 0 0 8px; font-size: 18px;">Verify your email</h2>
+        <p style="font-size: 14px; color: #b9b6c4; margin: 0 0 24px;">Use this code to sign in to your Oxide account:</p>
+        <div style="text-align: center; background: rgba(230,194,126,0.06); border: 1px solid rgba(230,194,126,0.2); border-radius: 10px; padding: 24px; margin-bottom: 20px;">
+          <div style="font-size: 38px; font-weight: 700; letter-spacing: 0.2em; color: #e6c27e; font-family: monospace;">${otp}</div>
         </div>
-      `,
+        <p style="font-size: 12px; color: #4d4a5c; text-align: center; margin: 0;">
+          Valid for 5 minutes. If you didn't request this, ignore this email.
+        </p>
+      `),
     });
 
     res.json({ ok: true, hasPassword });
