@@ -226,7 +226,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
             <div className="m-tshirt-wrap">
               {/* Base t-shirt — front or back depending on shot */}
               <img
-                src={shot === 0 ? '/tshirt_front_black_transparent.png' : '/tshirt_back_black_transparent.png'}
+                src={shot === 0 ? '/tshirt_front_black_transparent10small.png' : '/tshirt_back_black_transparent10small.png'}
                 alt=""
                 className="m-tshirt-base"
               />
@@ -254,7 +254,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               onClick={() => setShot(0)}
             >
               <div className="m-thumb-tshirt">
-                <img src="/tshirt_front_black_transparent.png" alt="Front" className="m-thumb-img" />
+                <img src="/tshirt_front_black_transparent10small.png" alt="Front" className="m-thumb-img" />
                 {frontOverlaySrc && (
                   <img src={frontOverlaySrc} alt="" className="m-thumb-art" />
                 )}
@@ -266,7 +266,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               onClick={() => setShot(1)}
             >
               <div className="m-thumb-tshirt">
-                <img src="/tshirt_back_black_transparent.png" alt="Back" className="m-thumb-img" />
+                <img src="/tshirt_back_black_transparent10small.png" alt="Back" className="m-thumb-img" />
                 {backOverlaySrc && (
                   <img src={backOverlaySrc} alt="" className="m-thumb-art" />
                 )}

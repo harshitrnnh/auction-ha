@@ -139,7 +139,7 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
 
       <div className="hero-art">
         <div className="hero-tshirt-wrap">
-          <img src="/tshirt_front_black_transparent.png" alt="" className="hero-tshirt-base" />
+          <img src="/tshirt_front_black_transparent10small.png" alt="" className="hero-tshirt-base" />
           {overlaySrc && (
             <img src={overlaySrc} alt={lot.title} className="hero-chest-art" />
           )}
@@ -242,7 +242,7 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
         <div className="card-tshirt-zoom">
           {/* Black front t-shirt base */}
           <img
-            src="/tshirt_front_black_transparent.png"
+            src="/tshirt_front_black_transparent10small.png"
             alt=""
             className="card-tshirt-base"
           />
