@@ -179,9 +179,11 @@ const ITEM_W  = 54;
 const ITEM_GAP = 10;
 const STRIDE   = ITEM_W + ITEM_GAP; // 64 px per slot
 
-export default function Stage({ modelCount = 0, lot }) {
+export default function Stage({ modelCount = 0, lot, onTap }) {
   const mountRef  = useRef(null);
   const canvasRef = useRef(null);
+  const onTapRef  = useRef(onTap);
+  useEffect(() => { onTapRef.current = onTap; }, [onTap]);
   const [view, setView]             = useState(0);
   const [interacted, setInteracted] = useState(false);
   const viewRef        = useRef(0);
@@ -697,6 +699,8 @@ export default function Stage({ modelCount = 0, lot }) {
       const dy = p.clientY - pointerDownPos.y;
       pointerDownPos = null;
       if (Math.abs(dx) > 12 || Math.abs(dy) > 12) return; // was a drag, not a click
+
+      onTapRef.current?.();
 
       const rect = canvas.getBoundingClientRect();
       mouse2.x = ((p.clientX - rect.left)  / rect.width)  * 2 - 1;

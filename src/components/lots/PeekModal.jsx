@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fmt, getArtworkUrl } from '../../data/lotsData';
-import ArtBloom from './ArtBloom';
 
 const API = import.meta.env.VITE_API_URL ?? '';
 import DeliveryTracker from './DeliveryTracker';
@@ -420,31 +419,22 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                   )}
                 </div>
               )}
-              {/* Shot 2: raw artwork image */}
-              {shot === 2 && artworkUrl && (
+              {/* Shot 2: artwork with background removed */}
+              {shot === 2 && frontOverlaySrc && (
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: '100%', padding: '12px',
                 }}>
                   <img
-                    src={artworkUrl}
+                    src={frontOverlaySrc}
                     alt={lot.title}
                     style={{
                       maxWidth: 'min(80%, 320px)',
                       maxHeight: '100%',
                       objectFit: 'contain',
                       borderRadius: 8,
-                      boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
                     }}
                   />
-                </div>
-              )}
-              {/* Shot 3: ArtBloom / generative render */}
-              {shot === 3 && (
-                <div className="model-shot">
-                  <ArtBloom lot={lot} />
-                  <div className="lab">Generative Render</div>
-                  <div className="sub">Algorithmic bloom · lot {lot.lotNo}</div>
                 </div>
               )}
             </ZoomableImage>
@@ -479,8 +469,8 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                 {backOverlaySrc && <img src={backOverlaySrc} alt="" className="m-thumb-art" />}
               </div>
             </button>
-            {/* Shot 2: raw artwork image */}
-            {artworkUrl && (
+            {/* Shot 2: artwork without background */}
+            {frontOverlaySrc && (
               <button
                 className={'m-thumb' + (shot === 2 ? ' on' : '')}
                 onClick={() => setShot(2)}
@@ -488,23 +478,13 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               >
                 <div className="m-thumb-tshirt" style={{ padding: 4 }}>
                   <img
-                    src={artworkUrl}
+                    src={frontOverlaySrc}
                     alt="Artwork"
-                    style={{ width: '90%', height: '90%', objectFit: 'cover', borderRadius: 4 }}
+                    style={{ width: '90%', height: '90%', objectFit: 'contain', borderRadius: 4 }}
                   />
                 </div>
               </button>
             )}
-            {/* Shot 3: ArtBloom generative render */}
-            <button
-              className={'m-thumb' + (shot === 3 ? ' on' : '')}
-              onClick={() => setShot(3)}
-              title="Generative render"
-            >
-              <div className="m-thumb-tshirt">
-                <ArtBloom lot={lot} />
-              </div>
-            </button>
             {/* Shots 4+: draft artwork alternatives */}
             {(lot.artworkDrafts ?? []).map((draft, i) => (
               <button

@@ -205,19 +205,9 @@ export function Toolbar({
 export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
   const passed = lot.status === 'unsold';
   const artworkUrl = getArtworkUrl(lot, API);
-  const [overlaySrc, setOverlaySrc] = useState(null);
 
-  useEffect(() => {
-    if (!artworkUrl) return;
-    createFrontCanvasForCard(artworkUrl, lot, (canvas) => {
-      if (canvas) {
-        setOverlaySrc(canvas.toDataURL());
-      }
-    });
-  }, [artworkUrl, lot]);
-
-  const lotNo = lot?.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
+  const lotNo = lot?.lotNumber != null
+    ? String(lot.lotNumber).padStart(3, '0')
     : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
   const rawDate = lot?.startsAt || new Date();
@@ -238,23 +228,9 @@ export function LotCard({ lot, onPeek, showRibbon, userLoggedIn }) {
       onClick={() => onPeek(lot)}
     >
       <div className="card-art">
-        {/* Zoom wrapper — scale on hover centered on chest */}
-        <div className="card-tshirt-zoom">
-          {/* Black front t-shirt base */}
-          <img
-            src="/tshirt_front_black_transparent.png"
-            alt=""
-            className="card-tshirt-base"
-          />
-          {/* Artwork overlay at chest position */}
-          {overlaySrc && (
-            <img
-              src={overlaySrc}
-              alt={lot.title}
-              className="card-chest-art"
-            />
-          )}
-        </div>
+        {artworkUrl && (
+          <img src={artworkUrl} alt={lot.title} className="card-artwork-img" />
+        )}
         <div className="card-badges">
           <span className="l-tag lotno num">Lot {lotNo}</span>
           {lot.owned && userLoggedIn && showRibbon
