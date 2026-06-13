@@ -1,3 +1,23 @@
+function escAttr(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function safeUrl(url) {
+  return /^https?:\/\//i.test(url ?? '') ? url : '#';
+}
+
 export function getAppUrl() {
   return (process.env.FRONTEND_URL || '').replace(/\/$/, '');
 }
@@ -27,10 +47,10 @@ export function lotDateStr(lot) {
 }
 
 export function productImageBlock(lot) {
-  if (!lot?.artworkUrl) return '';
+  if (!lot?.artworkUrl || !/^https?:\/\//i.test(lot.artworkUrl)) return '';
   return `
     <div style="margin: 0 -24px 24px; border-bottom: 1px solid rgba(255,255,255,0.06);">
-      <img src="${lot.artworkUrl}" alt="${getLotTitle(lot)}"
+      <img src="${escAttr(lot.artworkUrl)}" alt="${escAttr(getLotTitle(lot))}"
         style="display: block; width: 100%; max-height: 380px; object-fit: cover;" />
     </div>`;
 }
@@ -39,10 +59,10 @@ export function ctaButton(text, url, color = '#e6c27e') {
   if (!url) return '';
   return `
     <div style="text-align: center; margin: 28px 0 8px;">
-      <a href="${url}"
-        style="display: inline-block; padding: 13px 32px; background: ${color}; color: #0c0d15;
+      <a href="${escAttr(safeUrl(url))}"
+        style="display: inline-block; padding: 13px 32px; background: ${escAttr(color)}; color: #0c0d15;
                font-weight: 700; font-size: 15px; border-radius: 8px; text-decoration: none;
-               letter-spacing: 0.02em;">${text} →</a>
+               letter-spacing: 0.02em;">${escHtml(text)} →</a>
     </div>`;
 }
 
