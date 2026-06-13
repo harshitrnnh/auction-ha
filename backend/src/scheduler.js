@@ -4,6 +4,7 @@ import { prisma } from './prisma.js';
 import { getIo } from './socket.js';
 import { generateDailyArtwork } from './artGenerator.js';
 import { getLotTitle, lotNo, lotDateStr, getAppUrl, productImageBlock, ctaButton, emailWrapper, escHtml } from './email-helpers.js';
+import { pollQikinkOrders } from './vendor/qikink.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -489,6 +490,11 @@ export async function startScheduler() {
   // Every minute: check payment window expirations
   cron.schedule('* * * * *', async () => {
     await checkPaymentExpirations();
+  });
+
+  // Every 30 minutes: poll Qikink for order status updates (printing → shipped → delivered)
+  cron.schedule('*/30 * * * *', async () => {
+    await pollQikinkOrders().catch((e) => console.error('[Scheduler] Qikink poll error:', e.message));
   });
 
   console.log('[Scheduler] Event-driven scheduler active — 12h bidding, 6h gap.');

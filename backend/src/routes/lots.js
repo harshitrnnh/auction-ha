@@ -177,7 +177,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 
     getIo()?.emit('lot:paid', { lotId: lot.id, winnerId: req.userId });
 
-    notifyVendor(order, lot, address).catch((e) => console.error('[Vendor] notify failed:', e));
+    notifyVendor(order, lot, address, user.email).catch((e) => console.error('[Vendor] notify failed:', e));
     sendInvoiceEmail(order, lot, address, user.email, user.name).catch((e) => console.error('[Invoice] email failed:', e));
 
     res.json({ ok: true, orderId: order.id, orderNumber });
@@ -294,7 +294,7 @@ router.post('/dev-simulate-payment', requireAuth, async (req, res) => {
     ]);
 
     getIo()?.emit('lot:paid', { lotId: lot.id, winnerId: req.userId });
-    notifyVendor(order, lot, address).catch((e) => console.error('[Vendor] notify failed:', e));
+    notifyVendor(order, lot, address, user.email).catch((e) => console.error('[Vendor] notify failed:', e));
     sendInvoiceEmail(order, lot, address, user.email, user.name).catch((e) => console.error('[Invoice] email failed:', e));
 
     res.json({ ok: true, orderId: order.id, orderNumber });
