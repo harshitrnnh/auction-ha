@@ -309,9 +309,18 @@ export default function App() {
         </div>
         <button
           className="mb-btn"
+          disabled={status === 'winning' || lotClosed}
           onClick={user ? scrollToBid : () => navigate('/login', { state: { from: '/' } })}
         >
-          {!user ? 'Sign in to bid' : myBid === null ? 'Place bid' : 'Raise bid'}
+          {!user 
+            ? 'Sign in to bid' 
+            : lotClosed 
+              ? 'Bidding closed' 
+              : status === 'winning' 
+                ? 'Leading' 
+                : myBid === null 
+                  ? 'Place bid' 
+                  : 'Raise bid'}
         </button>
       </div>
 
