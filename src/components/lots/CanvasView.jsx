@@ -102,7 +102,7 @@ export default function CanvasView({ lots, initialIdx, onClose, onViewDetails })
         <div className="cv-art-wrap" key={animKey}>
           <div className="cv-tshirt-wrap">
             <img
-              src="/tshirt_front_black_transparent.png"
+              src="/tshirt_front_black_transparent10small.png"
               alt=""
               className="cv-tshirt-base"
             />
