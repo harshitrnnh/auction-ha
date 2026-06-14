@@ -128,6 +128,17 @@ async function _callQikinkApi(order, lot, address, userEmail) {
     const token = await _getAccessToken();
     const size = order.tshirtSize || 'M';
 
+    // Failsafe: Fetch user's email if not passed by caller
+    let email = userEmail;
+    if (!email) {
+      const user = await prisma.user.findUnique({
+        where: { id: order.userId },
+        select: { email: true },
+      });
+      email = user?.email;
+    }
+    email = email || 'customer@chemicalfarmers.com';
+
     // Split name into first/last for Qikink's address schema
     const nameParts = (address.name || '').trim().split(/\s+/);
     const firstName = nameParts[0] || address.name;
@@ -170,7 +181,7 @@ async function _callQikinkApi(order, lot, address, userEmail) {
         address1: address.line1,
         address2: address.line2 || '',
         phone: address.phone,
-        email: userEmail || '',
+        email: email,
         city: address.city,
         zip: address.pincode,
         province: address.state,
