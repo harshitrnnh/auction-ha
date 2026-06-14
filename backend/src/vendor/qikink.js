@@ -135,10 +135,10 @@ async function _callQikinkApi(order, lot, address, userEmail) {
 
     // design_code doubles as a stable ID for this lot's design in Qikink's system.
     // Passing a new code auto-creates the design; passing an existing one reuses it.
-    const designCode = `oxide-lot-${lot.lotNumber}`;
+    const designCode = `oxidelot${lot.lotNumber}`;
 
     const payload = {
-      order_number: order.orderNumber,
+      order_number: order.orderNumber.replace(/-/g, ''),
       qikink_shipping: '1',
       gateway: 'Prepaid',
       total_order_value: String(Math.round(order.amount / 100)),

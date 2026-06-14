@@ -5,13 +5,15 @@ const API = import.meta.env.VITE_API_URL ?? '';
 import DeliveryTracker from './DeliveryTracker';
 
 /* ---------- Pinch/scroll zoom wrapper ---------- */
-function ZoomableImage({ children, resetKey }) {
+function ZoomableImage({ children, resetKey, onTap }) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const lastDist = useRef(null);
   const dragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const liveOffset = useRef({ x: 0, y: 0 });
+  const touchMoved = useRef(false);
+  const lastTouchEnd = useRef(0);
 
   useEffect(() => {
     setScale(1);
@@ -29,6 +31,7 @@ function ZoomableImage({ children, resetKey }) {
   };
 
   const onTouchStart = (e) => {
+    touchMoved.current = false;
     if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX;
       const dy = e.touches[1].clientY - e.touches[0].clientY;
@@ -43,6 +46,7 @@ function ZoomableImage({ children, resetKey }) {
   };
 
   const onTouchMove = (e) => {
+    touchMoved.current = true;
     if (e.touches.length === 2) {
       e.preventDefault();
       const dx = e.touches[1].clientX - e.touches[0].clientX;
@@ -76,11 +80,15 @@ function ZoomableImage({ children, resetKey }) {
   const onTouchEnd = (e) => {
     if (e.touches.length < 2) lastDist.current = null;
     if (e.touches.length === 0) {
+      const wasTap = !touchMoved.current;
       dragging.current = false;
+      touchMoved.current = false;
+      lastTouchEnd.current = Date.now();
       setScale((s) => {
         if (s <= 1.05) {
           setOffset({ x: 0, y: 0 });
           liveOffset.current = { x: 0, y: 0 };
+          if (wasTap && onTap) onTap();
           return 1;
         }
         return s;
@@ -113,12 +121,18 @@ function ZoomableImage({ children, resetKey }) {
     return () => el.removeEventListener('wheel', onWheel);
   }, [onWheel]);
 
+  const onClick = useCallback(() => {
+    // Skip synthetic click events fired after touch (mobile)
+    if (Date.now() - lastTouchEnd.current < 500) return;
+    if (onTap) onTap();
+  }, [onTap]);
+
   return (
     <div
       ref={containerRef}
       style={{
         overflow: 'hidden',
-        cursor: scale > 1 ? 'grab' : 'zoom-in',
+        cursor: 'zoom-in',
         userSelect: 'none',
         touchAction: 'none',
         width: '100%',
@@ -128,6 +142,7 @@ function ZoomableImage({ children, resetKey }) {
         justifyContent: 'center',
         position: 'relative',
       }}
+      onClick={onClick}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -307,6 +322,7 @@ function createFrontCanvasForCard(artworkImage, lot, callback) {
 
 export default function PeekModal({ lot, onClose, userLoggedIn }) {
   const [shot, setShot] = useState(0);
+  const [immersive, setImmersive] = useState(false);
   const live = lot.status === 'live';
   const passed = lot.status === 'unsold';
 
@@ -397,15 +413,15 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
         {/* gallery — left column */}
         <div className="m-gallery">
           <div className="m-main">
-            <ZoomableImage resetKey={shot}>
+            <ZoomableImage resetKey={shot} onTap={() => setImmersive(true)}>
               {/* Shot 0: front t-shirt with selected artwork */}
-              {(shot === 0 || shot >= 4) && (
+              {(shot === 0 || (live && shot >= 4)) && (
                 <div className="m-tshirt-wrap">
                   <img src="/tshirt_front_black_transparent10small.png" alt="" className="m-tshirt-base" />
                   {shot === 0 && frontOverlaySrc && (
                     <img src={frontOverlaySrc} alt={lot.title} className="m-chest-art" />
                   )}
-                  {shot >= 4 && draftSrcs[shot - 4] && (
+                  {live && shot >= 4 && draftSrcs[shot - 4] && (
                     <img src={draftSrcs[shot - 4]} alt={`Draft ${shot - 3}`} className="m-chest-art" />
                   )}
                 </div>
@@ -443,7 +459,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '0.05em',
               pointerEvents: 'none', whiteSpace: 'nowrap',
             }}>
-              Scroll or pinch to zoom
+              Click or scroll to zoom · tap to expand
             </div>
           </div>
           <div className="m-thumbs">
@@ -489,8 +505,8 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                 </div>
               </button>
             )}
-            {/* Shots 4+: draft artwork alternatives */}
-            {(lot.artworkDrafts ?? []).map((draft, i) => (
+            {/* Shots 4+: draft artwork alternatives — live only */}
+            {live && (lot.artworkDrafts ?? []).map((draft, i) => (
               <button
                 key={draft.id ?? i}
                 className={'m-thumb' + (shot === i + 4 ? ' on' : '')}
@@ -741,6 +757,52 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
           )}
         </div>
       </div>
+
+      {/* Immersive full-screen image viewer (mobile tap / desktop expand) */}
+      {immersive && (
+        <div
+          className="immersive-overlay"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setImmersive(false); }}
+        >
+          <ZoomableImage resetKey={`immersive-${shot}`}>
+            {(shot === 0 || (live && shot >= 4)) && (
+              <div className="m-tshirt-wrap">
+                <img src="/tshirt_front_black_transparent.png" alt="" className="m-tshirt-base immersive" />
+                {shot === 0 && frontOverlaySrc && (
+                  <img src={frontOverlaySrc} alt={lot.title} className="m-chest-art immersive" />
+                )}
+                {live && shot >= 4 && draftSrcs[shot - 4] && (
+                  <img src={draftSrcs[shot - 4]} alt={`Draft ${shot - 3}`} className="m-chest-art immersive" />
+                )}
+              </div>
+            )}
+            {shot === 1 && (
+              <div className="m-tshirt-wrap">
+                <img src="/tshirt_back_black_transparent.png" alt="" className="m-tshirt-base immersive" />
+                {backOverlaySrc && (
+                  <img src={backOverlaySrc} alt={lot.title} className="m-chest-art immersive" />
+                )}
+              </div>
+            )}
+            {shot === 2 && frontOverlaySrc && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '20px' }}>
+                <img
+                  src={frontOverlaySrc}
+                  alt={lot.title}
+                  style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }}
+                />
+              </div>
+            )}
+          </ZoomableImage>
+          <button
+            className="immersive-close"
+            onClick={() => setImmersive(false)}
+            aria-label="Back to details"
+          >
+            ←
+          </button>
+        </div>
+      )}
     </div>
   );
 }
