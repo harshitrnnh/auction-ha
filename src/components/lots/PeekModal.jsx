@@ -514,7 +514,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                 title={`Generated image ${i + 1}`}
               >
                 <div className="m-thumb-tshirt">
-                  <img src="/tshirt_front_black_transparent.png" alt="" className="m-thumb-img" />
+                  <img src="/tshirt_front_black_transparent10small.png" alt="" className="m-thumb-img" />
                   {draftSrcs[i]
                     ? <img src={draftSrcs[i]} alt="" className="m-thumb-art" />
                     : <div style={{
@@ -767,7 +767,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
           <ZoomableImage resetKey={`immersive-${shot}`}>
             {(shot === 0 || (live && shot >= 4)) && (
               <div className="m-tshirt-wrap">
-                <img src="/tshirt_front_black_transparent.png" alt="" className="m-tshirt-base immersive" />
+                <img src="/tshirt_front_black_transparent10small.png" alt="" className="m-tshirt-base immersive" />
                 {shot === 0 && frontOverlaySrc && (
                   <img src={frontOverlaySrc} alt={lot.title} className="m-chest-art immersive" />
                 )}
@@ -778,7 +778,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
             )}
             {shot === 1 && (
               <div className="m-tshirt-wrap">
-                <img src="/tshirt_back_black_transparent.png" alt="" className="m-tshirt-base immersive" />
+                <img src="/tshirt_back_black_transparent10small.png" alt="" className="m-tshirt-base immersive" />
                 {backOverlaySrc && (
                   <img src={backOverlaySrc} alt={lot.title} className="m-chest-art immersive" />
                 )}
