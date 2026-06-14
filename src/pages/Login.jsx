@@ -241,7 +241,7 @@ export default function Login() {
             
             <form onSubmit={handleEmailSubmit} className="auth-form">
               {/* Google OAuth Login Button */}
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '8px 0 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '8px 0 16px', colorScheme: 'light' }}>
                 <GoogleLogin
                   onSuccess={(res) => handleGoogleSuccess(res.credential)}
                   onError={() => setError('Google Sign-In failed. Try again.')}

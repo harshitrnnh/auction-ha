@@ -73,6 +73,7 @@ export default function App() {
   const [winner, setWinner] = useState(null);
   const [watching, setWatching] = useState(0);
   const [minInc, setMinInc] = useState(1);
+  const [submittingBid, setSubmittingBid] = useState(false);
 
   const myBidRef = useRef(myBid);
   myBidRef.current = myBid;
@@ -188,6 +189,18 @@ export default function App() {
       throw new Error(data.error || 'Bid failed');
     }
   }, [user, lot?.id, token, navigate]);
+
+  const handleMobileBid = async () => {
+    if (!user) { navigate('/login', { state: { from: '/' } }); return; }
+    setSubmittingBid(true);
+    try {
+      await placeBid(minNext);
+    } catch (err) {
+      alert(err.message || 'Failed to place bid. Try again.');
+    } finally {
+      setSubmittingBid(false);
+    }
+  };
 
   const scrollToBid = () => {
     const el = document.querySelector('.bidrail');
@@ -318,16 +331,18 @@ export default function App() {
         </div>
         <button
           className="mb-btn"
-          disabled={status === 'winning' || lotClosed}
-          onClick={user ? scrollToBid : () => navigate('/login', { state: { from: '/' } })}
+          disabled={status === 'winning' || lotClosed || submittingBid}
+          onClick={user ? handleMobileBid : () => navigate('/login', { state: { from: '/' } })}
         >
           {!user 
             ? 'Sign in to bid' 
             : lotClosed 
               ? 'Bidding closed' 
-              : bids.length === 0 
-                ? 'Place Bid' 
-                : `Raise Bid : ₹${minNext.toLocaleString('en-IN')}`}
+              : submittingBid
+                ? 'Placing bid…'
+                : bids.length === 0 
+                  ? 'Place Bid' 
+                  : `Raise Bid : ₹${minNext.toLocaleString('en-IN')}`}
         </button>
       </div>
 
