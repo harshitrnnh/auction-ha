@@ -282,8 +282,16 @@ function OrderRow({ order, expanded, onToggle, onUpdate, token }) {
                 <button onClick={() => handleResend('resend-invoice', 'Invoice')} style={btnBase}>
                   Resend invoice
                 </button>
-                <button onClick={() => handleResend('resend-vendor', 'Vendor email')} style={btnBase}>
-                  Resend to vendor
+                <button
+                  onClick={() => handleResend('resend-vendor', 'Qikink order')}
+                  style={{
+                    ...btnBase,
+                    borderColor: order.vendorOrderId ? 'rgba(167,139,250,0.3)' : 'rgba(230,194,126,0.3)',
+                    color: order.vendorOrderId ? '#a78bfa' : '#e6c27e',
+                    background: order.vendorOrderId ? 'rgba(167,139,250,0.07)' : 'rgba(230,194,126,0.07)',
+                  }}
+                >
+                  {order.vendorOrderId ? '↺ Re-send to Qikink' : '↑ Create Qikink order'}
                 </button>
               </div>
 
