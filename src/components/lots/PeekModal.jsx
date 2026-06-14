@@ -54,9 +54,19 @@ function ZoomableImage({ children, resetKey, onTap }) {
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (lastDist.current) {
         const ratio = dist / lastDist.current;
+        const touchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const touchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const rect = containerRef.current.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const mx = (touchX - rect.left) - centerX;
+        const my = (touchY - rect.top) - centerY;
+
         setScale((s) => {
           const ns = Math.min(5, Math.max(1, s * ratio));
-          const clamped = clampOffset(liveOffset.current.x, liveOffset.current.y, ns);
+          const newOffsetX = mx - (mx - liveOffset.current.x) * (ns / s);
+          const newOffsetY = my - (my - liveOffset.current.y) * (ns / s);
+          const clamped = clampOffset(newOffsetX, newOffsetY, ns);
           liveOffset.current = clamped;
           setOffset(clamped);
           return ns;
@@ -96,8 +106,46 @@ function ZoomableImage({ children, resetKey, onTap }) {
     }
   };
 
+  const onMouseDown = (e) => {
+    setScale((s) => {
+      if (s > 1) {
+        dragging.current = true;
+        dragStart.current = {
+          x: e.clientX - liveOffset.current.x,
+          y: e.clientY - liveOffset.current.y,
+        };
+      }
+      return s;
+    });
+  };
+
+  const onMouseMove = (e) => {
+    if (!dragging.current) return;
+    e.preventDefault();
+    setScale((s) => {
+      if (s <= 1) return s;
+      const nx = e.clientX - dragStart.current.x;
+      const ny = e.clientY - dragStart.current.y;
+      const clamped = clampOffset(nx, ny, s);
+      liveOffset.current = clamped;
+      setOffset(clamped);
+      return s;
+    });
+  };
+
+  const onMouseUpOrLeave = () => {
+    dragging.current = false;
+  };
+
   const onWheel = useCallback((e) => {
     e.preventDefault();
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const mx = (e.clientX - rect.left) - centerX;
+    const my = (e.clientY - rect.top) - centerY;
+
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
     setScale((s) => {
       const ns = Math.min(5, Math.max(1, s * factor));
@@ -106,7 +154,9 @@ function ZoomableImage({ children, resetKey, onTap }) {
         liveOffset.current = { x: 0, y: 0 };
         return 1;
       }
-      const clamped = clampOffset(liveOffset.current.x, liveOffset.current.y, ns);
+      const newOffsetX = mx - (mx - liveOffset.current.x) * (ns / s);
+      const newOffsetY = my - (my - liveOffset.current.y) * (ns / s);
+      const clamped = clampOffset(newOffsetX, newOffsetY, ns);
       liveOffset.current = clamped;
       setOffset(clamped);
       return ns;
@@ -122,10 +172,9 @@ function ZoomableImage({ children, resetKey, onTap }) {
   }, [onWheel]);
 
   const onClick = useCallback(() => {
-    // Skip synthetic click events fired after touch (mobile)
     if (Date.now() - lastTouchEnd.current < 500) return;
-    if (onTap) onTap();
-  }, [onTap]);
+    if (scale <= 1.05 && onTap) onTap();
+  }, [onTap, scale]);
 
   return (
     <div
@@ -146,6 +195,10 @@ function ZoomableImage({ children, resetKey, onTap }) {
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUpOrLeave}
+      onMouseLeave={onMouseUpOrLeave}
     >
       <div
         style={{
