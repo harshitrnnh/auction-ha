@@ -206,6 +206,7 @@ export default function App() {
   };
   const urgent = cd.total < 300 && cd.total > 0 && !lotClosed;
   const startingBid = lot?.startingBid ?? 1;
+  const minNext = bids.length > 0 ? currentBid + minInc : startingBid;
 
   const myRank = (user && lot?.status === 'closed') ? getMyRank(bids, user.id) : null;
 
@@ -302,7 +303,15 @@ export default function App() {
 
       <div className="mobile-bidbar">
         <div className="mb-info">
-          <div className="k">{status === 'outbid' ? "You've been outbid" : 'Current bid'}</div>
+          <div className="k">
+            {status === 'winning' ? (
+              <span style={{ color: 'var(--win)', fontWeight: 600 }}>● Leading</span>
+            ) : status === 'outbid' ? (
+              "You've been outbid"
+            ) : (
+              'Current bid'
+            )}
+          </div>
           <div className="v num" style={{ color: status === 'outbid' ? 'var(--lose)' : 'var(--txt)' }}>
             ₹{currentBid.toLocaleString('en-IN')}
           </div>
@@ -316,11 +325,9 @@ export default function App() {
             ? 'Sign in to bid' 
             : lotClosed 
               ? 'Bidding closed' 
-              : status === 'winning' 
-                ? 'Leading' 
-                : myBid === null 
-                  ? 'Place bid' 
-                  : 'Raise bid'}
+              : bids.length === 0 
+                ? 'Place Bid' 
+                : `Raise Bid : ₹${minNext.toLocaleString('en-IN')}`}
         </button>
       </div>
 
