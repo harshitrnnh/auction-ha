@@ -392,6 +392,11 @@ input { font-family: inherit; }
     padding: 14px 22px; border-radius: 12px; border: none; font-family: var(--font-display); font-weight: 700; font-size: 14px;
     background: linear-gradient(180deg, var(--gold-bright), var(--gold)); color: #271d08; box-shadow: 0 8px 28px rgb(var(--glow) / 0.35);
   }
+  .mobile-bidbar .mb-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
 }
 
 /* ---------- Stage fullscreen (mobile) ---------- */

@@ -1250,7 +1250,9 @@ body.lots-page #root {
   .hero-tshirt-wrap { width: clamp(100px, 18vw, 160px); }
   .peek-modal { grid-template-columns: 1fr; height: auto; max-height: 94vh; overflow-y: auto; }
   .m-detail { height: auto; overflow: visible; }
-  .m-gallery { height: auto; min-height: 320px; }
+  .m-gallery { height: auto; min-height: 380px; }
+  .m-tshirt-base:not(.immersive) { width: min(68%, 280px); }
+  .m-chest-art:not(.immersive) { width: min(24%, 93px); }
   .lots-toolbar { top: 60px; }
 }
 @media (max-width: 560px) {
