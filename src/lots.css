@@ -166,17 +166,17 @@ body.lots-page #root {
   text-transform: uppercase;
   font-family: var(--font-display);
   font-weight: 600;
-  color: var(--live, #ff6b7d);
-  border: 1px solid rgba(255,107,125,0.45);
-  background: rgba(255,107,125,0.10);
+  color: var(--win, #5fd6a0);
+  border: 1px solid rgba(95,214,160,0.45);
+  background: rgba(95,214,160,0.10);
   white-space: nowrap;
 }
 .lots-hero .live-badge .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--live, #ff6b7d);
-  box-shadow: 0 0 10px var(--live, #ff6b7d);
+  background: var(--win, #5fd6a0);
+  box-shadow: 0 0 10px var(--win, #5fd6a0);
   animation: lots-blink 1.4s infinite;
 }
 @keyframes lots-blink { 0%,100%{opacity:1;} 50%{opacity:0.25;} }
@@ -286,6 +286,7 @@ body.lots-page #root {
   display: flex;
   align-items: center;
   justify-content: center;
+  isolation: isolate;
 }
 .hero-tshirt-base {
   width: 100%;
@@ -585,10 +586,7 @@ body.lots-page #root {
   transform-origin: 50% 36%;
   transition: transform 0.5s cubic-bezier(.2,.7,.2,1);
 }
-.lot-card:hover .card-tshirt-zoom {
-  /* zoom into chest area */
-  transform: scale(2.6);
-}
+
 .card-tshirt-base {
   width: 88%;
   height: 100%;
@@ -843,6 +841,7 @@ body.lots-page #root {
   display: flex;
   align-items: center;
   justify-content: center;
+  isolation: isolate;
 }
 .m-tshirt-base {
   width: min(84%, 360px);
@@ -1361,6 +1360,7 @@ body.lots-page #root {
   align-items: center;
   justify-content: center;
   filter: drop-shadow(0 20px 50px rgba(0,0,0,0.7));
+  isolation: isolate;
 }
 .cv-tshirt-base {
   width: 100%;
