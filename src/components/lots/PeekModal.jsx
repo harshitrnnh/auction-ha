@@ -7,11 +7,13 @@ import DeliveryTracker from './DeliveryTracker';
 /* ---------- Pinch/scroll zoom wrapper ---------- */
 function ZoomableImage({ children, resetKey, onTap }) {
   const [zoom, setZoom] = useState({ scale: 1, x: 0, y: 0 });
+  const origin = useRef({ x: 0, y: 0 });
+  const initialized = useRef(false);
+
   const startDist = useRef(null);
   const startScale = useRef(1);
   const startOffset = useRef({ x: 0, y: 0 });
-  const startMidpoint = useRef({ x: 0, y: 0 });
-  
+
   const dragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const touchMoved = useRef(false);
@@ -20,6 +22,7 @@ function ZoomableImage({ children, resetKey, onTap }) {
 
   useEffect(() => {
     setZoom({ scale: 1, x: 0, y: 0 });
+    initialized.current = false;
     startDist.current = null;
   }, [resetKey]);
 
@@ -34,6 +37,24 @@ function ZoomableImage({ children, resetKey, onTap }) {
     };
   };
 
+  const updateOrigin = (clientX, clientY, currentScale, currentX, currentY) => {
+    if (!containerRef.current) return { x: currentX, y: currentY };
+    const rect = containerRef.current.getBoundingClientRect();
+    const newOriginX = clientX - rect.left;
+    const newOriginY = clientY - rect.top;
+
+    if (!initialized.current) {
+      origin.current = { x: rect.width / 2, y: rect.height / 2 };
+      initialized.current = true;
+    }
+
+    const dx = (origin.current.x - newOriginX) * (1 - currentScale);
+    const dy = (origin.current.y - newOriginY) * (1 - currentScale);
+
+    origin.current = { x: newOriginX, y: newOriginY };
+    return { x: currentX + dx, y: currentY + dy };
+  };
+
   const onTouchStart = (e) => {
     touchMoved.current = false;
     if (e.touches.length === 2) {
@@ -45,13 +66,10 @@ function ZoomableImage({ children, resetKey, onTap }) {
 
       const touchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const touchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      const rect = containerRef.current.getBoundingClientRect();
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
-      startMidpoint.current = {
-        x: (touchX - rect.left) - centerX,
-        y: (touchY - rect.top) - centerY,
-      };
+      const shifted = updateOrigin(touchX, touchY, zoom.scale, zoom.x, zoom.y);
+      
+      setZoom((z) => ({ ...z, x: shifted.x, y: shifted.y }));
+      startOffset.current = shifted;
     } else if (e.touches.length === 1) {
       dragging.current = true;
       dragStart.current = {
@@ -74,20 +92,10 @@ function ZoomableImage({ children, resetKey, onTap }) {
 
         const touchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
         const touchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        const rect = containerRef.current.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        const mx = (touchX - rect.left) - centerX;
-        const my = (touchY - rect.top) - centerY;
+        const shifted = updateOrigin(touchX, touchY, zoom.scale, zoom.x, zoom.y);
 
-        const newOffsetX = mx - (startMidpoint.current.x - startOffset.current.x) * (ns / startScale.current);
-        const newOffsetY = my - (startMidpoint.current.y - startOffset.current.y) * (ns / startScale.current);
-
-        setZoom({
-          scale: ns,
-          x: clampOffset(newOffsetX, newOffsetY, ns).x,
-          y: clampOffset(newOffsetX, newOffsetY, ns).y,
-        });
+        const clamped = clampOffset(shifted.x, shifted.y, ns);
+        setZoom({ scale: ns, x: clamped.x, y: clamped.y });
       }
     } else if (e.touches.length === 1 && dragging.current) {
       e.preventDefault();
@@ -155,12 +163,6 @@ function ZoomableImage({ children, resetKey, onTap }) {
   const onWheel = useCallback((e) => {
     e.preventDefault();
     if (!containerRef.current) return;
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const mx = (e.clientX - rect.left) - centerX;
-    const my = (e.clientY - rect.top) - centerY;
 
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
     setZoom((z) => {
@@ -168,9 +170,8 @@ function ZoomableImage({ children, resetKey, onTap }) {
       if (ns <= 1.05) {
         return { scale: 1, x: 0, y: 0 };
       }
-      const newOffsetX = mx - (mx - z.x) * (ns / z.scale);
-      const newOffsetY = my - (my - z.y) * (ns / z.scale);
-      const clamped = clampOffset(newOffsetX, newOffsetY, ns);
+      const shifted = updateOrigin(e.clientX, e.clientY, z.scale, z.x, z.y);
+      const clamped = clampOffset(shifted.x, shifted.y, ns);
       return { scale: ns, x: clamped.x, y: clamped.y };
     });
   }, []);
@@ -186,6 +187,11 @@ function ZoomableImage({ children, resetKey, onTap }) {
     if (Date.now() - lastTouchEnd.current < 500) return;
     if (zoom.scale <= 1.05 && onTap) onTap();
   }, [onTap, zoom.scale]);
+
+  const getTransformOriginStr = () => {
+    if (!initialized.current) return 'center center';
+    return `${origin.current.x}px ${origin.current.y}px`;
+  };
 
   return (
     <div
@@ -214,7 +220,7 @@ function ZoomableImage({ children, resetKey, onTap }) {
       <div
         style={{
           transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`,
-          transformOrigin: 'center center',
+          transformOrigin: getTransformOriginStr(),
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -237,6 +243,8 @@ function ZoomableImage({ children, resetKey, onTap }) {
     </div>
   );
 }
+
+
 
 function createBackCanvasForCard(logoImage, lot, callback) {
   let signalsSummarized = [];
