@@ -6,27 +6,29 @@ import DeliveryTracker from './DeliveryTracker';
 
 /* ---------- Pinch/scroll zoom wrapper ---------- */
 function ZoomableImage({ children, resetKey, onTap }) {
-  const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState({ scale: 1, x: 0, y: 0 });
   const lastDist = useRef(null);
   const dragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const liveOffset = useRef({ x: 0, y: 0 });
   const touchMoved = useRef(false);
   const lastTouchEnd = useRef(0);
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
+    setZoom({ scale: 1, x: 0, y: 0 });
     liveOffset.current = { x: 0, y: 0 };
     lastDist.current = null;
   }, [resetKey]);
 
   const clampOffset = (ox, oy, s) => {
-    const maxShift = (s - 1) * 150;
+    if (!containerRef.current) return { x: 0, y: 0 };
+    const rect = containerRef.current.getBoundingClientRect();
+    const maxShiftX = Math.max(0, (s - 1) * (rect.width / 2));
+    const maxShiftY = Math.max(0, (s - 1) * (rect.height / 2));
     return {
-      x: Math.max(-maxShift, Math.min(maxShift, ox)),
-      y: Math.max(-maxShift, Math.min(maxShift, oy)),
+      x: Math.max(-maxShiftX, Math.min(maxShiftX, ox)),
+      y: Math.max(-maxShiftY, Math.min(maxShiftY, oy)),
     };
   };
 
@@ -62,27 +64,25 @@ function ZoomableImage({ children, resetKey, onTap }) {
         const mx = (touchX - rect.left) - centerX;
         const my = (touchY - rect.top) - centerY;
 
-        setScale((s) => {
-          const ns = Math.min(5, Math.max(1, s * ratio));
-          const newOffsetX = mx - (mx - liveOffset.current.x) * (ns / s);
-          const newOffsetY = my - (my - liveOffset.current.y) * (ns / s);
+        setZoom((z) => {
+          const ns = Math.min(5, Math.max(1, z.scale * ratio));
+          const newOffsetX = mx - (mx - liveOffset.current.x) * (ns / z.scale);
+          const newOffsetY = my - (my - liveOffset.current.y) * (ns / z.scale);
           const clamped = clampOffset(newOffsetX, newOffsetY, ns);
           liveOffset.current = clamped;
-          setOffset(clamped);
-          return ns;
+          return { scale: ns, x: clamped.x, y: clamped.y };
         });
       }
       lastDist.current = dist;
     } else if (e.touches.length === 1 && dragging.current) {
       e.preventDefault();
-      setScale((s) => {
-        if (s <= 1) return s;
+      setZoom((z) => {
+        if (z.scale <= 1) return z;
         const nx = e.touches[0].clientX - dragStart.current.x;
         const ny = e.touches[0].clientY - dragStart.current.y;
-        const clamped = clampOffset(nx, ny, s);
+        const clamped = clampOffset(nx, ny, z.scale);
         liveOffset.current = clamped;
-        setOffset(clamped);
-        return s;
+        return { ...z, x: clamped.x, y: clamped.y };
       });
     }
   };
@@ -94,42 +94,37 @@ function ZoomableImage({ children, resetKey, onTap }) {
       dragging.current = false;
       touchMoved.current = false;
       lastTouchEnd.current = Date.now();
-      setScale((s) => {
-        if (s <= 1.05) {
-          setOffset({ x: 0, y: 0 });
+      setZoom((z) => {
+        if (z.scale <= 1.05) {
           liveOffset.current = { x: 0, y: 0 };
           if (wasTap && onTap) onTap();
-          return 1;
+          return { scale: 1, x: 0, y: 0 };
         }
-        return s;
+        return z;
       });
     }
   };
 
   const onMouseDown = (e) => {
-    setScale((s) => {
-      if (s > 1) {
-        dragging.current = true;
-        dragStart.current = {
-          x: e.clientX - liveOffset.current.x,
-          y: e.clientY - liveOffset.current.y,
-        };
-      }
-      return s;
-    });
+    if (zoom.scale > 1) {
+      dragging.current = true;
+      dragStart.current = {
+        x: e.clientX - liveOffset.current.x,
+        y: e.clientY - liveOffset.current.y,
+      };
+    }
   };
 
   const onMouseMove = (e) => {
     if (!dragging.current) return;
     e.preventDefault();
-    setScale((s) => {
-      if (s <= 1) return s;
+    setZoom((z) => {
+      if (z.scale <= 1) return z;
       const nx = e.clientX - dragStart.current.x;
       const ny = e.clientY - dragStart.current.y;
-      const clamped = clampOffset(nx, ny, s);
+      const clamped = clampOffset(nx, ny, z.scale);
       liveOffset.current = clamped;
-      setOffset(clamped);
-      return s;
+      return { ...z, x: clamped.x, y: clamped.y };
     });
   };
 
@@ -139,6 +134,7 @@ function ZoomableImage({ children, resetKey, onTap }) {
 
   const onWheel = useCallback((e) => {
     e.preventDefault();
+    if (!containerRef.current) return;
     
     const rect = containerRef.current.getBoundingClientRect();
     const centerX = rect.width / 2;
@@ -147,23 +143,20 @@ function ZoomableImage({ children, resetKey, onTap }) {
     const my = (e.clientY - rect.top) - centerY;
 
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    setScale((s) => {
-      const ns = Math.min(5, Math.max(1, s * factor));
+    setZoom((z) => {
+      const ns = Math.min(5, Math.max(1, z.scale * factor));
       if (ns <= 1.05) {
-        setOffset({ x: 0, y: 0 });
         liveOffset.current = { x: 0, y: 0 };
-        return 1;
+        return { scale: 1, x: 0, y: 0 };
       }
-      const newOffsetX = mx - (mx - liveOffset.current.x) * (ns / s);
-      const newOffsetY = my - (my - liveOffset.current.y) * (ns / s);
+      const newOffsetX = mx - (mx - liveOffset.current.x) * (ns / z.scale);
+      const newOffsetY = my - (my - liveOffset.current.y) * (ns / z.scale);
       const clamped = clampOffset(newOffsetX, newOffsetY, ns);
       liveOffset.current = clamped;
-      setOffset(clamped);
-      return ns;
+      return { scale: ns, x: clamped.x, y: clamped.y };
     });
   }, []);
 
-  const containerRef = useRef(null);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -173,8 +166,8 @@ function ZoomableImage({ children, resetKey, onTap }) {
 
   const onClick = useCallback(() => {
     if (Date.now() - lastTouchEnd.current < 500) return;
-    if (scale <= 1.05 && onTap) onTap();
-  }, [onTap, scale]);
+    if (zoom.scale <= 1.05 && onTap) onTap();
+  }, [onTap, zoom.scale]);
 
   return (
     <div
@@ -202,9 +195,8 @@ function ZoomableImage({ children, resetKey, onTap }) {
     >
       <div
         style={{
-          transform: `scale(${scale}) translate(${offset.x / scale}px, ${offset.y / scale}px)`,
+          transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})`,
           transformOrigin: 'center center',
-          transition: dragging.current ? 'none' : 'transform 0.15s ease',
           width: '100%',
           display: 'flex',
           alignItems: 'center',
@@ -213,14 +205,14 @@ function ZoomableImage({ children, resetKey, onTap }) {
       >
         {children}
       </div>
-      {scale > 1 && (
+      {zoom.scale > 1 && (
         <div style={{
           position: 'absolute', bottom: 8, right: 8,
           background: 'rgba(0,0,0,0.55)', color: '#fff',
           fontSize: '10px', borderRadius: 4, padding: '2px 6px',
           pointerEvents: 'none', letterSpacing: '0.04em',
         }}>
-          {Math.round(scale * 100)}%
+          {Math.round(zoom.scale * 100)}%
         </div>
       )}
     </div>
