@@ -187,7 +187,7 @@ export default function Signup() {
 
       <div className="auth-card" style={{ maxWidth: '420px' }}>
         <div className="auth-brand">
-          <div className="brand-mark" />
+          <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
           <div>
             <div className="brand-name">Oxide</div>
             <div className="brand-sub">Live Auction Portal</div>

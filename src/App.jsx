@@ -236,7 +236,7 @@ export default function App() {
       <div className="app">
         <Starfield />
         <div className="app-loading">
-          <div className="brand-mark" style={{ width: 40, height: 40, marginBottom: 16 }} />
+          <img src="/favicon.png" className="brand-mark" style={{ width: 40, height: 40, marginBottom: 16, background: 'none', boxShadow: 'none' }} alt="" />
           <span>Loading auction…</span>
         </div>
       </div>
@@ -248,7 +248,7 @@ export default function App() {
       <div className="app">
         <Starfield />
         <div className="app-loading">
-          <div className="brand-mark" style={{ width: 40, height: 40, marginBottom: 16 }} />
+          <img src="/favicon.png" className="brand-mark" style={{ width: 40, height: 40, marginBottom: 16, background: 'none', boxShadow: 'none' }} alt="" />
           <span style={{ color: 'var(--txt-mute)' }}>{error}</span>
           <button className="app-retry" onClick={fetchLot}>Retry</button>
         </div>
@@ -266,7 +266,7 @@ export default function App() {
           {user ? (
             <UserMenu user={user} logout={logout} />
           ) : (
-            <div className="brand-mark" />
+            <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
           )}
           <div>
             <div className="brand-name">Oxide</div>
