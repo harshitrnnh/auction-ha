@@ -307,7 +307,11 @@ export default function Lots() {
 
       <header className="lots-topbar">
         <Link className="brand" to="/">
-          <div className="brand-mark" />
+          {user ? (
+            <div className="brand-mark" />
+          ) : (
+            <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
+          )}
           <div>
             <div className="brand-name">Oxide</div>
             <div className="brand-sub">Lots &amp; Archive</div>
