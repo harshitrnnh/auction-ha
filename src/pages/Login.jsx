@@ -54,11 +54,11 @@ export default function Login() {
     return re.test(String(val).toLowerCase());
   };
 
-  const handleGoogleSuccess = useCallback(async (credential) => {
+  const handleGoogleSuccess = useCallback(async (response) => {
     setError('');
     setLoading(true);
     try {
-      const data = await loginWithGoogle(credential);
+      const data = await loginWithGoogle(response.credential);
       if (data.isNew) {
         setStep('profile_setup');
       } else {
