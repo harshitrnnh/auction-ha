@@ -1,7 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
+
+const MemoizedGoogleLogin = memo(({ onSuccess, onError }) => {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '8px 0 16px', colorScheme: 'light' }}>
+      <GoogleLogin
+        onSuccess={onSuccess}
+        onError={onError}
+        theme="filled_blue"
+        shape="pill"
+        text="signup_with"
+      />
+    </div>
+  );
+});
 
 export default function Signup() {
   const { sendEmailOtp, verifyEmailOtp, loginWithGoogle, updateProfile } = useAuth();
@@ -37,7 +51,7 @@ export default function Signup() {
     return re.test(String(val).toLowerCase());
   };
 
-  const handleGoogleSuccess = async (credential) => {
+  const handleGoogleSuccess = useCallback(async (credential) => {
     setError('');
     setLoading(true);
     try {
@@ -53,7 +67,11 @@ export default function Signup() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loginWithGoogle, from, navigate]);
+
+  const handleGoogleError = useCallback(() => {
+    setError('Google Sign-In failed. Try again.');
+  }, []);
 
   const requestOtp = async () => {
     if (!validateEmailFormat(email)) return;
@@ -202,15 +220,10 @@ export default function Signup() {
             
             <div className="auth-form">
               {/* Google OAuth Login Button */}
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '8px 0 16px', colorScheme: 'light' }}>
-                <GoogleLogin
-                  onSuccess={(res) => handleGoogleSuccess(res.credential)}
-                  onError={() => setError('Google Sign-In failed. Try again.')}
-                  theme="filled_blue"
-                  shape="pill"
-                  text="signup_with"
-                />
-              </div>
+              <MemoizedGoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
 
               {/* Separator */}
               <div style={{ display: 'flex', alignItems: 'center', margin: '8px 0 16px' }}>

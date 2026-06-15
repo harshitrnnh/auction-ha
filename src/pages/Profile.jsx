@@ -81,7 +81,7 @@ export default function Profile() {
         <div className="account-header">
           <button className="account-back" onClick={() => navigate('/')}>← Back</button>
           <div className="account-title-row">
-            <div className="brand-mark" style={{ width: 26, height: 26 }} />
+            <img src="/favicon.png" className="brand-mark" style={{ width: 26, height: 26, background: 'none', boxShadow: 'none' }} alt="" />
             <h2 className="account-title">Profile Settings</h2>
           </div>
         </div>
