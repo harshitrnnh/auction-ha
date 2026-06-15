@@ -331,7 +331,7 @@ export default function App() {
         </div>
         <button
           className="mb-btn"
-          disabled={status === 'winning' || lotClosed || submittingBid}
+          disabled={user ? (status === 'winning' || lotClosed || submittingBid) : false}
           onClick={user ? handleMobileBid : () => navigate('/login', { state: { from: '/' } })}
         >
           {!user 
