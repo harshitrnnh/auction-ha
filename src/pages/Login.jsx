@@ -55,6 +55,7 @@ export default function Login() {
   };
 
   const handleGoogleSuccess = useCallback(async (response) => {
+    console.log('[Google Auth Debug] onSuccess response:', response);
     setError('');
     setLoading(true);
     try {

@@ -52,6 +52,7 @@ export default function Signup() {
   };
 
   const handleGoogleSuccess = useCallback(async (response) => {
+    console.log('[Google Auth Debug] onSuccess response:', response);
     setError('');
     setLoading(true);
     try {
