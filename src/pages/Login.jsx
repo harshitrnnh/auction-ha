@@ -1,7 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
+
+const MemoizedGoogleLogin = memo(({ onSuccess, onError }) => {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '8px 0 16px', colorScheme: 'light' }}>
+      <GoogleLogin
+        onSuccess={onSuccess}
+        onError={onError}
+        theme="filled_blue"
+        shape="pill"
+        text="signin_with"
+      />
+    </div>
+  );
+});
 
 export default function Login() {
   const { sendEmailOtp, verifyEmailOtp, loginWithGoogle, loginWithPassword, updateProfile, checkEmail } = useAuth();
@@ -40,7 +54,7 @@ export default function Login() {
     return re.test(String(val).toLowerCase());
   };
 
-  const handleGoogleSuccess = async (credential) => {
+  const handleGoogleSuccess = useCallback(async (credential) => {
     setError('');
     setLoading(true);
     try {
@@ -55,7 +69,11 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loginWithGoogle, from, navigate]);
+
+  const handleGoogleError = useCallback(() => {
+    setError('Google Sign-In failed. Try again.');
+  }, []);
 
   const handleEmailSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -241,15 +259,10 @@ export default function Login() {
             
             <form onSubmit={handleEmailSubmit} className="auth-form">
               {/* Google OAuth Login Button */}
-              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', margin: '8px 0 16px', colorScheme: 'light' }}>
-                <GoogleLogin
-                  onSuccess={(res) => handleGoogleSuccess(res.credential)}
-                  onError={() => setError('Google Sign-In failed. Try again.')}
-                  theme="filled_blue"
-                  shape="pill"
-                  text="signin_with"
-                />
-              </div>
+              <MemoizedGoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
 
               {/* Separator */}
               <div style={{ display: 'flex', alignItems: 'center', margin: '8px 0 16px' }}>

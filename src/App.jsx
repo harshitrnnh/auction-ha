@@ -263,11 +263,7 @@ export default function App() {
 
       <header className="topbar">
         <div className="brand">
-          {user ? (
-            <UserMenu user={user} logout={logout} />
-          ) : (
-            <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
-          )}
+          <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
           <div>
             <div className="brand-name">Oxide</div>
             {lot && (
@@ -279,7 +275,9 @@ export default function App() {
               </div>
             )}
           </div>
-          {!user && (
+          {user ? (
+            <UserMenu user={user} logout={logout} />
+          ) : (
             <button className="pill auth-pill" onClick={() => navigate('/login')}>
               Sign in to bid
             </button>
