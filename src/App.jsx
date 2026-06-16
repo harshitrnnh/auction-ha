@@ -271,7 +271,8 @@ export default function App() {
                 <span className="brand-lot num">
                   Drop #{lot.lotNumber}
                 </span>
-                <Link to="/lots" className="brand-view-all">View all lots →</Link>
+                <Link to="/lots" className="brand-view-all">View all lots</Link>
+                <Link to="/how-it-works" className="brand-view-all" style={{ marginTop: '2px' }}>How it works</Link>
               </div>
             )}
           </div>

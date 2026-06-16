@@ -117,27 +117,27 @@ function createBackCanvas(logoImage, lot, callback) {
     // Transparent background
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const logoSize = 460;
-    ctx.drawImage(img, (1200 - logoSize) / 2, 80, logoSize, logoSize);
+    const logoSize = 345;
+    ctx.drawImage(img, (1200 - logoSize) / 2, 140, logoSize, logoSize);
 
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
 
     // Lot number and Date
-    ctx.font = '46px Georgia, serif';
-    ctx.fillText(`LOT NO. ${lotNo}`, 600, 640);
-    ctx.fillText(`DATE - ${lotDate}`, 600, 705);
+    ctx.font = '34px Georgia, serif';
+    ctx.fillText(`LOT NO. ${lotNo}`, 600, 560);
+    ctx.fillText(`DATE - ${lotDate}`, 600, 608);
 
     // Summarized signals
     if (signalsSummarized.length > 0) {
-      ctx.font = '36px Georgia, serif';
+      ctx.font = '27px Georgia, serif';
       const signalsText = signalsSummarized.join('   •   ');
       
       const words = signalsText.split(' ');
       let line = '';
       const lines = [];
-      const maxWidth = 960;
-      const lineHeight = 50;
+      const maxWidth = 720;
+      const lineHeight = 38;
 
       for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
@@ -152,7 +152,7 @@ function createBackCanvas(logoImage, lot, callback) {
       }
       lines.push(line.trim());
 
-      let currentY = 800;
+      let currentY = 680;
       for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i], 600, currentY);
         currentY += lineHeight;

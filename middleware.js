@@ -73,7 +73,7 @@ function buildPage({ title, description, ogImage, canonicalUrl, jsonLd }) {
   <meta http-equiv="refresh" content="0;url=${esc(canonicalUrl)}"/>
 </head>
 <body>
-  <p>Redirecting to <a href="${esc(canonicalUrl)}">Oxide — Live AI Art Auction</a>…</p>
+  <p>Redirecting to <a href="${esc(canonicalUrl)}">Oxide — Live AI T-Shirt Auction</a>…</p>
 </body>
 </html>`;
 }
@@ -98,7 +98,7 @@ export default async function middleware(request) {
       const lot = data?.lot;
       const title = lot
         ? `Bid on "${lot.title ?? `Drop #${lot.lotNumber}`}" — Oxide Live Auction`
-        : 'Oxide — Live AI Art Auction';
+        : 'Oxide — Live AI T-Shirt Auction';
       const description = lot?.description
         ? `${lot.description.slice(0, 140)}… Starting at ₹${Number(lot.startingBid).toLocaleString('en-IN')}. One tee. No reprints.`
         : 'One AI-generated art tee drops every 24 hours. Bid live. Win the original. No reprints, ever.';

@@ -8,6 +8,20 @@ const API = import.meta.env.VITE_API_URL ?? '';
  * to get dynamic per-lot meta tags and OG images.
  */
 export default function SEO({ lot, page = 'home' }) {
+  if (page === 'how-it-works') {
+    return (
+      <Helmet>
+        <title>How it Works — Oxide</title>
+        <meta name="description" content="Learn how the Oxide daily AI art auction works. Understand the bid raise logic, the 18-hour auction timer, the 2-hour payment window, and autonomous daily generation." />
+        <link rel="canonical" href={`${SITE}/how-it-works`} />
+        <meta property="og:url" content={`${SITE}/how-it-works`} />
+        <meta property="og:title" content="How it Works — Oxide" />
+        <meta property="og:description" content="Learn how the Oxide daily AI art auction works. Understand the bid raise logic, the 18-hour auction timer, the 2-hour payment window, and autonomous daily generation." />
+        <meta property="og:image" content={`${SITE}/og-default.png`} />
+      </Helmet>
+    );
+  }
+
   if (page === 'lots') {
     return (
       <Helmet>
@@ -35,7 +49,7 @@ export default function SEO({ lot, page = 'home' }) {
   if (!lot) {
     return (
       <Helmet>
-        <title>Oxide — Live AI Art Auction</title>
+        <title>Oxide — Live AI T-Shirt Auction</title>
         <meta name="description" content="Oxide drops one AI-generated art tee every 24 hours. Bid live, win the original. Limited edition. No reprints." />
         <link rel="canonical" href={SITE} />
       </Helmet>
