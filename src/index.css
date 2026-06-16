@@ -902,6 +902,17 @@ input { font-family: inherit; }
 .addr-save-btn:hover { filter: brightness(1.08); }
 .addr-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Body overrides for scrollable How It Works page */
+body.how-it-works-page-body {
+  overflow: auto;
+  height: auto;
+  min-height: 100vh;
+}
+body.how-it-works-page-body #root {
+  height: auto;
+  min-height: 100vh;
+}
+
 /* ---------- How It Works page ---------- */
 .how-it-works-page {
   position: relative;
