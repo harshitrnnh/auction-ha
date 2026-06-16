@@ -770,7 +770,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
             <div className="m-result">
               <div className="r-top">
                 <div>
-                  <div className="r-k">Current bid</div>
+                  <div className="r-k">{lot.bids === 0 ? 'Starting bid' : 'Current bid'}</div>
                   <div className="r-price">
                     <span className="cur">₹</span>
                     {lot.currentBid != null ? lot.currentBid.toLocaleString('en-IN') : '—'}

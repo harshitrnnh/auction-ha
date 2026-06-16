@@ -320,7 +320,7 @@ export default function App() {
             ) : status === 'outbid' ? (
               "You've been outbid"
             ) : (
-              'Current bid'
+              bids.length === 0 ? 'Starting bid' : 'Current bid'
             )}
           </div>
           <div className="v num" style={{ color: status === 'outbid' ? 'var(--lose)' : 'var(--txt)' }}>

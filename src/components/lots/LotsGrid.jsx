@@ -112,7 +112,7 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
 
         <div className="hero-stats">
           <div className="hstat">
-            <div className="k">Current bid</div>
+            <div className="k">{bids === 0 ? 'Starting bid' : 'Current bid'}</div>
             <div className={'v num' + (bump ? ' bump' : '')}>
               <span className="cur">₹</span>
               <span>{currentBid.toLocaleString('en-IN')}</span>

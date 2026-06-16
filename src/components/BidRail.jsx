@@ -222,7 +222,7 @@ function MyBid({ myBid, status }) {
 
 function Feed({ bids }) {
   return (
-    <div className="feed" style={{ flex: bids.length > 0 ? '1 1 auto' : 'none', minHeight: bids.length > 0 ? '150px' : '0' }}>
+    <div className="feed" style={{ flex: bids.length > 0 ? '0 1 auto' : 'none', minHeight: '0' }}>
       <div className="feed-head">
         <span className="t">Live activity</span>
         <span className="live"><span className="dot" /> Live · {bids.length} bids</span>
@@ -426,7 +426,7 @@ export default function BidRail({ auction }) {
           <span className="amt num">{fmt(startingBid)}</span>
         </div>
         <div className="current">
-          <div className="price-row"><span className="label">Current bid</span></div>
+          <div className="price-row"><span className="label">{bids.length === 0 ? 'Starting bid' : 'Current bid'}</span></div>
           <div className={'amt' + (bump ? ' bump' : '')} key={currentBid}>
             <span className="cur num">₹</span>
             <span className="num">{currentBid.toLocaleString('en-IN')}</span>
@@ -468,7 +468,7 @@ export default function BidRail({ auction }) {
 
       {isJson && interpretiveStatement && (
         <div style={{
-          padding: '10px 18px 18px',
+          padding: '18px 18px 18px',
           textAlign: 'left',
           borderTop: '1px solid rgba(255, 255, 255, 0.08)'
         }}>
