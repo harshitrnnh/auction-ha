@@ -223,7 +223,7 @@ async function fetchWikipediaOnThisDay(date) {
   return [];
 }
 
-const collectDailyData = async (dateString) => {
+export const collectDailyData = async (dateString) => {
   console.log('[Data Collector] Gathering all signals for date:', dateString);
 
   // 1. Fetch yesterday's signals from the database to exclude
@@ -519,4 +519,135 @@ Return a JSON object with this exact structure:
   }
 
   return { artworkUrl: null, artworkHeadline: lotHeadlineStr, artworkPrompt: prompt };
+}
+
+export async function generatePromptFromSignals(selectedSignals, lotNumber) {
+  console.log(`--- GENERATING PROMPT FROM CUSTOM SIGNALS FOR LOT ${lotNumber} ---`);
+
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_CLOUD_PROJECT) {
+    throw new Error('Gemini API key or Google Cloud Project not configured.');
+  }
+
+  const isGeminiKey = !!process.env.GEMINI_API_KEY;
+  const ai = isGeminiKey
+    ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    : new GoogleGenAI({
+        vertexai: true,
+        project: process.env.GOOGLE_CLOUD_PROJECT,
+        location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+      });
+
+  const today = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const dateString = formatter.format(today);
+
+  const systemInstruction = `
+========================================
+SERIES BIBLE — FIELD NOTES FROM THE DAY
+===========================================
+
+This artwork series is a long-running collectible visual archive.
+
+Every artwork belongs to the same universe.
+Every artwork should be immediately recognizable as part of the collection.
+The subject matter changes daily, but the visual language does not.
+The goal is recognizable evolution within a stable visual identity.
+
+========================================
+COMPOSITION & ARTWORK ARCHITECTURE
+========================================
+
+- The artwork must be a complete vertical visual composition with a 3:4 aspect ratio, generated on a plain solid black background.
+- NO TEXT OF ANY KIND: The generated image must contain absolutely NO text, NO words, NO letters, NO numbers, NO labels, and NO characters of any kind. The entire image must be purely visual artwork. Do NOT print the date, edition number, title, headers, or any other text inside the image.
+- Absolutely NO borders, NO framing lines, NO background grids, NO frames, NO cartographic borders, and NO border decorations around the artwork or canvas.
+- **SIGNALS INTEGRATION REQUIREMENT**: You must incorporate the provided selected signals of the day into the central graphic and list them in the metadata.
+- The structure of the visual artwork is as follows:
+  - CENTRAL ARTWORK: A large, perfectly centered, highly surrealist and dream-like graphic, drawn in white and light-silver line art on the solid black background, occupying the entire composition.
+  - **CRITICAL - ONE CONNECTED SEAMLESS SURREALIST ENTITY**: The graphic must be ONE SINGLE, unified, connected, seamless, surrealist entity. Absolutely no elements, details, lines, shapes, particles, or visual components of any kind are to exist outside of this single connected entity.
+  - **NO EXTRA ELEMENTS**: The entire graphic must form a single, unified, continuous structure. There must be no floating, isolated, or separate objects, elements, or details anywhere in the image. If any detail represents a signal, it must be physically connected to and morphing into/out of the main body of this single entity.
+  - **SEAMLESS MORPHING**: All elements representing the selected categories must physically morph, dissolve, and flow out of one another as a single continuous form. Avoid placing separate elements on top of or next to each other.
+
+========================================
+FIXED VISUAL LANGUAGE (CRITICAL)
+========================================
+
+Every artwork must strictly adhere to the following visual constraints:
+- 100% MONOCHROME: Only white and light-silver linework on a plain solid 100% pitch-black background. Absolutely NO other colors (no green, no yellow, no blue, no red, no grey tones, no color gradients).
+- SOLID PITCH-BLACK CANVAS: The entire canvas/background must be completely and uniformly black. Absolutely NO white banners, NO white background strips, NO grey boxes, NO white panels, and NO highlighted containers.
+- Vector illustration aesthetic, crisp clean lines, high contrast, strong silhouette, graphic clarity, clean negative space.
+- Allowed mark-making: contour lines, crosshatching, stippling, engraved linework.
+- STRICTLY FORBIDDEN: Any colors (such as green, yellow, or blue), painterly rendering, color gradients, soft airbrushing, cinematic lighting, photographic realism, 3D rendering, or glossy/watercolor/oil effects.
+
+========================================
+OUTPUT FORMAT
+=============
+
+Return a JSON object with this exact structure:
+
+{
+  "date": "YYYY-MM-DD",
+  "data_signals_used": ["A detailed list of the selected signals. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', or 'Wikipedia On this Day'."],
+  "data_signals_used_summarized": ["A summarized list of the selected signals, using exactly 3-4 words per signal, formatted as a clear and parsable list of strings."],
+  "essence": "A brief sentence summarizing the thematic essence of the day.",
+  "title": "A surrealist title of 3-4 words maximum.",
+  "image_prompt": "Highly detailed prompt to generate the complete visual artwork in a vertical 3:4 ratio. The prompt MUST start with: 'Strictly monochrome black and white line art on a 100% solid pitch-black background. Absolutely no color, no green, no yellow, no red, no blue. Absolutely NO text, NO letters, NO words, NO labels, and NO numbers of any kind in the entire image. The entire image is pure visual artwork on a solid pitch-black canvas.' Following this, the prompt must detail the single, large, highly integrated, seamless, surrealist central graphic with absolutely no elements outside of this single connected entity. The entire artwork must be one connected, seamless, surrealist entity drawn in white and light-silver line art, with absolutely no elements, floating details, or shapes outside of this connected entity. Describe how the selected daily signals seamlessly morph and fuse into this single continuous composite entity, flowing out of one another, with absolutely NO separate elements placed next to each other, and absolutely NO borders, NO frames, or NO framing lines around the graphic or the canvas. The entire background of the image must be a uniform, continuous, solid pitch-black background. All graphics must be rendered directly on this continuous black background.",
+  "interpretive_statement": "A paragraph explaining the artwork's concept. In this statement, you MUST mention the selected daily signals clearly (including their specific news headlines, song titles, probabilities, or historical events) and then explain how they are fused into the unified art statement that formed the visual artwork."
+}
+`;
+
+  console.log('[Art Generator] Synthesizing headlines via Gemini gemini-2.5-pro...');
+  const synthResponse = await ai.models.generateContent({
+    model: 'gemini-2.5-pro',
+    contents: `${systemInstruction}\n\nSELECTED SIGNALS TO INCORPORATE:\n${JSON.stringify({ date: dateString, selected_signals: selectedSignals }, null, 2)}`,
+    config: {
+      responseMimeType: 'application/json',
+    }
+  });
+
+  const parsedResult = JSON.parse(synthResponse.text);
+  console.log('[Art Generator] Gemini Synthesis Custom Output:', JSON.stringify(parsedResult, null, 2));
+
+  return parsedResult;
+}
+
+export async function generateImageFromPrompt(prompt, lotNumber, headlineStr) {
+  console.log(`--- GENERATING IMAGE FROM PROMPT FOR DRAFT ${lotNumber} ---`);
+
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_CLOUD_PROJECT) {
+    throw new Error('Gemini API key or Google Cloud Project not configured.');
+  }
+
+  const isGeminiKey = !!process.env.GEMINI_API_KEY;
+  const ai = isGeminiKey
+    ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    : new GoogleGenAI({
+        vertexai: true,
+        project: process.env.GOOGLE_CLOUD_PROJECT,
+        location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+      });
+
+  const outputDir = join(__dir, '../public/artwork');
+  await fs.mkdir(outputDir, { recursive: true });
+  const fileName = `lot-${lotNumber}.png`;
+  const filePath = join(outputDir, fileName);
+  const localUrl = `/public/artwork/${fileName}`;
+
+  console.log('[Art Generator] Generating image using Vertex AI Imagen 4 (imagen-4.0-generate-001)...');
+  const response = await ai.models.generateImages({
+    model: 'imagen-4.0-generate-001',
+    prompt: prompt,
+    config: {
+      numberOfImages: 1,
+      aspectRatio: '3:4',
+      outputMimeType: 'image/png',
+    },
+  });
+
+  const imageBytes = response?.generatedImages?.[0]?.image?.imageBytes;
+  if (imageBytes) {
+    const buffer = Buffer.from(imageBytes, 'base64');
+    return await saveAndUploadArtwork(buffer, lotNumber, headlineStr, prompt, filePath, localUrl);
+  } else {
+    throw new Error('Empty image bytes received from Imagen API.');
+  }
 }
