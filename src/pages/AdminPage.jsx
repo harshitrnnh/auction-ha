@@ -390,7 +390,7 @@ export default function AdminPage() {
   const fetchDrafts = useCallback(async (lotId) => {
     try {
       const url = lotId
-        ? `${API}/api/admin/artwork-drafts?lotId=${lotId}`
+        ? `${API}/api/admin/artwork-drafts?lotId=${lotId}&includeUnassigned=true`
         : `${API}/api/admin/artwork-drafts`;
       const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json();

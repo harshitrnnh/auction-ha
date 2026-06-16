@@ -309,9 +309,17 @@ app.post('/api/admin/generate-image-from-prompt', requireAdmin, async (req, res)
 // Return all drafts for a given lot
 app.get('/api/admin/artwork-drafts', requireAdmin, async (req, res) => {
   try {
-    const { lotId } = req.query;
+    const { lotId, includeUnassigned } = req.query;
+    
+    let whereClause = { lotId: null };
+    if (lotId) {
+      whereClause = includeUnassigned === 'true' 
+        ? { OR: [{ lotId }, { lotId: null }] } 
+        : { lotId };
+    }
+
     const drafts = await prisma.artworkDraft.findMany({
-      where: lotId ? { OR: [{ lotId }, { lotId: null }] } : { lotId: null },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
     });
     res.json({ drafts });
