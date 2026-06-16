@@ -501,17 +501,25 @@ app.post('/api/admin/reset-db-to-lot-1', requireAdmin, async (_req, res) => {
     // Close current active lot if there is one
     await closeActiveLot();
 
+    // Find the minimum lotNumber currently in the database to avoid unique constraint collisions
+    const minLotResult = await prisma.lot.aggregate({
+      _min: { lotNumber: true }
+    });
+    let currentMin = minLotResult._min.lotNumber || 0;
+    if (currentMin > 0) currentMin = 0;
+
     // Find all lots that have a positive lotNumber
     const lotsToUpdate = await prisma.lot.findMany({
       where: { lotNumber: { gt: 0 } },
       orderBy: { lotNumber: 'asc' },
     });
 
-    // Renumber existing lots to negative numbers to avoid unique constraint violations
+    // Renumber existing lots to unique negative numbers
     for (const lot of lotsToUpdate) {
+      currentMin--;
       await prisma.lot.update({
         where: { id: lot.id },
-        data: { lotNumber: -lot.lotNumber },
+        data: { lotNumber: currentMin },
       });
     }
 
