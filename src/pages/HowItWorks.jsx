@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
 import Starfield from '../components/Starfield';
 import SEO from '../components/SEO';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +7,11 @@ import UserMenu from '../components/UserMenu';
 
 export default function HowItWorks() {
   const { user, logout } = useAuth();
+
+  useEffect(() => {
+    document.body.classList.add('how-it-works-page-body');
+    return () => document.body.classList.remove('how-it-works-page-body');
+  }, []);
 
   return (
     <div className="how-it-works-page">
