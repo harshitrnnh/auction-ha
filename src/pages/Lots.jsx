@@ -31,7 +31,7 @@ function shapeApiLot(lot) {
 
   return {
     id: lot.id,
-    lotNo: String(lot.lotNumber).padStart(3, '0'),
+    lotNo: lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : String(lot.lotNumber).padStart(3, '0'),
     lotNumber: lot.lotNumber,
     title,
     artist: lot.artist,
@@ -245,7 +245,7 @@ export default function Lots() {
     artist: apiLot.artist ?? LIVE_LOT.artist,
     size: apiLot.size ?? LIVE_LOT.size,
     startingBid: apiLot.startingBid ?? LIVE_LOT.startingBid,
-    lotNo: String(apiLot.lotNumber ?? LIVE_LOT.lotNo).padStart(3, '0'),
+    lotNo: apiLot.lotNumber < 0 ? 'Old ' + Math.abs(apiLot.lotNumber) : String(apiLot.lotNumber ?? LIVE_LOT.lotNo).padStart(3, '0'),
     lotNumber: apiLot.lotNumber,
     artworkUrl: apiLot.artworkUrl,
     watching,

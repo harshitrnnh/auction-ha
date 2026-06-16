@@ -162,7 +162,7 @@ function OrderRow({ order, expanded, onToggle, onUpdate, token }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: '#e6c27e', fontFamily: 'monospace' }}>
             {order.orderNumber}
           </div>
-          <div style={{ fontSize: 11, color: '#7d7a8c' }}>Lot #{order.lot?.lotNumber}</div>
+          <div style={{ fontSize: 11, color: '#7d7a8c' }}>Lot #{order.lot?.lotNumber < 0 ? 'Old ' + Math.abs(order.lot?.lotNumber) : order.lot?.lotNumber}</div>
         </div>
         <div style={{ flex: '1 1 160px', overflow: 'hidden' }}>
           <div style={{ fontSize: 13, color: '#f4f1ea', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -652,26 +652,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleResetToLot1 = async () => {
-    const ok = window.confirm("WARNING: This will wipe ALL past lots, bids, drafts, and orders from the database to start fresh at Lot #1. This action is permanent. Do you want to proceed?");
-    if (!ok) return;
-
-    setAuctionLoading('reset-db-to-lot-1');
-    try {
-      const r = await fetch(`${API}/api/admin/reset-db-to-lot-1`, {
-        method: 'POST',
-        headers: authHeader(),
-      });
-      if (!r.ok) throw new Error((await r.json()).error || 'Failed');
-      notify('Database reset completed. Starting fresh with Lot #1.');
-      fetchOrders();
-      refreshBiddingTab();
-    } catch (err) {
-      notify(`Error: ${err.message}`);
-    } finally {
-      setAuctionLoading(null);
-    }
-  };
 
   const handleUpdate = useCallback((orderId, updatedOrder) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updatedOrder } : o)));
@@ -786,24 +766,11 @@ export default function AdminPage() {
               {currentLot && (
                 <span style={{ fontSize: 12,
                   color: currentLot.status === 'active' ? '#4ade80' : '#4d4a5c' }}>
-                  {currentLot.status === 'active' ? '● Lot #' + currentLot.lotNumber + ' live' : '○ Lot #' + currentLot.lotNumber + ' closed'}
+                  {currentLot.status === 'active'
+                    ? '● Lot #' + (currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber) + ' live'
+                    : '○ Lot #' + (currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber) + ' closed'}
                 </span>
               )}
-              <button
-                disabled={!!auctionLoading}
-                onClick={handleResetToLot1}
-                style={{
-                  ...auctionBtnStyle,
-                  border: '1px solid rgba(255,107,125,0.4)',
-                  background: 'rgba(255,107,125,0.02)',
-                  color: '#ff6b7d',
-                  marginLeft: 'auto',
-                  opacity: auctionLoading ? 0.55 : 1,
-                  cursor: auctionLoading ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {auctionLoading === 'reset-db-to-lot-1' ? '… Wiping' : '⚠ Reset to Lot #1'}
-              </button>
             </div>
 
             {/* Session artwork studio */}
@@ -816,7 +783,7 @@ export default function AdminPage() {
                   {currentLot ? (
                     <>
                       <div style={{ fontSize: 18, fontWeight: 700, color: '#f4f1ea', lineHeight: 1.2 }}>
-                        Lot #{currentLot.lotNumber}
+                        Lot #{currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber}
                       </div>
                       <div style={{ fontSize: 12, color: '#7d7a8c', marginTop: 3 }}>
                         {new Date(currentLot.startsAt).toLocaleDateString('en-IN', {
@@ -973,7 +940,7 @@ export default function AdminPage() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: '#c9c6d4',
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                Lot #{lot.lotNumber} — {lotTitle}
+                                Lot #{lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : lot.lotNumber} — {lotTitle}
                               </div>
                               <div style={{ fontSize: 11, color: '#4d4a5c', marginTop: 2 }}>
                                 {new Date(lot.startsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}

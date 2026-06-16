@@ -67,7 +67,10 @@ function scheduleNextLot(delayMs) {
   if (clampedDelay === 0) {
     console.log('[Scheduler] Auto-starting new lot immediately.');
     setImmediate(async () => {
-      const latest = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+      const latest = await prisma.lot.findFirst({
+        where: { lotNumber: { gt: 0 } },
+        orderBy: { lotNumber: 'desc' },
+      });
       const nextNum = latest ? latest.lotNumber + 1 : 1;
       await createNewLot(nextNum);
     });
@@ -77,7 +80,10 @@ function scheduleNextLot(delayMs) {
   console.log(`[Scheduler] Next lot auto-starts in ${minutes} minutes.`);
   autoStartTimer = setTimeout(async () => {
     autoStartTimer = null;
-    const latest = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+    const latest = await prisma.lot.findFirst({
+      where: { lotNumber: { gt: 0 } },
+      orderBy: { lotNumber: 'desc' },
+    });
     const nextNum = latest ? latest.lotNumber + 1 : 1;
     await createNewLot(nextNum);
   }, clampedDelay);
@@ -192,14 +198,14 @@ async function createNewLot(lotNumber, preloadedArt = null) {
   }
 
   console.log(`[Scheduler] Lot #${lotNumber} created — bidding open for 12 hours.`);
-  const totalLots = await prisma.lot.count();
+  const totalLots = await prisma.lot.count({ where: { lotNumber: { gt: 0 } } });
   getIo()?.emit('lot:new', { lot: { ...lot, totalLots } });
   return lot;
 }
 
 async function checkPaymentExpirations() {
   const lot = await prisma.lot.findFirst({
-    where: { status: { in: ['closed', 'hidden'] } },
+    where: { status: { in: ['closed', 'hidden'] }, lotNumber: { gt: 0 } },
     orderBy: { lotNumber: 'desc' },
   });
   if (!lot) return;
@@ -468,7 +474,10 @@ export async function startScheduler() {
     }
     // else: lot is still active, let it run naturally
   } else {
-    const latestLot = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+    const latestLot = await prisma.lot.findFirst({
+      where: { lotNumber: { gt: 0 } },
+      orderBy: { lotNumber: 'desc' },
+    });
     if (!latestLot) {
       // First run ever
       await createNewLot(1);

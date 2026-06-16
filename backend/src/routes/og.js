@@ -118,7 +118,7 @@ function buildOverlaySvg({ title, artist, startingBid, status, lotNumber }) {
 router.get('/lot/:id', async (req, res) => {
   try {
     const lot = await prisma.lot.findUnique({ where: { id: req.params.id } });
-    if (!lot) return res.status(404).json({ error: 'Lot not found' });
+    if (!lot || lot.lotNumber < 0) return res.status(404).json({ error: 'Lot not found' });
 
     const artworkBuffer = await getArtworkBuffer(lot.artworkUrl);
 
@@ -154,7 +154,10 @@ router.get('/lot/:id', async (req, res) => {
  * ------------------------------------------------------------------ */
 router.get('/current', async (req, res) => {
   try {
-    const lot = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+    const lot = await prisma.lot.findFirst({
+      where: { lotNumber: { gt: 0 } },
+      orderBy: { lotNumber: 'desc' },
+    });
     if (!lot) return res.redirect('/og-default.png');
     res.redirect(302, `/api/og/lot/${lot.id}`);
   } catch (err) {

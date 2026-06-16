@@ -422,7 +422,10 @@ app.post('/api/admin/new-bid', requireAdmin, async (req, res) => {
       await closeActiveLot();
     }
     // Use the global max lot number (not just closed lots) to avoid unique-constraint errors
-    const latestLot = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
+    const latestLot = await prisma.lot.findFirst({
+      where: { lotNumber: { gt: 0 } },
+      orderBy: { lotNumber: 'desc' },
+    });
     const nextNum = latestLot ? latestLot.lotNumber + 1 : 1;
     const createdLot = await createNewLot(nextNum, artwork);
     if (draftId && createdLot) {
@@ -484,31 +487,36 @@ app.post('/api/admin/reset', async (req, res) => {
   }
 });
 
-// Hard Reset: wipe all lots, bids, orders, drafts to start fresh from Lot #1
+// Soft Reset: re-number existing positive lot numbers to negative lot numbers to start fresh from Lot #1
 app.post('/api/admin/reset-db-to-lot-1', requireAdmin, async (_req, res) => {
   try {
-    console.log('[Admin Hard Reset] Initiating full database wipe to start from Lot #1...');
+    console.log('[Admin Reset] Initiating soft sequence reset to start from Lot #1...');
     
-    // 1. Delete all orders
-    await prisma.order.deleteMany({});
-    
-    // 2. Delete all bids
-    await prisma.bid.deleteMany({});
-    
-    // 3. Delete all artwork drafts
-    await prisma.artworkDraft.deleteMany({});
-    
-    // 4. Delete all lots
-    await prisma.lot.deleteMany({});
+    // Close current active lot if there is one
+    await closeActiveLot();
 
-    // 5. Create Lot #1 (fresh active rotation)
+    // Find all lots that have a positive lotNumber
+    const lotsToUpdate = await prisma.lot.findMany({
+      where: { lotNumber: { gt: 0 } },
+      orderBy: { lotNumber: 'asc' },
+    });
+
+    // Renumber existing lots to negative numbers to avoid unique constraint violations
+    for (const lot of lotsToUpdate) {
+      await prisma.lot.update({
+        where: { id: lot.id },
+        data: { lotNumber: -lot.lotNumber },
+      });
+    }
+
+    // Create Lot #1 (fresh active rotation)
     await createNewLot(1);
 
-    console.log('[Admin Hard Reset] Database wiped successfully. Lot #1 is now live.');
+    console.log('[Admin Reset] Database sequence reset successfully. Lot #1 is now live.');
     res.json({ ok: true });
   } catch (err) {
-    console.error('[Admin Hard Reset] Failed:', err);
-    res.status(500).json({ error: 'Failed to hard reset database: ' + err.message });
+    console.error('[Admin Reset] Failed:', err);
+    res.status(500).json({ error: 'Failed to reset database sequence: ' + err.message });
   }
 });
 

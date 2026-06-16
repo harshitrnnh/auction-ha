@@ -70,7 +70,7 @@ export default function CanvasView({ lots, initialIdx, onClose, onViewDetails })
   }, []);
 
   const lotNo = lot?.lotNumber != null
-    ? String(lot.lotNumber).padStart(3, '0')
+    ? (lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : String(lot.lotNumber).padStart(3, '0'))
     : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
   const hasPrev = idx > 0;
