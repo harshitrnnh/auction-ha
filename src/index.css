@@ -321,13 +321,13 @@ input { font-family: inherit; }
 .link-btn:hover { color: var(--gold-bright); filter: brightness(1.15); }
 
 /* activity feed */
-.feed { flex: 1 1 auto; min-height: 150px; display: flex; flex-direction: column; overflow: hidden; padding: 4px 18px 14px; }
+.feed { flex: none; display: flex; flex-direction: column; padding: 4px 18px 14px; }
 .feed-head { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 8px; flex: none; }
 .feed-head .t { font-family: var(--font-display); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--txt-dim); white-space: nowrap; }
 .feed-head .live { display: flex; align-items: center; gap: 6px; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--win); white-space: nowrap; }
 .feed-head .live .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--win); box-shadow: 0 0 8px var(--win); animation: blink 1.6s infinite; }
 @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
-.feed-list { display: flex; flex-direction: column; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.feed-list { display: flex; flex-direction: column; }
 .feed-list::-webkit-scrollbar { width: 6px; }
 .feed-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 .feed-item {
@@ -353,7 +353,7 @@ input { font-family: inherit; }
   .app { overflow: visible; display: block; }
 
   .topbar {
-    position: sticky; top: 8px; left: 8px; right: 8px; margin: 8px;
+    position: absolute; top: 8px; left: 8px; right: 8px; margin: 8px;
     grid-template-columns: 1fr auto; gap: 8px; padding: 10px 14px;
     align-items: center;
   }
