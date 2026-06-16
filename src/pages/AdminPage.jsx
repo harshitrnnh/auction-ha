@@ -580,17 +580,19 @@ export default function AdminPage() {
 
   const handleMakeLiveFromStudio = async () => {
     if (!generatedDraft) return;
-    if (!currentLot) {
-      setStudioError('Start a bidding session first before setting the artwork live.');
-      return;
-    }
     setStudioError(null);
     try {
-      await handleSetArtwork(generatedDraft.id);
-      setShowStudio(false);
-      notify('Artwork is now live on active lot.');
+      if (currentLot) {
+        await handleSetArtwork(generatedDraft.id);
+        setShowStudio(false);
+        notify('Artwork is now live on active lot.');
+      } else {
+        await handleStartBidWithDraft(generatedDraft.id);
+        setShowStudio(false);
+        notify('New lot started with this artwork.');
+      }
     } catch (err) {
-      setStudioError(err.message || 'Failed to make artwork live');
+      setStudioError(err.message || 'Failed to update bidding session');
     }
   };
 
@@ -1493,15 +1495,14 @@ export default function AdminPage() {
                       </button>
                       <button
                         onClick={handleMakeLiveFromStudio}
-                        disabled={!currentLot}
                         style={{
                           padding: '9px 24px', borderRadius: 6, border: 'none',
-                          background: !currentLot ? 'rgba(230,194,126,0.2)' : 'linear-gradient(90deg, #e6c27e, #f0d49a)',
-                          color: !currentLot ? '#7d7a8c' : '#0c0d15', cursor: !currentLot ? 'not-allowed' : 'pointer',
+                          background: 'linear-gradient(90deg, #e6c27e, #f0d49a)',
+                          color: '#0c0d15', cursor: 'pointer',
                           fontSize: 13, fontWeight: 700
                         }}
                       >
-                        {currentLot ? '👕 Put on T-shirt & Make Live' : '👕 Start Bidding to Make Live'}
+                        {currentLot ? '👕 Put on T-shirt & Make Live' : '🚀 Start Bidding with This'}
                       </button>
                     </div>
                   </div>

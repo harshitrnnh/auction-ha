@@ -225,11 +225,10 @@ function isAllowedArtworkUrl(url) {
   return false;
 }
 
-// Generate artwork, save as a draft — requires an active lot
+// Generate artwork, save as a draft
 app.post('/api/admin/generate-artwork-draft', requireAdmin, async (_req, res) => {
   try {
     const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
-    if (!activeLot) return res.status(400).json({ error: 'Start a bidding session first before generating artwork.' });
     const draftNum = `draft-${Date.now()}`;
     const art = await generateDailyArtwork(draftNum);
     const draft = await prisma.artworkDraft.create({
@@ -281,7 +280,6 @@ app.post('/api/admin/generate-image-from-prompt', requireAdmin, async (req, res)
     const { prompt, title, essence, interpretive_statement, data_signals_used, data_signals_used_summarized } = req.body;
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
     const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
-    if (!activeLot) return res.status(400).json({ error: 'Start a bidding session first before generating artwork.' });
 
     const draftNum = `draft-${Date.now()}`;
     const lotHeadlineStr = JSON.stringify({
@@ -295,7 +293,7 @@ app.post('/api/admin/generate-image-from-prompt', requireAdmin, async (req, res)
     const art = await generateImageFromPrompt(prompt, draftNum, lotHeadlineStr);
     const draft = await prisma.artworkDraft.create({
       data: {
-        lotId: activeLot.id,
+        lotId: activeLot ? activeLot.id : null,
         artworkUrl: art.artworkUrl,
         artworkHeadline: art.artworkHeadline,
         artworkPrompt: art.artworkPrompt,
@@ -400,7 +398,13 @@ app.post('/api/admin/new-bid', requireAdmin, async (req, res) => {
     // Use the global max lot number (not just closed lots) to avoid unique-constraint errors
     const latestLot = await prisma.lot.findFirst({ orderBy: { lotNumber: 'desc' } });
     const nextNum = latestLot ? latestLot.lotNumber + 1 : 1;
-    await createNewLot(nextNum, artwork);
+    const createdLot = await createNewLot(nextNum, artwork);
+    if (draftId && createdLot) {
+      await prisma.artworkDraft.update({
+        where: { id: draftId },
+        data: { lotId: createdLot.id }
+      });
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('[Admin] new-bid error:', err);
