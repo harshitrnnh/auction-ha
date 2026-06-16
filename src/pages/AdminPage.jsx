@@ -652,6 +652,27 @@ export default function AdminPage() {
     }
   };
 
+  const handleResetToLot1 = async () => {
+    const ok = window.confirm("This will archive all past lots (renumbering them to negative numbers) and start a new sequence at Lot #1 today with blank artwork. No bids, orders, or drafts will be deleted. Do you want to proceed?");
+    if (!ok) return;
+
+    setAuctionLoading('reset-db-to-lot-1');
+    try {
+      const r = await fetch(`${API}/api/admin/reset-db-to-lot-1`, {
+        method: 'POST',
+        headers: authHeader(),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+      notify('Bidding sequence reset. Lot #1 is now active today with blank artwork.');
+      fetchOrders();
+      refreshBiddingTab();
+    } catch (err) {
+      notify(`Error: ${err.message}`);
+    } finally {
+      setAuctionLoading(null);
+    }
+  };
+
 
   const handleUpdate = useCallback((orderId, updatedOrder) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updatedOrder } : o)));
@@ -771,6 +792,23 @@ export default function AdminPage() {
                     : '○ Lot #' + (currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber) + ' closed'}
                 </span>
               )}
+              <button
+                disabled={!!auctionLoading}
+                onClick={handleResetToLot1}
+                style={{
+                  ...auctionBtnStyle,
+                  border: '1px solid rgba(230,194,126,0.3)',
+                  background: 'rgba(230,194,126,0.02)',
+                  color: '#e6c27e',
+                  marginLeft: 'auto',
+                  opacity: auctionLoading ? 0.55 : 1,
+                  cursor: auctionLoading ? 'not-allowed' : 'pointer',
+                  padding: '6px 12px',
+                  fontSize: '12px'
+                }}
+              >
+                {auctionLoading === 'reset-db-to-lot-1' ? '… Starting' : 'Start fresh today (Lot #1)'}
+              </button>
             </div>
 
             {/* Session artwork studio */}

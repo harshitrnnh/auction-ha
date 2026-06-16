@@ -509,8 +509,8 @@ app.post('/api/admin/reset-db-to-lot-1', requireAdmin, async (_req, res) => {
       });
     }
 
-    // Create Lot #1 (fresh active rotation)
-    await createNewLot(1);
+    // Create Lot #1 (fresh active rotation with empty artwork)
+    await createNewLot(1, { artworkUrl: null, artworkHeadline: null, artworkPrompt: null });
 
     console.log('[Admin Reset] Database sequence reset successfully. Lot #1 is now live.');
     res.json({ ok: true });

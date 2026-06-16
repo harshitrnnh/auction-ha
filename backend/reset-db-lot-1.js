@@ -26,9 +26,9 @@ async function main() {
     console.log(`Renumbered Lot #${lot.lotNumber} -> Lot #${-lot.lotNumber}`);
   }
 
-  // Create active Lot #1
+  // Create active Lot #1 with empty artwork
   console.log('Creating active Lot #1...');
-  await createNewLot(1);
+  await createNewLot(1, { artworkUrl: null, artworkHeadline: null, artworkPrompt: null });
   
   console.log('--- SOFT RESET COMPLETE! ---');
   console.log('Lot #1 is now active. Refresh the page to see the fresh session.');
