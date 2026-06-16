@@ -307,20 +307,21 @@ export default function Lots() {
       <LotsStarfield />
 
       <header className="lots-topbar">
-        <Link className="brand" to="/">
-          <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
-          <div>
-            <div className="brand-name">Oxide</div>
-            <div className="brand-sub">Lots &amp; Archive</div>
-          </div>
-        </Link>
+        <div className="brand">
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', color: 'inherit' }}>
+            <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
+            <div>
+              <div className="brand-name">Oxide</div>
+              <div className="brand-sub">Lots &amp; Archive</div>
+            </div>
+          </Link>
+          {user && <UserMenu user={user} logout={logout} />}
+        </div>
         <div className="topbar-right">
           <Link className="pill" to="/">
             <span className="dot" /> Live room · Lot {heroLot.lotNo}
           </Link>
-          {user ? (
-            <UserMenu user={user} logout={logout} />
-          ) : (
+          {!user && (
             <Link className="pill" to="/login">Sign in</Link>
           )}
         </div>
