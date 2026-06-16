@@ -41,6 +41,7 @@ router.get('/current', optionalAuth, async (req, res) => {
   // here — this is a hot read endpoint hit on every page load, and doing DB
   // mutations + email sends on the request path stalls the single-process server.
   const lot = await prisma.lot.findFirst({
+    where: { lotNumber: { gt: 0 } },
     orderBy: { lotNumber: 'desc' },
   });
   if (!lot) return res.status(404).json({ error: 'No active lot' });
@@ -84,7 +85,7 @@ router.post('/create-razorpay-order', requireAuth, async (req, res) => {
   try {
     const { addressId } = req.body;
     const lot = await prisma.lot.findFirst({
-      where: { status: { in: ['closed', 'hidden'] } },
+      where: { status: { in: ['closed', 'hidden'] }, lotNumber: { gt: 0 } },
       orderBy: { lotNumber: 'desc' },
     });
     if (!lot) return res.status(400).json({ error: 'No closed lot found.' });

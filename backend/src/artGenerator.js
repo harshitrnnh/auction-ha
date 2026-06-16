@@ -230,6 +230,7 @@ export const collectDailyData = async (dateString) => {
   let excludedSignals = [];
   try {
     const lastLot = await prisma.lot.findFirst({
+      where: { lotNumber: { gt: 0 } },
       orderBy: { lotNumber: 'desc' },
     });
     if (lastLot?.artworkHeadline && lastLot.artworkHeadline.startsWith('{')) {

@@ -162,7 +162,7 @@ function OrderRow({ order, expanded, onToggle, onUpdate, token }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: '#e6c27e', fontFamily: 'monospace' }}>
             {order.orderNumber}
           </div>
-          <div style={{ fontSize: 11, color: '#7d7a8c' }}>Lot #{order.lot?.lotNumber}</div>
+          <div style={{ fontSize: 11, color: '#7d7a8c' }}>Lot #{order.lot?.lotNumber < 0 ? 'Old ' + Math.abs(order.lot?.lotNumber) : order.lot?.lotNumber}</div>
         </div>
         <div style={{ flex: '1 1 160px', overflow: 'hidden' }}>
           <div style={{ fontSize: 13, color: '#f4f1ea', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -786,7 +786,9 @@ export default function AdminPage() {
               {currentLot && (
                 <span style={{ fontSize: 12,
                   color: currentLot.status === 'active' ? '#4ade80' : '#4d4a5c' }}>
-                  {currentLot.status === 'active' ? '● Lot #' + currentLot.lotNumber + ' live' : '○ Lot #' + currentLot.lotNumber + ' closed'}
+                  {currentLot.status === 'active'
+                    ? '● Lot #' + (currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber) + ' live'
+                    : '○ Lot #' + (currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber) + ' closed'}
                 </span>
               )}
               <button
@@ -816,7 +818,7 @@ export default function AdminPage() {
                   {currentLot ? (
                     <>
                       <div style={{ fontSize: 18, fontWeight: 700, color: '#f4f1ea', lineHeight: 1.2 }}>
-                        Lot #{currentLot.lotNumber}
+                        Lot #{currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber}
                       </div>
                       <div style={{ fontSize: 12, color: '#7d7a8c', marginTop: 3 }}>
                         {new Date(currentLot.startsAt).toLocaleDateString('en-IN', {
@@ -973,7 +975,7 @@ export default function AdminPage() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: '#c9c6d4',
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                Lot #{lot.lotNumber} — {lotTitle}
+                                Lot #{lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : lot.lotNumber} — {lotTitle}
                               </div>
                               <div style={{ fontSize: 11, color: '#4d4a5c', marginTop: 2 }}>
                                 {new Date(lot.startsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}

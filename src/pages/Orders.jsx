@@ -111,7 +111,7 @@ export default function Orders() {
               let parsedTitle = lot?.title || 'Unknown Item';
               let dateStr = '';
               const lotNo = lot?.lotNumber != null 
-                ? String(lot.lotNumber).padStart(3, '0') 
+                ? (lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : String(lot.lotNumber).padStart(3, '0')) 
                 : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
               if (lot) {

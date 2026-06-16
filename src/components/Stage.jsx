@@ -15,7 +15,7 @@ function createFrontCanvas(artworkImage, lot, callback) {
   }
 
   const lotNo = lot?.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
+    ? (lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : String(lot.lotNumber).padStart(3, '0')) 
     : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
   const rawDate = lot?.startsAt || new Date();
@@ -98,7 +98,7 @@ function createBackCanvas(logoImage, lot, callback) {
   }
 
   const lotNo = lot?.lotNumber != null 
-    ? String(lot.lotNumber).padStart(3, '0') 
+    ? (lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : String(lot.lotNumber).padStart(3, '0')) 
     : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
 
   const lotDate = lot?.startsAt 
