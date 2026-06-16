@@ -34,6 +34,7 @@ export default function HowItWorks() {
             <Link to="/lots" className="nav-link">View All Lots</Link>
           </nav>
         </div>
+        <div className="topbar-center" />
         <div className="topbar-right">
           {user ? (
             <UserMenu user={user} logout={logout} />
@@ -81,8 +82,8 @@ export default function HowItWorks() {
             <div className="card-icon">📈</div>
             <h3>Bid Raise Logic</h3>
             <p>
-              When placing a bid, your bid must be at least the current bid plus the minimum required increment (e.g. +₹50). 
-              This increment updates dynamically based on bidding activity. If you're outbid, you will receive real-time notifications to raise your bid.
+              When placing a bid, your bid must be at least the current bid plus a fixed increment of ₹50. 
+              After you place a bid, you must wait until someone outbids you before you can raise your bid again.
             </p>
           </div>
 
@@ -91,8 +92,9 @@ export default function HowItWorks() {
             <h3>Winning &amp; The 2-Hour Window</h3>
             <p>
               When the 18-hour auction ends, the highest bidder wins the lot. 
-              The winner has a strict <strong>2-hour payment window</strong> to complete checkout. 
-              If unpaid, the link is sent to the 2nd highest bidder for 2 hours, and then the 3rd.
+              The winner has a strict <strong>2-hour payment window</strong>. 
+              You can log in to this website to make your payment, and you will also receive an email notification with a checkout link. 
+              If unpaid, the payment opportunity is passed to the 2nd highest bidder for 2 hours, and then the 3rd.
             </p>
           </div>
 
