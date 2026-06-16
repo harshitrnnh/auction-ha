@@ -1,0 +1,37 @@
+[
+  {
+    "category": "Collective Attention",
+    "icon_description": "A classic soccer ball with betting odds and currency symbols subtly engraved on its panels.",
+    "caption": "Global attention turns to World Cup wagers."
+  },
+  {
+    "category": "Positive News",
+    "icon_description": "A magnifying glass held over a rock face, revealing simple striped markings characteristic of cave art.",
+    "caption": "A 1928 rock is reclassified as the UK's oldest cave painting."
+  },
+  {
+    "category": "Polymarket",
+    "icon_description": "A pickleball paddle crossed with a stylized slice of pizza, representing the 'Chicago Slice' team.",
+    "caption": "Markets weigh the odds of the Chicago Slice in pro pickleball."
+  },
+  {
+    "category": "Top Song",
+    "icon_description": "A human heart intricately wrapped in thorny vines, with a single musical note trapped inside.",
+    "caption": "Ariana Grande's 'hate that i made you love me' tops the charts."
+  },
+  {
+    "category": "Weird News",
+    "icon_description": "A tiny figure visible inside a large, transparent sphere floating on stylized ocean waves.",
+    "caption": "A man attempts to cross the Atlantic in a giant homemade bubble."
+  },
+  {
+    "category": "Wikipedia Event",
+    "icon_description": "A stylized crown being forcefully toppled from a government building flying a Bulgarian lion rampant flag.",
+    "caption": "Bulgaria's government is overthrown in a military coup in 1923."
+  },
+  {
+    "category": "NASA APOD",
+    "icon_description": "A large, elegant question mark composed of stars and nebulae against a dark, empty patch of sky.",
+    "caption": "NASA's APOD presents a mysterious and 'Unknown Sky'."
+  }
+]

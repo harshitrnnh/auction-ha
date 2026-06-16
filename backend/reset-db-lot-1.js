@@ -9,6 +9,13 @@ async function main() {
   // Close active lot
   await closeActiveLot();
 
+  // Find the minimum lotNumber currently in the database to avoid unique constraint collisions
+  const minLotResult = await prisma.lot.aggregate({
+    _min: { lotNumber: true }
+  });
+  let currentMin = minLotResult._min.lotNumber || 0;
+  if (currentMin > 0) currentMin = 0;
+
   // Find all lots that have a positive lotNumber
   const lotsToUpdate = await prisma.lot.findMany({
     where: { lotNumber: { gt: 0 } },
@@ -17,13 +24,14 @@ async function main() {
 
   console.log(`Found ${lotsToUpdate.length} positive lot numbers to re-number.`);
 
-  // Renumber existing lots to negative numbers to avoid unique constraint violations
+  // Renumber existing lots to unique negative numbers
   for (const lot of lotsToUpdate) {
+    currentMin--;
     await prisma.lot.update({
       where: { id: lot.id },
-      data: { lotNumber: -lot.lotNumber },
+      data: { lotNumber: currentMin },
     });
-    console.log(`Renumbered Lot #${lot.lotNumber} -> Lot #${-lot.lotNumber}`);
+    console.log(`Renumbered Lot #${lot.lotNumber} -> Lot #${currentMin}`);
   }
 
   // Create active Lot #1 with empty artwork

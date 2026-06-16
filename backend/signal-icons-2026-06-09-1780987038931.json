@@ -1,0 +1,37 @@
+[
+  {
+    "category": "Collective Attention",
+    "icon_description": "An icon of the FIFA World Cup trophy with currency symbols and betting odds surrounding it, representing global interest in sports betting.",
+    "caption": "Odds are calculated on the global game."
+  },
+  {
+    "category": "Positive News",
+    "icon_description": "A hand holding a magnifying glass over a rock with faint stripes, revealing the simple engraved outline of an animal, symbolizing the rediscovery of ancient art.",
+    "caption": "A 1928 rock is reclassified as Britain's oldest art."
+  },
+  {
+    "category": "Polymarket",
+    "icon_description": "A pickleball paddle crossed with a stock market arrow pointing down, with '20.5%' inscribed, representing the low probability of the Chicago Slice winning.",
+    "caption": "The market predicts a 20.5% chance for the Chicago Slice."
+  },
+  {
+    "category": "Top Song",
+    "icon_description": "A stylized heart, cracked down the middle, with musical notes drifting out of the crack, representing a song of regret.",
+    "caption": "Ariana Grande sings of relational regret."
+  },
+  {
+    "category": "Weird News",
+    "icon_description": "A simplified icon of a figure inside a large circle floating on stylized waves, depicting the man in the homemade bubble.",
+    "caption": "A man attempts to cross the Atlantic in a homemade bubble."
+  },
+  {
+    "category": "Wikipedia Event",
+    "icon_description": "Two simplified medieval helmets facing off, one with a crescent symbol and the other with a cross, representing the Battle of Toulouse.",
+    "caption": "In 721, Odo of Aquitaine defeats the Moors at Toulouse."
+  },
+  {
+    "category": "NASA APOD",
+    "icon_description": "A dark circle representing the sky, filled with a large, elegant question mark made of stars and stippling.",
+    "caption": "The celestial witness remains an unknown sky."
+  }
+]
