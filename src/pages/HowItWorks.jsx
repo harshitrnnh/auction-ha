@@ -82,7 +82,8 @@ export default function HowItWorks() {
             <div className="card-icon">📈</div>
             <h3>Bid Raise Logic</h3>
             <p>
-              When placing a bid, your bid must be at least the current bid plus a fixed increment of ₹50. 
+              The first bid begins with a fixed price to kickstart the bidding. 
+              Post that, you can only keep raising the bid by the fixed amount of ₹50. 
               After you place a bid, you must wait until someone outbids you before you can raise your bid again.
             </p>
           </div>
