@@ -86,7 +86,7 @@ function createFrontCanvasForCard(artworkImage, lot, callback) {
 }
 
 export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarget }) {
-  const cd = useCountdown(() => getCountdownTarget(lotClosed));
+  const cd = useCountdown(() => getCountdownTarget(lotClosed, lot.endsAt));
   const artUrl = getArtworkUrl(lot, API);
   const [overlaySrc, setOverlaySrc] = useState(null);
 
