@@ -271,15 +271,6 @@ export default function App() {
               {lot && <div className="brand-sub">Drop #{lot.lotNumber}</div>}
             </div>
           </Link>
-          
-          {user ? (
-            <UserMenu user={user} logout={logout} />
-          ) : (
-            <button className="pill auth-pill" onClick={() => navigate('/login')}>
-              Sign in
-            </button>
-          )}
-
           <nav className="desktop-nav">
             <Link to="/lots" className="nav-link">View All Lots</Link>
             <Link to="/how-it-works" className="nav-link">How it works</Link>
@@ -299,7 +290,15 @@ export default function App() {
           </div>
         </div>
 
-        <div className="topbar-right" />
+        <div className="topbar-right">
+          {user ? (
+            <UserMenu user={user} logout={logout} />
+          ) : (
+            <button className="pill auth-pill" onClick={() => navigate('/login')}>
+              Sign in
+            </button>
+          )}
+        </div>
 
         <button 
           className="mobile-menu-toggle" 

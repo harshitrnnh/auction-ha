@@ -317,17 +317,18 @@ export default function Lots() {
               <div className="brand-sub">Lots &amp; Archive</div>
             </div>
           </Link>
-          {user ? (
-            <UserMenu user={user} logout={logout} />
-          ) : (
-            <Link className="pill auth-pill" to="/login">Sign in</Link>
-          )}
           <nav className="desktop-nav">
             <Link to="/" className="nav-link">Live Room</Link>
             <Link to="/how-it-works" className="nav-link">How it works</Link>
           </nav>
         </div>
-        <div className="topbar-right" />
+        <div className="topbar-right">
+          {user ? (
+            <UserMenu user={user} logout={logout} />
+          ) : (
+            <Link className="pill auth-pill" to="/login">Sign in</Link>
+          )}
+        </div>
         <button 
           className="mobile-menu-toggle" 
           onClick={() => setShowMobileMenu(true)} 

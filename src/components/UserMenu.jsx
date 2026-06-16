@@ -56,7 +56,6 @@ export default function UserMenu({ user, logout }) {
             <span className="user-avatar-initials">{initials}</span>
           )}
         </div>
-        <span style={{ color: 'var(--txt-mute)', fontSize: 9, transition: 'color 0.15s', userSelect: 'none' }}>▼</span>
       </button>
 
       {open && (
