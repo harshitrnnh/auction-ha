@@ -1501,7 +1501,7 @@ export default function AdminPage() {
                           cursor: 'pointer', fontSize: 13, fontWeight: 600
                         }}
                       >
-                        Save as Draft & Close
+                        Save and Close
                       </button>
                       <button
                         onClick={handleMakeLiveFromStudio}

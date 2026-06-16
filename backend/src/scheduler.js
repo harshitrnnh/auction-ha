@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import { prisma } from './prisma.js';
 import { getIo } from './socket.js';
 import { generateDailyArtwork } from './artGenerator.js';
+import { STARTING_BID } from './constants.js';
 import { getLotTitle, lotNo, lotDateStr, getAppUrl, productImageBlock, ctaButton, emailWrapper, escHtml } from './email-helpers.js';
 import { pollQikinkOrders } from './vendor/qikink.js';
 
@@ -166,7 +167,7 @@ async function createNewLot(lotNumber, preloadedArt = null) {
       lotNumber,
       startsAt: now,
       endsAt: new Date(now.getTime() + BIDDING_DURATION_MS),
-      startingBid: 1,
+      startingBid: STARTING_BID,
       status: 'active',
       winnerId: null,
       currentPayeeId: null,
