@@ -315,15 +315,16 @@ export default function Lots() {
               <div className="brand-sub">Lots &amp; Archive</div>
             </div>
           </Link>
-          {user && <UserMenu user={user} logout={logout} />}
+          {user ? (
+            <UserMenu user={user} logout={logout} />
+          ) : (
+            <Link className="pill auth-pill" to="/login">Sign in</Link>
+          )}
         </div>
         <div className="topbar-right">
           <Link className="pill" to="/">
             <span className="dot" /> Live room · Lot {heroLot.lotNo}
           </Link>
-          {!user && (
-            <Link className="pill" to="/login">Sign in</Link>
-          )}
         </div>
       </header>
 
@@ -343,7 +344,7 @@ export default function Lots() {
           <div>
             <h2 className="archive-title">The Archive</h2>
             <div className="archive-sub">
-              Every Oxide lot that&apos;s come before — {soldCount} sold.
+              Every Oxide lot that&apos;s come before.
             </div>
           </div>
         </div>
