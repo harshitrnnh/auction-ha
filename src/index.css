@@ -357,8 +357,8 @@ input { font-family: inherit; }
 
   .topbar {
     position: absolute; top: 8px; left: 8px; right: 8px; margin: 8px;
-    grid-template-columns: 1fr auto auto; gap: 8px; padding: 10px 14px;
-    align-items: center;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; padding: 10px 14px;
   }
   .topbar-left { gap: 8px; }
   .brand-lot { border-left: none; padding-left: 0; margin-left: 4px; font-size: 10px; }
@@ -985,7 +985,6 @@ body.lots-page-body #root {
 
 /* ---------- Mobile Drawer Menu ---------- */
 .mobile-menu-toggle {
-  display: none;
   background: linear-gradient(180deg, rgba(20,22,34,0.78), rgba(11,12,20,0.82));
   border: 1px solid var(--line-strong);
   border-radius: 50%;
