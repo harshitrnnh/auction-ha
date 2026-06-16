@@ -119,6 +119,11 @@ input { font-family: inherit; }
 .countdown-time .u { font-size: 10px; color: var(--txt-mute); margin: 0 5px 0 1px; letter-spacing: 0.05em; }
 
 .topbar-right { display: flex; align-items: center; justify-content: flex-end; gap: 10px; justify-self: end; }
+@media (min-width: 901px) {
+  body:not(.lots-page-body):not(.how-it-works-page-body) .topbar-right {
+    margin-right: 348px;
+  }
+}
 .mobile-menu-toggle { display: none; }
 .pill {
   display: inline-flex; align-items: center; gap: 7px;
@@ -361,12 +366,17 @@ input { font-family: inherit; }
     gap: 8px; padding: 10px 14px;
   }
   .topbar-left { gap: 8px; }
+  .brand-link { flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+  .brand-name { display: none; }
+  .brand-sub { font-size: 8px; margin-top: 0; letter-spacing: 0.12em; line-height: 1; }
   .brand-lot { border-left: none; padding-left: 0; margin-left: 4px; font-size: 10px; }
   .desktop-nav { display: none; }
   .topbar-right { display: none; }
-  .mobile-menu-toggle { display: flex; }
+  .topbar-center { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: auto; }
+  .mobile-menu-toggle { display: flex; margin-top: -6px; }
   .auth-pill { display: none; }
   .topbar-left .user-menu { display: none; }
+  .lots-wrap { padding-top: 95px; }
 
   .stage-wrap { position: relative; inset: auto; display: block; }
   .stage { position: relative; inset: auto; height: 60vh; min-height: 400px; --canvas-shift: 0px; }
@@ -980,7 +990,7 @@ body.lots-page-body #root {
   .explanation-grid { grid-template-columns: 1fr; }
   .how-it-works-content .page-title { font-size: 32px; }
   .how-it-works-content .page-subtitle { font-size: 14px; margin-bottom: 40px; }
-  .how-it-works-content { padding: 40px 16px 80px; }
+  .how-it-works-content { padding: 95px 16px 80px; }
 }
 
 /* ---------- Mobile Drawer Menu ---------- */
