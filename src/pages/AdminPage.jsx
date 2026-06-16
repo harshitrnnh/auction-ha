@@ -957,7 +957,20 @@ export default function AdminPage() {
                       }
                     } catch (_) {}
                     const isOpen = expandedSession === lot.id;
-                    const drafts = sessionDrafts[lot.id];
+                    const loadedDrafts = sessionDrafts[lot.id];
+                    let drafts = [];
+                    if (loadedDrafts) {
+                      drafts = [...loadedDrafts];
+                      if (lot.artworkUrl && !drafts.some(d => d.artworkUrl === lot.artworkUrl)) {
+                        drafts.unshift({
+                          id: `synth-${lot.id}`,
+                          artworkUrl: lot.artworkUrl,
+                          artworkHeadline: lot.artworkHeadline,
+                          artworkPrompt: lot.artworkPrompt,
+                          createdAt: lot.startsAt,
+                        });
+                      }
+                    }
                     return (
                       <div key={lot.id}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -983,7 +996,7 @@ export default function AdminPage() {
                               <div style={{ fontSize: 11, color: '#4d4a5c', marginTop: 2 }}>
                                 {new Date(lot.startsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 {' · '}
-                                {lot._count.artworkDrafts} artwork{lot._count.artworkDrafts !== 1 ? 's' : ''} generated
+                                {lot._count?.artworkDrafts ?? 0} artwork{(lot._count?.artworkDrafts ?? 0) !== 1 ? 's' : ''} generated
                               </div>
                             </div>
                             <span style={{ fontSize: 11, color: '#4d4a5c', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
@@ -1011,10 +1024,10 @@ export default function AdminPage() {
 
                         {isOpen && (
                           <div style={{ padding: '8px 12px 12px 56px' }}>
-                            {!drafts ? (
+                            {!loadedDrafts ? (
                               <div style={{ fontSize: 12, color: '#4d4a5c' }}>Loading…</div>
                             ) : drafts.length === 0 ? (
-                              <div style={{ fontSize: 12, color: '#4d4a5c' }}>No drafts saved for this session.</div>
+                              <div style={{ fontSize: 12, color: '#4d4a5c' }}>No artworks found for this session.</div>
                             ) : (
                               <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
                                 {drafts.map((draft) => {
@@ -1052,7 +1065,19 @@ export default function AdminPage() {
                                           WebkitBoxOrient: 'vertical' }}>
                                           {draftTitle}
                                         </div>
-                                        {currentLot?.status !== 'active' && (
+                                        {currentLot?.status === 'active' ? (
+                                          <button
+                                            onClick={() => handleSetArtwork(draft.id)}
+                                            disabled={!!auctionLoading}
+                                            style={{
+                                              width: '100%', fontSize: 9, padding: '3px 0', marginTop: 5, borderRadius: 4,
+                                              border: '1px solid rgba(230,194,126,0.3)', background: 'rgba(230,194,126,0.08)',
+                                              color: '#e6c27e', cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s'
+                                            }}
+                                          >
+                                            Make active
+                                          </button>
+                                        ) : (
                                           <button
                                             onClick={() => setSelectedDraftForNewLot(prev => prev === draft.id ? null : draft.id)}
                                             style={{
@@ -1060,7 +1085,7 @@ export default function AdminPage() {
                                               border: isSelectedForNew ? '1px solid #e6c27e' : '1px solid rgba(255,255,255,0.12)',
                                               background: isSelectedForNew ? 'rgba(230,194,126,0.18)' : 'rgba(255,255,255,0.04)',
                                               color: isSelectedForNew ? '#e6c27e' : '#b9b6c4',
-                                              cursor: 'pointer', fontWeight: 600
+                                              cursor: 'pointer', fontWeight: 600, transition: 'all 0.15s'
                                             }}
                                           >
                                             {isSelectedForNew ? '✓ Selected' : 'Select'}

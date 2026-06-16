@@ -378,8 +378,20 @@ app.post('/api/admin/toggle-lot-visibility', requireAdmin, async (req, res) => {
 app.post('/api/admin/set-artwork', requireAdmin, async (req, res) => {
   try {
     const { draftId, lotId } = req.body;
-    const draft = await prisma.artworkDraft.findUnique({ where: { id: draftId } });
-    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+    let draft;
+    if (draftId.startsWith('synth-')) {
+      const sourceLotId = draftId.substring(6);
+      const sourceLot = await prisma.lot.findUnique({ where: { id: sourceLotId } });
+      if (!sourceLot) return res.status(404).json({ error: 'Source lot not found' });
+      draft = {
+        artworkUrl: sourceLot.artworkUrl,
+        artworkHeadline: sourceLot.artworkHeadline,
+        artworkPrompt: sourceLot.artworkPrompt,
+      };
+    } else {
+      draft = await prisma.artworkDraft.findUnique({ where: { id: draftId } });
+      if (!draft) return res.status(404).json({ error: 'Draft not found' });
+    }
 
     const targetLot = lotId
       ? await prisma.lot.findUnique({ where: { id: lotId } })
@@ -399,11 +411,13 @@ app.post('/api/admin/set-artwork', requireAdmin, async (req, res) => {
       },
     });
 
-    // Link the draft to the target lot so it is saved and visible under this lot
-    await prisma.artworkDraft.update({
-      where: { id: draftId },
-      data: { lotId: targetLot.id },
-    });
+    if (!draftId.startsWith('synth-')) {
+      // Link the draft to the target lot so it is saved and visible under this lot
+      await prisma.artworkDraft.update({
+        where: { id: draftId },
+        data: { lotId: targetLot.id },
+      });
+    }
 
     getIo()?.emit('lot:artwork_updated', {
       lotId: updated.id,
@@ -425,10 +439,17 @@ app.post('/api/admin/new-bid', requireAdmin, async (req, res) => {
     const { draftId } = req.body ?? {};
     let artwork = null;
     if (draftId) {
-      const draft = await prisma.artworkDraft.findUnique({ where: { id: draftId } });
-      if (!draft) return res.status(404).json({ error: 'Draft not found' });
-      if (!isAllowedArtworkUrl(draft.artworkUrl)) return res.status(400).json({ error: 'Invalid artwork URL' });
-      artwork = { artworkUrl: draft.artworkUrl, artworkHeadline: draft.artworkHeadline, artworkPrompt: draft.artworkPrompt };
+      if (draftId.startsWith('synth-')) {
+        const sourceLotId = draftId.substring(6);
+        const sourceLot = await prisma.lot.findUnique({ where: { id: sourceLotId } });
+        if (!sourceLot) return res.status(404).json({ error: 'Source lot not found' });
+        artwork = { artworkUrl: sourceLot.artworkUrl, artworkHeadline: sourceLot.artworkHeadline, artworkPrompt: sourceLot.artworkPrompt };
+      } else {
+        const draft = await prisma.artworkDraft.findUnique({ where: { id: draftId } });
+        if (!draft) return res.status(404).json({ error: 'Draft not found' });
+        if (!isAllowedArtworkUrl(draft.artworkUrl)) return res.status(400).json({ error: 'Invalid artwork URL' });
+        artwork = { artworkUrl: draft.artworkUrl, artworkHeadline: draft.artworkHeadline, artworkPrompt: draft.artworkPrompt };
+      }
     }
     // Close the active lot first so the highest bidder is set as winner
     const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
@@ -442,7 +463,7 @@ app.post('/api/admin/new-bid', requireAdmin, async (req, res) => {
     });
     const nextNum = latestLot ? latestLot.lotNumber + 1 : 1;
     const createdLot = await createNewLot(nextNum, artwork);
-    if (draftId && createdLot) {
+    if (draftId && !draftId.startsWith('synth-') && createdLot) {
       await prisma.artworkDraft.update({
         where: { id: draftId },
         data: { lotId: createdLot.id }
