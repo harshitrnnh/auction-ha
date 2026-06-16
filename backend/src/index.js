@@ -311,7 +311,7 @@ app.get('/api/admin/artwork-drafts', requireAdmin, async (req, res) => {
   try {
     const { lotId } = req.query;
     const drafts = await prisma.artworkDraft.findMany({
-      where: lotId ? { lotId } : { lotId: null },
+      where: lotId ? { OR: [{ lotId }, { lotId: null }] } : { lotId: null },
       orderBy: { createdAt: 'desc' },
     });
     res.json({ drafts });
@@ -389,6 +389,12 @@ app.post('/api/admin/set-artwork', requireAdmin, async (req, res) => {
         artworkHeadline: draft.artworkHeadline,
         artworkPrompt: draft.artworkPrompt,
       },
+    });
+
+    // Link the draft to the target lot so it is saved and visible under this lot
+    await prisma.artworkDraft.update({
+      where: { id: draftId },
+      data: { lotId: targetLot.id },
     });
 
     getIo()?.emit('lot:artwork_updated', {
