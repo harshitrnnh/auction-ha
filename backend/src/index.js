@@ -321,15 +321,15 @@ app.get('/api/admin/artwork-drafts', requireAdmin, async (req, res) => {
   }
 });
 
-// Return past lots (closed, newest first) with their draft count — for the session repository
+// Return past lots (closed or hidden, newest first) with their draft count — for the session repository
 app.get('/api/admin/session-history', requireAdmin, async (_req, res) => {
   try {
     const lots = await prisma.lot.findMany({
-      where: { status: 'closed' },
+      where: { status: { in: ['closed', 'hidden'] } },
       orderBy: { lotNumber: 'desc' },
       select: {
         id: true, lotNumber: true, title: true, artworkUrl: true, artworkHeadline: true,
-        startsAt: true, endsAt: true,
+        startsAt: true, endsAt: true, status: true,
         _count: { select: { artworkDrafts: true } },
       },
     });
@@ -337,6 +337,32 @@ app.get('/api/admin/session-history', requireAdmin, async (_req, res) => {
   } catch (err) {
     console.error('[Admin] session-history error:', err);
     res.status(500).json({ error: 'Failed to fetch session history' });
+  }
+});
+
+// Toggle lot visibility (switch status between closed and hidden)
+app.post('/api/admin/toggle-lot-visibility', requireAdmin, async (req, res) => {
+  try {
+    const { lotId } = req.body;
+    if (!lotId) return res.status(400).json({ error: 'lotId is required' });
+
+    const lot = await prisma.lot.findUnique({ where: { id: lotId } });
+    if (!lot) return res.status(404).json({ error: 'Lot not found' });
+
+    if (lot.status !== 'closed' && lot.status !== 'hidden') {
+      return res.status(400).json({ error: 'Only closed or hidden lots can have their visibility toggled.' });
+    }
+
+    const newStatus = lot.status === 'closed' ? 'hidden' : 'closed';
+    const updatedLot = await prisma.lot.update({
+      where: { id: lotId },
+      data: { status: newStatus },
+    });
+
+    res.json({ ok: true, status: updatedLot.status });
+  } catch (err) {
+    console.error('[Admin] toggle-lot-visibility error:', err);
+    res.status(500).json({ error: 'Failed to toggle lot visibility' });
   }
 });
 
@@ -442,7 +468,7 @@ app.post('/api/admin/reset', async (req, res) => {
 
     // 2. Determine next lot number
     const latestClosed = await prisma.lot.findFirst({
-      where: { status: 'closed' },
+      where: { status: { in: ['closed', 'hidden'] } },
       orderBy: { lotNumber: 'desc' },
     });
     const nextNum = latestClosed ? latestClosed.lotNumber + 1 : 1;

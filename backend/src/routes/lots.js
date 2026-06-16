@@ -84,7 +84,7 @@ router.post('/create-razorpay-order', requireAuth, async (req, res) => {
   try {
     const { addressId } = req.body;
     const lot = await prisma.lot.findFirst({
-      where: { status: 'closed' },
+      where: { status: { in: ['closed', 'hidden'] } },
       orderBy: { lotNumber: 'desc' },
     });
     if (!lot) return res.status(400).json({ error: 'No closed lot found.' });
@@ -133,7 +133,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 
   try {
     const lot = await prisma.lot.findFirst({
-      where: { status: 'closed', currentPayeeId: req.userId },
+      where: { status: { in: ['closed', 'hidden'] }, currentPayeeId: req.userId },
       orderBy: { startsAt: 'desc' },
     });
     if (!lot) return res.status(400).json({ error: 'No payable lot found for this user.' });
@@ -249,7 +249,7 @@ router.post('/dev-simulate-payment', requireAuth, async (req, res) => {
 
   try {
     const lot = await prisma.lot.findFirst({
-      where: { status: 'closed', currentPayeeId: req.userId },
+      where: { status: { in: ['closed', 'hidden'] }, currentPayeeId: req.userId },
       orderBy: { startsAt: 'desc' },
     });
     if (!lot) return res.status(400).json({ error: 'No payable lot found for this user.' });

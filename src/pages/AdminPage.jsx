@@ -632,6 +632,26 @@ export default function AdminPage() {
     }
   };
 
+  const toggleLotVisibility = async (lotId) => {
+    try {
+      const r = await fetch(`${API}/api/admin/toggle-lot-visibility`, {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({ lotId }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed to toggle visibility');
+      const data = await r.json();
+      setSessionHistory((prev) =>
+        prev.map((lot) =>
+          lot.id === lotId ? { ...lot, status: data.status } : lot
+        )
+      );
+      notify(`Lot visibility updated to: ${data.status === 'hidden' ? 'Hidden' : 'Visible'}`);
+    } catch (err) {
+      notify(`Error: ${err.message}`);
+    }
+  };
+
   const handleUpdate = useCallback((orderId, updatedOrder) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updatedOrder } : o)));
   }, []);
@@ -899,33 +919,54 @@ export default function AdminPage() {
                     const drafts = sessionDrafts[lot.id];
                     return (
                       <div key={lot.id}>
-                        <button
-                          onClick={() => {
-                            setExpandedSession(isOpen ? null : lot.id);
-                            if (!isOpen) fetchSessionDrafts(lot.id);
-                          }}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                            padding: '10px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                            background: isOpen ? 'rgba(255,255,255,0.04)' : 'transparent',
-                            textAlign: 'left', transition: 'background 0.15s' }}
-                        >
-                          {lot.artworkUrl && (
-                            <img src={lot.artworkUrl} alt=""
-                              style={{ width: 32, height: 42, objectFit: 'cover', borderRadius: 3, flexShrink: 0 }} />
-                          )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#c9c6d4',
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              Lot #{lot.lotNumber} — {lotTitle}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <button
+                            onClick={() => {
+                              setExpandedSession(isOpen ? null : lot.id);
+                              if (!isOpen) fetchSessionDrafts(lot.id);
+                            }}
+                            style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12,
+                              padding: '10px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                              background: isOpen ? 'rgba(255,255,255,0.04)' : 'transparent',
+                              textAlign: 'left', transition: 'background 0.15s' }}
+                          >
+                            {lot.artworkUrl && (
+                              <img src={lot.artworkUrl} alt=""
+                                style={{ width: 32, height: 42, objectFit: 'cover', borderRadius: 3, flexShrink: 0 }} />
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: '#c9c6d4',
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                Lot #{lot.lotNumber} — {lotTitle}
+                              </div>
+                              <div style={{ fontSize: 11, color: '#4d4a5c', marginTop: 2 }}>
+                                {new Date(lot.startsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                {' · '}
+                                {lot._count.artworkDrafts} artwork{lot._count.artworkDrafts !== 1 ? 's' : ''} generated
+                              </div>
                             </div>
-                            <div style={{ fontSize: 11, color: '#4d4a5c', marginTop: 2 }}>
-                              {new Date(lot.startsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                              {' · '}
-                              {lot._count.artworkDrafts} artwork{lot._count.artworkDrafts !== 1 ? 's' : ''} generated
-                            </div>
-                          </div>
-                          <span style={{ fontSize: 11, color: '#4d4a5c', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
-                        </button>
+                            <span style={{ fontSize: 11, color: '#4d4a5c', flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLotVisibility(lot.id);
+                            }}
+                            style={{
+                              background: lot.status === 'hidden' ? 'rgba(255,255,255,0.05)' : 'rgba(218,165,32,0.1)',
+                              border: `1px solid ${lot.status === 'hidden' ? 'rgba(255,255,255,0.1)' : 'var(--gold)'}`,
+                              color: lot.status === 'hidden' ? '#7d7a8c' : 'var(--gold-bright)',
+                              borderRadius: '999px', padding: '6px 12px', fontSize: '10px',
+                              cursor: 'pointer', fontFamily: 'var(--font-display)', textTransform: 'uppercase',
+                              letterSpacing: '0.05em', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                            }}
+                            title={lot.status === 'hidden' ? "Make Visible in Archive" : "Hide from Archive"}
+                          >
+                            {lot.status === 'hidden' ? 'Hidden' : 'Visible'}
+                          </button>
+                        </div>
 
                         {isOpen && (
                           <div style={{ padding: '8px 12px 12px 56px' }}>

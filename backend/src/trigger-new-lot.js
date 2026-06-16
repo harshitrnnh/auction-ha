@@ -40,7 +40,7 @@ async function runRotation() {
     
     // 2. Find next lot number
     const latestClosed = await prisma.lot.findFirst({
-      where: { status: 'closed' },
+      where: { status: { in: ['closed', 'hidden'] } },
       orderBy: { lotNumber: 'desc' },
     });
     const nextNum = latestClosed ? latestClosed.lotNumber + 1 : 1;
