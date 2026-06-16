@@ -652,26 +652,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleResetToLot1 = async () => {
-    const ok = window.confirm("WARNING: This will wipe ALL past lots, bids, drafts, and orders from the database to start fresh at Lot #1. This action is permanent. Do you want to proceed?");
-    if (!ok) return;
-
-    setAuctionLoading('reset-db-to-lot-1');
-    try {
-      const r = await fetch(`${API}/api/admin/reset-db-to-lot-1`, {
-        method: 'POST',
-        headers: authHeader(),
-      });
-      if (!r.ok) throw new Error((await r.json()).error || 'Failed');
-      notify('Database reset completed. Starting fresh with Lot #1.');
-      fetchOrders();
-      refreshBiddingTab();
-    } catch (err) {
-      notify(`Error: ${err.message}`);
-    } finally {
-      setAuctionLoading(null);
-    }
-  };
 
   const handleUpdate = useCallback((orderId, updatedOrder) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updatedOrder } : o)));
@@ -791,21 +771,6 @@ export default function AdminPage() {
                     : '○ Lot #' + (currentLot.lotNumber < 0 ? 'Old ' + Math.abs(currentLot.lotNumber) : currentLot.lotNumber) + ' closed'}
                 </span>
               )}
-              <button
-                disabled={!!auctionLoading}
-                onClick={handleResetToLot1}
-                style={{
-                  ...auctionBtnStyle,
-                  border: '1px solid rgba(255,107,125,0.4)',
-                  background: 'rgba(255,107,125,0.02)',
-                  color: '#ff6b7d',
-                  marginLeft: 'auto',
-                  opacity: auctionLoading ? 0.55 : 1,
-                  cursor: auctionLoading ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {auctionLoading === 'reset-db-to-lot-1' ? '… Wiping' : '⚠ Reset to Lot #1'}
-              </button>
             </div>
 
             {/* Session artwork studio */}

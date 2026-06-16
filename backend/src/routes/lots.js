@@ -53,7 +53,7 @@ router.get('/current', optionalAuth, async (req, res) => {
       take: 50,
       include: { user: { select: { name: true } } },
     }),
-    prisma.lot.count(),
+    prisma.lot.count({ where: { lotNumber: { gt: 0 } } }),
   ]);
 
   const topBid = bids[0] ?? null;
@@ -134,7 +134,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 
   try {
     const lot = await prisma.lot.findFirst({
-      where: { status: { in: ['closed', 'hidden'] }, currentPayeeId: req.userId },
+      where: { status: { in: ['closed', 'hidden'] }, currentPayeeId: req.userId, lotNumber: { gt: 0 } },
       orderBy: { startsAt: 'desc' },
     });
     if (!lot) return res.status(400).json({ error: 'No payable lot found for this user.' });
@@ -198,7 +198,7 @@ router.post('/verify-payment', requireAuth, async (req, res) => {
 /* GET /api/lots/past */
 router.get('/past', async (req, res) => {
   const lots = await prisma.lot.findMany({
-    where: { status: 'closed' },
+    where: { status: 'closed', lotNumber: { gt: 0 } },
     orderBy: { endsAt: 'desc' },
     take: 50,
     include: {
@@ -221,8 +221,17 @@ router.get('/past', async (req, res) => {
 
 /* GET /api/lots/:id */
 router.get('/:id', optionalAuth, async (req, res) => {
+  let isAdmin = false;
+  if (req.userId) {
+    const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { email: true } });
+    const ADMIN_EMAILS = ['harshit.rnnh@gmail.com', 'prabhat1992@gmail.com', 'abmzone@gmail.com'];
+    if (user && ADMIN_EMAILS.includes(user.email)) {
+      isAdmin = true;
+    }
+  }
+
   const lot = await prisma.lot.findUnique({ where: { id: req.params.id } });
-  if (!lot) return res.status(404).json({ error: 'Lot not found' });
+  if (!lot || (lot.lotNumber < 0 && !isAdmin)) return res.status(404).json({ error: 'Lot not found' });
 
   const bids = await prisma.bid.findMany({
     where: { lotId: lot.id },
@@ -250,7 +259,7 @@ router.post('/dev-simulate-payment', requireAuth, async (req, res) => {
 
   try {
     const lot = await prisma.lot.findFirst({
-      where: { status: { in: ['closed', 'hidden'] }, currentPayeeId: req.userId },
+      where: { status: { in: ['closed', 'hidden'] }, currentPayeeId: req.userId, lotNumber: { gt: 0 } },
       orderBy: { startsAt: 'desc' },
     });
     if (!lot) return res.status(400).json({ error: 'No payable lot found for this user.' });

@@ -118,7 +118,7 @@ function buildOverlaySvg({ title, artist, startingBid, status, lotNumber }) {
 router.get('/lot/:id', async (req, res) => {
   try {
     const lot = await prisma.lot.findUnique({ where: { id: req.params.id } });
-    if (!lot) return res.status(404).json({ error: 'Lot not found' });
+    if (!lot || lot.lotNumber < 0) return res.status(404).json({ error: 'Lot not found' });
 
     const artworkBuffer = await getArtworkBuffer(lot.artworkUrl);
 
