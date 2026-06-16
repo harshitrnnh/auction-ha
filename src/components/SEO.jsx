@@ -49,7 +49,7 @@ export default function SEO({ lot, page = 'home' }) {
   if (!lot) {
     return (
       <Helmet>
-        <title>Oxide — Live AI Art Auction</title>
+        <title>Oxide — Live AI T-Shirt Auction</title>
         <meta name="description" content="Oxide drops one AI-generated art tee every 24 hours. Bid live, win the original. Limited edition. No reprints." />
         <link rel="canonical" href={SITE} />
       </Helmet>
