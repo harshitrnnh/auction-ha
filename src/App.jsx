@@ -57,6 +57,13 @@ function getMyRank(bids, userId) {
   return null;
 }
 
+function getWatchingCount(lotNumber, bidsCount) {
+  if (lotNumber == null) return 8;
+  const base = 8 + (bidsCount ?? 0) * 3;
+  const timeSeed = Math.floor(Date.now() / 15000); // changes every 15 seconds
+  const offset = (timeSeed * 7 + lotNumber * 3) % 6;
+  return base + offset;
+}
 
 export default function App() {
   const { user, token, logout } = useAuth();
@@ -72,22 +79,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [winner, setWinner] = useState(null);
-  const [watching, setWatching] = useState(0);
   const [minInc, setMinInc] = useState(1);
   const [submittingBid, setSubmittingBid] = useState(false);
 
   const myBidRef = useRef(myBid);
   myBidRef.current = myBid;
 
-  useEffect(() => {
-    if (!lot) return;
-    const base = 8 + bids.length * 3;
-    setWatching(base + Math.floor(Math.random() * 6));
-    const id = setInterval(() => {
-      setWatching((n) => Math.max(1, n + (Math.random() < 0.4 ? 1 : -1)));
-    }, 7000);
-    return () => clearInterval(id);
-  }, [lot?.id, bids.length]);
+  const watching = getWatchingCount(lot?.lotNumber, bids.length);
 
   const lotClosed = lot?.status === 'closed';
   const cd = useCountdown(lotClosed, lot?.endsAt);

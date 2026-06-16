@@ -121,6 +121,14 @@ function getCountdownTarget(lotClosed, endsAt) {
   return Date.now() + 6 * 3600 * 1000;
 }
 
+function getWatchingCount(lotNumber, bidsCount) {
+  if (lotNumber == null) return 8;
+  const base = 8 + (bidsCount ?? 0) * 3;
+  const timeSeed = Math.floor(Date.now() / 15000); // changes every 15 seconds
+  const offset = (timeSeed * 7 + lotNumber * 3) % 6;
+  return base + offset;
+}
+
 export default function Lots() {
   const { user, token, logout } = useAuth();
 
@@ -136,7 +144,6 @@ export default function Lots() {
   const [apiLot, setApiLot] = useState(null);
   const [currentBid, setCurrentBid] = useState(null);
   const [liveBids, setLiveBids] = useState(0);
-  const [watching, setWatching] = useState(0);
   const [bump, setBump] = useState(false);
   const [lotClosed, setLotClosed] = useState(true);
   const myBidRef = useRef(null);
@@ -187,16 +194,7 @@ export default function Lots() {
       .catch(() => null);
   }, [token]);
 
-  /* watching count — simulated from bid activity, same approach as App.jsx */
-  useEffect(() => {
-    if (!apiLot) return;
-    const base = 8 + liveBids * 3;
-    setWatching(base + Math.floor(Math.random() * 6));
-    const id = setInterval(() => {
-      setWatching((n) => Math.max(1, n + (Math.random() < 0.4 ? 1 : -1)));
-    }, 7000);
-    return () => clearInterval(id);
-  }, [apiLot?.id, liveBids]);
+  const watching = getWatchingCount(apiLot?.lotNumber, liveBids);
 
   /* socket.io — stay in sync with the live room */
   useEffect(() => {
