@@ -617,7 +617,7 @@ input { font-family: inherit; }
 
 /* ---------- Account pages (Profile / Orders / Addresses) ---------- */
 .account-page {
-  position: relative; min-height: 100vh; display: flex;
+  position: relative; height: 100vh; display: flex;
   align-items: flex-start; justify-content: center; padding: 48px 16px 80px;
   background: var(--bg-0); overflow-y: auto;
 }
