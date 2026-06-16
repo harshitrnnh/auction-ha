@@ -329,6 +329,26 @@ export default function AdminPage() {
   const [expandedSession, setExpandedSession] = useState(null);
   const [sessionDrafts, setSessionDrafts] = useState({});
 
+  // Artwork Generation Studio states
+  const [showStudio, setShowStudio] = useState(false);
+  const [studioStep, setStudioStep] = useState('signals'); // 'signals' | 'prompt' | 'preview'
+  const [signals, setSignals] = useState(null);
+  const [signalsLoading, setSignalsLoading] = useState(false);
+  const [selectedSignals, setSelectedSignals] = useState([]);
+  const [studioPrompt, setStudioPrompt] = useState({
+    title: '',
+    image_prompt: '',
+    essence: '',
+    interpretive_statement: '',
+    data_signals_used: [],
+    data_signals_used_summarized: []
+  });
+  const [generatingPrompt, setGeneratingPrompt] = useState(false);
+  const [generatedDraft, setGeneratedDraft] = useState(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [studioError, setStudioError] = useState(null);
+  const [previewMode, setPreviewMode] = useState('tshirt'); // 'tshirt' | 'artwork'
+
   const isAdmin = !authLoading && user && ADMIN_EMAILS.includes(user.email);
 
   useEffect(() => {
@@ -442,6 +462,135 @@ export default function AdminPage() {
       setArtworkMsg({ text: `Error: ${err.message}`, ok: false });
     } finally {
       setGeneratingDraft(false);
+    }
+  };
+
+  const openStudio = async () => {
+    setShowStudio(true);
+    setStudioStep('signals');
+    setSelectedSignals([]);
+    setStudioPrompt({
+      title: '',
+      image_prompt: '',
+      essence: '',
+      interpretive_statement: '',
+      data_signals_used: [],
+      data_signals_used_summarized: []
+    });
+    setGeneratedDraft(null);
+    setStudioError(null);
+    setSignalsLoading(true);
+    try {
+      const r = await fetch(`${API}/api/admin/daily-signals`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const resData = await r.json();
+      if (!r.ok) throw new Error(resData.error || 'Failed to fetch daily signals');
+      setSignals(resData.data);
+    } catch (err) {
+      setStudioError(err.message);
+    } finally {
+      setSignalsLoading(false);
+    }
+  };
+
+  const handleSmartSelect = () => {
+    if (!signals) return;
+    const group1 = [...(signals.upi_weird_news || []).map(s => `UPI Weird News: ${s}`), ...(signals.oddity_central || []).map(s => `Oddity Central: ${s}`)];
+    const group2 = (signals.top_wikipedia || []).map(s => `Wikipedia Top Search: ${s}`);
+    const group3 = [...(signals.positive_news || []).map(s => `Good News Network: ${s.headline} (${s.summary})`), ...(signals.optimist_daily || []).map(s => `Optimist Daily: ${s.headline} (${s.summary})`)];
+    const group4 = (signals.polymarket || []).map(s => `Polymarket Trending: ${s.question} (${s.percentage}% probability)`);
+    const group5 = (signals.top_song || []).map(s => `Top Song: ${s.title} by ${s.artist}`);
+    const group6 = signals.wikipedia_on_this_day ? [`Wikipedia On this Day: In ${signals.wikipedia_on_this_day.year}, ${signals.wikipedia_on_this_day.event}`] : [];
+
+    const groups = [group1, group2, group3, group4, group5, group6].filter(g => g.length > 0);
+    const selected = [];
+    const shuffledGroups = [...groups].sort(() => 0.5 - Math.random());
+    const groupsToPick = shuffledGroups.slice(0, 5);
+    
+    groupsToPick.forEach(group => {
+      const randomItem = group[Math.floor(Math.random() * group.length)];
+      if (randomItem) selected.push(randomItem);
+    });
+
+    setSelectedSignals(selected);
+  };
+
+  const toggleSignal = (val) => {
+    setSelectedSignals(prev => 
+      prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]
+    );
+  };
+
+  const handleGeneratePrompt = async () => {
+    if (selectedSignals.length === 0) return;
+    setGeneratingPrompt(true);
+    setStudioError(null);
+    try {
+      const r = await fetch(`${API}/api/admin/generate-prompt`, {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({ selectedSignals })
+      });
+      const resData = await r.json();
+      if (!r.ok) throw new Error(resData.error || 'Failed to synthesize prompt');
+      setStudioPrompt({
+        title: resData.result.title || '',
+        image_prompt: resData.result.image_prompt || '',
+        essence: resData.result.essence || '',
+        interpretive_statement: resData.result.interpretive_statement || '',
+        data_signals_used: resData.result.data_signals_used || [],
+        data_signals_used_summarized: resData.result.data_signals_used_summarized || []
+      });
+      setStudioStep('prompt');
+    } catch (err) {
+      setStudioError(err.message);
+    } finally {
+      setGeneratingPrompt(false);
+    }
+  };
+
+  const handleGenerateImage = async () => {
+    setGeneratingImage(true);
+    setStudioError(null);
+    try {
+      const r = await fetch(`${API}/api/admin/generate-image-from-prompt`, {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({
+          prompt: studioPrompt.image_prompt,
+          title: studioPrompt.title,
+          essence: studioPrompt.essence,
+          interpretive_statement: studioPrompt.interpretive_statement,
+          data_signals_used: studioPrompt.data_signals_used,
+          data_signals_used_summarized: studioPrompt.data_signals_used_summarized
+        })
+      });
+      const resData = await r.json();
+      if (!r.ok) throw new Error(resData.error || 'Failed to generate image');
+      setGeneratedDraft(resData.draft);
+      setStudioStep('preview');
+      refreshBiddingTab();
+    } catch (err) {
+      setStudioError(err.message);
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  const handleMakeLiveFromStudio = async () => {
+    if (!generatedDraft) return;
+    if (!currentLot) {
+      setStudioError('Start a bidding session first before setting the artwork live.');
+      return;
+    }
+    setStudioError(null);
+    try {
+      await handleSetArtwork(generatedDraft.id);
+      setShowStudio(false);
+      notify('Artwork is now live on active lot.');
+    } catch (err) {
+      setStudioError(err.message || 'Failed to make artwork live');
     }
   };
 
@@ -620,34 +769,30 @@ export default function AdminPage() {
                     <div style={{ fontSize: 15, fontWeight: 600, color: '#7d7a8c' }}>No active lot</div>
                   )}
                 </div>
-                {currentLot?.status === 'active' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button
-                      onClick={handleGenerateDraft}
-                      disabled={generatingDraft || !!auctionLoading}
-                      style={{
-                        ...auctionBtnStyle,
-                        opacity: generatingDraft || auctionLoading ? 0.55 : 1,
-                        cursor: generatingDraft || auctionLoading ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {generatingDraft ? '⟳ Generating…' : '+ Generate another'}
-                    </button>
-                    {artworkMsg && (
-                      <span style={{ fontSize: 12, color: artworkMsg.ok ? '#4ade80' : '#ff6b7d' }}>
-                        {artworkMsg.text}
-                      </span>
-                    )}
-                  </div>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    onClick={openStudio}
+                    disabled={!!auctionLoading}
+                    style={{
+                      ...auctionBtnStyle,
+                      opacity: auctionLoading ? 0.55 : 1,
+                      cursor: auctionLoading ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    ✨ Generate Artwork
+                  </button>
+                  {artworkMsg && (
+                    <span style={{ fontSize: 12, color: artworkMsg.ok ? '#4ade80' : '#ff6b7d' }}>
+                      {artworkMsg.text}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Artwork cards */}
               {artworkDrafts.length === 0 && !generatingDraft ? (
                 <div style={{ fontSize: 13, color: '#4d4a5c', paddingTop: 8 }}>
-                  {currentLot?.status === 'active'
-                    ? 'No artworks generated yet. Hit Generate another to create one.'
-                    : 'Start a bidding session to generate artwork.'}
+                  No artworks generated yet. Click "Generate Artwork" to create one.
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -903,6 +1048,469 @@ export default function AdminPage() {
           </>
         )}
       </div>
+
+      {showStudio && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(5, 5, 8, 0.88)', backdropFilter: 'blur(8px)',
+          zIndex: 1000, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: 20
+        }}>
+          <style>{`
+            @keyframes studioSpin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <div style={{
+            background: 'linear-gradient(145deg, #11111d, #09090e)',
+            border: '1px solid rgba(230,194,126,0.18)', borderRadius: 16,
+            width: '100%', maxWidth: 880, maxHeight: '90vh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.8)'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#f4f1ea', margin: 0, letterSpacing: '0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#e6c27e' }}>✨</span> Artwork Generator Studio
+              </h3>
+              <button
+                onClick={() => setShowStudio(false)}
+                style={{
+                  background: 'none', border: 'none', color: '#7d7a8c',
+                  fontSize: 20, cursor: 'pointer', transition: 'color 0.15s'
+                }}
+                onMouseEnter={(e) => e.target.style.color = '#f4f1ea'}
+                onMouseLeave={(e) => e.target.style.color = '#7d7a8c'}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Stepper */}
+            <div style={{ padding: '20px 24px 0' }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    display: 'inline-flex', width: 22, height: 22, borderRadius: '50%', alignItems: 'center', justifyContent: 'center',
+                    background: studioStep === 'signals' ? '#e6c27e' : 'rgba(255,255,255,0.1)',
+                    color: studioStep === 'signals' ? '#0c0d15' : '#7d7a8c',
+                    fontSize: 11, fontWeight: 700
+                  }}>1</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: studioStep === 'signals' ? '#f4f1ea' : '#7d7a8c' }}>Select Signals</span>
+                </div>
+                <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    display: 'inline-flex', width: 22, height: 22, borderRadius: '50%', alignItems: 'center', justifyContent: 'center',
+                    background: studioStep === 'prompt' ? '#e6c27e' : 'rgba(255,255,255,0.1)',
+                    color: studioStep === 'prompt' ? '#0c0d15' : '#7d7a8c',
+                    fontSize: 11, fontWeight: 700
+                  }}>2</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: studioStep === 'prompt' ? '#f4f1ea' : '#7d7a8c' }}>Edit Prompt</span>
+                </div>
+                <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    display: 'inline-flex', width: 22, height: 22, borderRadius: '50%', alignItems: 'center', justifyContent: 'center',
+                    background: studioStep === 'preview' ? '#e6c27e' : 'rgba(255,255,255,0.1)',
+                    color: studioStep === 'preview' ? '#0c0d15' : '#7d7a8c',
+                    fontSize: 11, fontWeight: 700
+                  }}>3</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: studioStep === 'preview' ? '#f4f1ea' : '#7d7a8c' }}>Preview & Live</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {studioError && (
+              <div style={{
+                margin: '10px 24px 0', padding: '10px 14px', borderRadius: 8,
+                background: 'rgba(255,107,125,0.08)', border: '1px solid rgba(255,107,125,0.25)',
+                color: '#ff6b7d', fontSize: 13, fontWeight: 500
+              }}>
+                ⚠️ {studioError}
+              </div>
+            )}
+
+            {/* Body */}
+            <div style={{ padding: '20px 24px 24px', overflowY: 'auto', flex: 1 }}>
+              {studioStep === 'signals' && (
+                <div>
+                  {signalsLoading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 12 }}>
+                      <span style={{ fontSize: 28, animation: 'studioSpin 1s linear infinite' }}>⟳</span>
+                      <span style={{ fontSize: 13, color: '#7d7a8c' }}>Collecting today's news signals...</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{ fontSize: 13, color: '#b9b6c4' }}>
+                          Select daily signals to incorporate. Select at least 5 different categories for the best outcome.
+                        </span>
+                        <button
+                          onClick={handleSmartSelect}
+                          style={{
+                            padding: '6px 12px', border: '1px solid #e6c27e',
+                            background: 'rgba(230,194,126,0.08)', color: '#e6c27e',
+                            borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                            letterSpacing: '0.02em', transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = 'rgba(230,194,126,0.15)'}
+                          onMouseLeave={(e) => e.target.style.background = 'rgba(230,194,126,0.08)'}
+                        >
+                          ⚡ Smart Select 5
+                        </button>
+                      </div>
+
+                      {/* Signals Grid */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxHeight: '48vh', overflowY: 'auto', paddingRight: 6 }}>
+                        {signals && Object.keys(signals).map(categoryKey => {
+                          const categoryTitle = categoryKey.toUpperCase().replace(/_/g, ' ');
+                          const items = Array.isArray(signals[categoryKey]) 
+                            ? signals[categoryKey] 
+                            : signals[categoryKey] ? [signals[categoryKey]] : [];
+
+                          if (items.length === 0) return null;
+
+                          return (
+                            <div key={categoryKey} style={{
+                              background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)',
+                              borderRadius: 8, padding: 12
+                            }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#e6c27e', letterSpacing: '0.08em', marginBottom: 10 }}>
+                                {categoryTitle}
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {items.map((rawItem, idx) => {
+                                  let displayLabel = '';
+                                  let stringVal = '';
+
+                                  if (categoryKey === 'upi_weird_news') {
+                                    displayLabel = rawItem;
+                                    stringVal = `UPI Weird News: ${rawItem}`;
+                                  } else if (categoryKey === 'oddity_central') {
+                                    displayLabel = rawItem;
+                                    stringVal = `Oddity Central: ${rawItem}`;
+                                  } else if (categoryKey === 'top_wikipedia') {
+                                    displayLabel = rawItem;
+                                    stringVal = `Wikipedia Top Search: ${rawItem}`;
+                                  } else if (categoryKey === 'positive_news') {
+                                    displayLabel = `${rawItem.headline} — ${rawItem.summary}`;
+                                    stringVal = `Good News Network: ${rawItem.headline} (${rawItem.summary})`;
+                                  } else if (categoryKey === 'optimist_daily') {
+                                    displayLabel = `${rawItem.headline} — ${rawItem.summary}`;
+                                    stringVal = `Optimist Daily: ${rawItem.headline} (${rawItem.summary})`;
+                                  } else if (categoryKey === 'polymarket') {
+                                    displayLabel = `${rawItem.question} (${rawItem.percentage}%)`;
+                                    stringVal = `Polymarket Trending: ${rawItem.question} (${rawItem.percentage}% probability)`;
+                                  } else if (categoryKey === 'top_song') {
+                                    displayLabel = `${rawItem.title} by ${rawItem.artist}`;
+                                    stringVal = `Top Song: ${rawItem.title} by ${rawItem.artist}`;
+                                  } else if (categoryKey === 'wikipedia_on_this_day') {
+                                    displayLabel = `In ${rawItem.year}: ${rawItem.event}`;
+                                    stringVal = `Wikipedia On this Day: In ${rawItem.year}, ${rawItem.event}`;
+                                  }
+
+                                  const isChecked = selectedSignals.includes(stringVal);
+
+                                  return (
+                                    <label
+                                      key={idx}
+                                      style={{
+                                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                                        padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                                        background: isChecked ? 'rgba(230,194,126,0.05)' : 'rgba(255,255,255,0.02)',
+                                        border: `1px solid ${isChecked ? 'rgba(230,194,126,0.22)' : 'rgba(255,255,255,0.04)'}`,
+                                        color: isChecked ? '#f4f1ea' : '#b9b6c4',
+                                        fontSize: 12, lineHeight: 1.4, transition: 'all 0.15s'
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => toggleSignal(stringVal)}
+                                        style={{ marginTop: 2, accentColor: '#e6c27e' }}
+                                      />
+                                      <span>{displayLabel}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16 }}>
+                        <button
+                          onClick={() => setShowStudio(false)}
+                          style={{
+                            padding: '9px 18px', borderRadius: 6, border: 'none',
+                            background: 'rgba(255,255,255,0.06)', color: '#b9b6c4',
+                            cursor: 'pointer', fontSize: 13, fontWeight: 600
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleGeneratePrompt}
+                          disabled={selectedSignals.length === 0 || generatingPrompt}
+                          style={{
+                            padding: '9px 22px', borderRadius: 6, border: 'none',
+                            background: selectedSignals.length === 0 || generatingPrompt ? 'rgba(230,194,126,0.3)' : 'linear-gradient(90deg, #e6c27e, #f0d49a)',
+                            color: '#0c0d15', cursor: selectedSignals.length === 0 || generatingPrompt ? 'not-allowed' : 'pointer',
+                            fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6
+                          }}
+                        >
+                          {generatingPrompt ? <span style={{ display: 'inline-block', animation: 'studioSpin 1s linear infinite', marginRight: 4 }}>⟳</span> : null}
+                          {generatingPrompt ? 'Generating...' : 'Synthesize Prompt →'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {studioStep === 'prompt' && (
+                <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, color: '#7d7a8c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Surrealist Title</label>
+                      <input
+                        type="text"
+                        value={studioPrompt.title}
+                        onChange={(e) => setStudioPrompt(prev => ({ ...prev, title: e.target.value }))}
+                        style={{
+                          width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#f4f1ea',
+                          fontSize: 13, padding: '9px 12px', outline: 'none', fontFamily: 'inherit'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, color: '#7d7a8c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Thematic Essence</label>
+                      <textarea
+                        rows={2}
+                        value={studioPrompt.essence}
+                        onChange={(e) => setStudioPrompt(prev => ({ ...prev, essence: e.target.value }))}
+                        style={{
+                          width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#f4f1ea',
+                          fontSize: 13, padding: '9px 12px', outline: 'none', fontFamily: 'inherit', resize: 'vertical'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, color: '#7d7a8c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Interpretive Statement (Mentions selected signals)</label>
+                      <textarea
+                        rows={3}
+                        value={studioPrompt.interpretive_statement}
+                        onChange={(e) => setStudioPrompt(prev => ({ ...prev, interpretive_statement: e.target.value }))}
+                        style={{
+                          width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#f4f1ea',
+                          fontSize: 13, padding: '9px 12px', outline: 'none', fontFamily: 'inherit', resize: 'vertical'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <label style={{ fontSize: 11, color: '#7d7a8c', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Image Generation Prompt</label>
+                        <span style={{ fontSize: 11, color: '#e6c27e', fontWeight: 500 }}>Monochrome Line Art Instruction Required</span>
+                      </div>
+                      <textarea
+                        rows={6}
+                        value={studioPrompt.image_prompt}
+                        onChange={(e) => setStudioPrompt(prev => ({ ...prev, image_prompt: e.target.value }))}
+                        style={{
+                          width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, color: '#f4f1ea',
+                          fontSize: 12, padding: '9px 12px', outline: 'none', fontFamily: 'inherit', resize: 'vertical',
+                          lineHeight: 1.5
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16 }}>
+                    <button
+                      onClick={() => setStudioStep('signals')}
+                      style={{
+                        padding: '9px 18px', borderRadius: 6, border: 'none',
+                        background: 'rgba(255,255,255,0.06)', color: '#b9b6c4',
+                        cursor: 'pointer', fontSize: 13, fontWeight: 600
+                      }}
+                    >
+                      ← Back to Signals
+                    </button>
+                    <button
+                      onClick={handleGenerateImage}
+                      disabled={generatingImage}
+                      style={{
+                        padding: '9px 22px', borderRadius: 6, border: 'none',
+                        background: generatingImage ? 'rgba(230,194,126,0.3)' : 'linear-gradient(90deg, #e6c27e, #f0d49a)',
+                        color: '#0c0d15', cursor: generatingImage ? 'not-allowed' : 'pointer',
+                        fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6
+                      }}
+                    >
+                      {generatingImage ? <span style={{ display: 'inline-block', animation: 'studioSpin 1s linear infinite', marginRight: 4 }}>⟳</span> : null}
+                      {generatingImage ? 'Painting Artwork...' : '🎨 Generate Image with Imagen →'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {studioStep === 'preview' && generatedDraft && (
+                <div>
+                  <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                    {/* Left Column: Preview Display */}
+                    <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      {/* View Mode Toggle */}
+                      <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: 3, marginBottom: 14 }}>
+                        <button
+                          onClick={() => setPreviewMode('tshirt')}
+                          style={{
+                            padding: '4px 12px', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                            background: previewMode === 'tshirt' ? 'rgba(230,194,126,0.15)' : 'transparent',
+                            color: previewMode === 'tshirt' ? '#e6c27e' : '#7d7a8c', cursor: 'pointer'
+                          }}
+                        >
+                          T-Shirt Mockup
+                        </button>
+                        <button
+                          onClick={() => setPreviewMode('artwork')}
+                          style={{
+                            padding: '4px 12px', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                            background: previewMode === 'artwork' ? 'rgba(230,194,126,0.15)' : 'transparent',
+                            color: previewMode === 'artwork' ? '#e6c27e' : '#7d7a8c', cursor: 'pointer'
+                          }}
+                        >
+                          Raw Artwork
+                        </button>
+                      </div>
+
+                      {previewMode === 'tshirt' ? (
+                        <div style={{
+                          position: 'relative', width: '100%', maxWidth: 300, aspectRatio: '1 / 1',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: '#0d0d12', borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)',
+                          overflow: 'hidden', padding: 20
+                        }}>
+                          <img
+                            src="/tshirt_front_black_transparent10small.png"
+                            alt="T-shirt front base"
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', mixBlendMode: 'multiply' }}
+                          />
+                          <img
+                            src={generatedDraft.artworkUrl}
+                            alt="Chest Artwork"
+                            style={{
+                              position: 'absolute', top: '50%', left: '50%',
+                              transform: 'translate(-50%, -68%)', width: '30%',
+                              objectFit: 'contain', pointerEvents: 'none', mixBlendMode: 'screen'
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{
+                          width: '100%', maxWidth: 300, aspectRatio: '3/4',
+                          background: '#0a0a0f', borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)',
+                          overflow: 'hidden'
+                        }}>
+                          <img
+                            src={generatedDraft.artworkUrl}
+                            alt="Generated raw artwork"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Column: Metadata review */}
+                    <div style={{ flex: '1 1 380px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#e6c27e', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Surrealist Title</div>
+                        <h4 style={{ fontSize: 18, fontWeight: 700, color: '#f4f1ea', margin: 0 }}>{studioPrompt.title}</h4>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#7d7a8c', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Essence</div>
+                        <p style={{ fontSize: 13, color: '#c9c6d4', margin: 0, lineHeight: 1.5 }}>{studioPrompt.essence}</p>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#7d7a8c', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Interpretive Statement</div>
+                        <p style={{ fontSize: 12, color: '#b9b6c4', margin: 0, lineHeight: 1.6, background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 6, border: '1px solid rgba(255,255,255,0.04)' }}>
+                          {studioPrompt.interpretive_statement}
+                        </p>
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: '#7d7a8c', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Daily Signals Incorporated</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {studioPrompt.data_signals_used_summarized && studioPrompt.data_signals_used_summarized.map((sig, sIdx) => (
+                            <span key={sIdx} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: 'rgba(230,194,126,0.08)', border: '1px solid rgba(230,194,126,0.18)', color: '#e6c27e' }}>
+                              #{sig}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16, flexWrap: 'wrap', gap: 12 }}>
+                    <button
+                      onClick={() => setStudioStep('signals')}
+                      style={{
+                        padding: '9px 18px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'transparent', color: '#b9b6c4',
+                        cursor: 'pointer', fontSize: 13, fontWeight: 600
+                      }}
+                    >
+                      ↺ Regenerate / Start Over
+                    </button>
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button
+                        onClick={() => setShowStudio(false)}
+                        style={{
+                          padding: '9px 18px', borderRadius: 6, border: 'none',
+                          background: 'rgba(255,255,255,0.06)', color: '#f4f1ea',
+                          cursor: 'pointer', fontSize: 13, fontWeight: 600
+                        }}
+                      >
+                        Save as Draft & Close
+                      </button>
+                      <button
+                        onClick={handleMakeLiveFromStudio}
+                        disabled={!currentLot}
+                        style={{
+                          padding: '9px 24px', borderRadius: 6, border: 'none',
+                          background: !currentLot ? 'rgba(230,194,126,0.2)' : 'linear-gradient(90deg, #e6c27e, #f0d49a)',
+                          color: !currentLot ? '#7d7a8c' : '#0c0d15', cursor: !currentLot ? 'not-allowed' : 'pointer',
+                          fontSize: 13, fontWeight: 700
+                        }}
+                      >
+                        {currentLot ? '👕 Put on T-shirt & Make Live' : '👕 Start Bidding to Make Live'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

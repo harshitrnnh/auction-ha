@@ -18,7 +18,7 @@ import orderRoutes from './routes/orders.js';
 import vendorRoutes from './routes/vendor.js';
 import ogRoutes from './routes/og.js';
 import { startScheduler, closeActiveLot, checkPaymentExpirations, createNewLot } from './scheduler.js';
-import { generateDailyArtwork } from './artGenerator.js';
+import { generateDailyArtwork, collectDailyData, generatePromptFromSignals, generateImageFromPrompt } from './artGenerator.js';
 import { notifyVendor, sendInvoiceEmail, sendShippingEmail } from './vendor/qikink.js';
 
 // Load .env from backend directory
@@ -244,6 +244,67 @@ app.post('/api/admin/generate-artwork-draft', requireAdmin, async (_req, res) =>
   } catch (err) {
     console.error('[Admin] generate-artwork-draft error:', err);
     res.status(500).json({ error: err.message || 'Artwork generation failed' });
+  }
+});
+
+app.get('/api/admin/daily-signals', requireAdmin, async (_req, res) => {
+  try {
+    const today = new Date();
+    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const dateString = formatter.format(today);
+    const data = await collectDailyData(dateString);
+    res.json({ ok: true, data: data.data_signals_of_the_day });
+  } catch (err) {
+    console.error('[Admin] daily-signals error:', err);
+    res.status(500).json({ error: err.message || 'Failed to collect daily signals' });
+  }
+});
+
+app.post('/api/admin/generate-prompt', requireAdmin, async (req, res) => {
+  try {
+    const { selectedSignals } = req.body;
+    if (!selectedSignals || !Array.isArray(selectedSignals)) {
+      return res.status(400).json({ error: 'selectedSignals array is required' });
+    }
+    const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
+    const lotNumber = activeLot ? activeLot.lotNumber : 1;
+    const result = await generatePromptFromSignals(selectedSignals, lotNumber);
+    res.json({ ok: true, result });
+  } catch (err) {
+    console.error('[Admin] generate-prompt error:', err);
+    res.status(500).json({ error: err.message || 'Prompt generation failed' });
+  }
+});
+
+app.post('/api/admin/generate-image-from-prompt', requireAdmin, async (req, res) => {
+  try {
+    const { prompt, title, essence, interpretive_statement, data_signals_used, data_signals_used_summarized } = req.body;
+    if (!prompt) return res.status(400).json({ error: 'prompt is required' });
+    const activeLot = await prisma.lot.findFirst({ where: { status: 'active' } });
+    if (!activeLot) return res.status(400).json({ error: 'Start a bidding session first before generating artwork.' });
+
+    const draftNum = `draft-${Date.now()}`;
+    const lotHeadlineStr = JSON.stringify({
+      title: title || 'Untitled',
+      data_signals_used: data_signals_used || [],
+      data_signals_used_summarized: data_signals_used_summarized || [],
+      essence: essence || '',
+      interpretive_statement: interpretive_statement || ''
+    });
+
+    const art = await generateImageFromPrompt(prompt, draftNum, lotHeadlineStr);
+    const draft = await prisma.artworkDraft.create({
+      data: {
+        lotId: activeLot.id,
+        artworkUrl: art.artworkUrl,
+        artworkHeadline: art.artworkHeadline,
+        artworkPrompt: art.artworkPrompt,
+      },
+    });
+    res.json({ ok: true, draft });
+  } catch (err) {
+    console.error('[Admin] generate-image-from-prompt error:', err);
+    res.status(500).json({ error: err.message || 'Image generation failed' });
   }
 });
 
