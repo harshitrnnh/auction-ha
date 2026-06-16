@@ -348,6 +348,7 @@ export default function AdminPage() {
   const [generatingImage, setGeneratingImage] = useState(false);
   const [studioError, setStudioError] = useState(null);
   const [previewMode, setPreviewMode] = useState('tshirt'); // 'tshirt' | 'artwork'
+  const [selectedDraftForNewLot, setSelectedDraftForNewLot] = useState(null);
 
   const isAdmin = !authLoading && user && ADMIN_EMAILS.includes(user.email);
 
@@ -580,17 +581,19 @@ export default function AdminPage() {
 
   const handleMakeLiveFromStudio = async () => {
     if (!generatedDraft) return;
-    if (!currentLot) {
-      setStudioError('Start a bidding session first before setting the artwork live.');
-      return;
-    }
     setStudioError(null);
     try {
-      await handleSetArtwork(generatedDraft.id);
-      setShowStudio(false);
-      notify('Artwork is now live on active lot.');
+      if (currentLot) {
+        await handleSetArtwork(generatedDraft.id);
+        setShowStudio(false);
+        notify('Artwork is now live on active lot.');
+      } else {
+        await handleStartBidWithDraft(generatedDraft.id);
+        setShowStudio(false);
+        notify('New lot started with this artwork.');
+      }
     } catch (err) {
-      setStudioError(err.message || 'Failed to make artwork live');
+      setStudioError(err.message || 'Failed to update bidding session');
     }
   };
 
@@ -724,16 +727,20 @@ export default function AdminPage() {
                 </button>
               ) : (
                 <button
-                  disabled={!!auctionLoading}
-                  onClick={() => handleAuctionAction('new-bid', 'New lot started')}
-                  style={{
-                    ...auctionBtnStyle,
-                    opacity: auctionLoading ? 0.55 : 1,
-                    cursor: auctionLoading ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {auctionLoading === 'new-bid' ? '⟳ Starting…' : '▶ Start bidding'}
-                </button>
+                   disabled={!!auctionLoading || !selectedDraftForNewLot}
+                   onClick={() => handleStartBidWithDraft(selectedDraftForNewLot)}
+                   style={{
+                     ...auctionBtnStyle,
+                     opacity: auctionLoading ? 0.55 : !selectedDraftForNewLot ? 0.4 : 1,
+                     cursor: auctionLoading ? 'not-allowed' : !selectedDraftForNewLot ? 'not-allowed' : 'pointer',
+                     borderColor: !selectedDraftForNewLot ? 'rgba(255,255,255,0.06)' : 'rgba(230,194,126,0.25)',
+                     background: !selectedDraftForNewLot ? 'rgba(255,255,255,0.02)' : 'rgba(230,194,126,0.07)',
+                     color: !selectedDraftForNewLot ? '#7d7a8c' : '#e6c27e',
+                     transition: 'all 0.15s'
+                   }}
+                 >
+                   {auctionLoading === 'new-bid' ? '⟳ Starting…' : '▶ Start bidding'}
+                 </button>
               )}
               {currentLot && (
                 <span style={{ fontSize: 12,
@@ -805,11 +812,12 @@ export default function AdminPage() {
                       }
                     } catch (_) {}
                     const isActive = !!(currentLot?.artworkUrl && currentLot.artworkUrl === draft.artworkUrl);
+                    const isSelectedForNew = selectedDraftForNewLot === draft.id;
                     return (
                       <div key={draft.id} style={{
                         width: 180, flexShrink: 0,
-                        background: isActive ? 'rgba(230,194,126,0.05)' : 'rgba(255,255,255,0.025)',
-                        border: `1px solid ${isActive ? 'rgba(230,194,126,0.4)' : 'rgba(255,255,255,0.07)'}`,
+                        background: isActive ? 'rgba(230,194,126,0.05)' : isSelectedForNew ? 'rgba(230,194,126,0.08)' : 'rgba(255,255,255,0.025)',
+                        border: `1px solid ${isActive ? 'rgba(230,194,126,0.4)' : isSelectedForNew ? '#e6c27e' : 'rgba(255,255,255,0.07)'}`,
                         borderRadius: 10, overflow: 'hidden',
                       }}>
                         {/* Image */}
@@ -853,12 +861,16 @@ export default function AdminPage() {
                               Make active
                             </button>
                           ) : (
-                            <button onClick={() => handleStartBidWithDraft(draft.id)}
-                              disabled={!!auctionLoading}
+                            <button onClick={() => {
+                              setSelectedDraftForNewLot(prev => prev === draft.id ? null : draft.id);
+                            }}
                               style={{ width: '100%', fontSize: 11, padding: '6px 0', borderRadius: 5,
-                                border: '1px solid rgba(230,194,126,0.3)', background: 'rgba(230,194,126,0.08)',
-                                color: '#e6c27e', cursor: 'pointer', fontWeight: 600, letterSpacing: '0.04em' }}>
-                              ▶ Start bid with this
+                                border: isSelectedForNew ? '1px solid #e6c27e' : '1px solid rgba(255,255,255,0.12)',
+                                background: isSelectedForNew ? 'rgba(230,194,126,0.18)' : 'rgba(255,255,255,0.04)',
+                                color: isSelectedForNew ? '#e6c27e' : '#b9b6c4',
+                                cursor: 'pointer', fontWeight: 600, letterSpacing: '0.04em',
+                                transition: 'all 0.15s' }}>
+                              {isSelectedForNew ? '✓ Selected' : 'Select for Bidding'}
                             </button>
                           )}
                         </div>
@@ -1493,15 +1505,14 @@ export default function AdminPage() {
                       </button>
                       <button
                         onClick={handleMakeLiveFromStudio}
-                        disabled={!currentLot}
                         style={{
                           padding: '9px 24px', borderRadius: 6, border: 'none',
-                          background: !currentLot ? 'rgba(230,194,126,0.2)' : 'linear-gradient(90deg, #e6c27e, #f0d49a)',
-                          color: !currentLot ? '#7d7a8c' : '#0c0d15', cursor: !currentLot ? 'not-allowed' : 'pointer',
+                          background: 'linear-gradient(90deg, #e6c27e, #f0d49a)',
+                          color: '#0c0d15', cursor: 'pointer',
                           fontSize: 13, fontWeight: 700
                         }}
                       >
-                        {currentLot ? '👕 Put on T-shirt & Make Live' : '👕 Start Bidding to Make Live'}
+                        {currentLot ? '👕 Put on T-shirt & Make Live' : '🚀 Start Bidding with This'}
                       </button>
                     </div>
                   </div>

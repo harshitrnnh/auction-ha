@@ -193,6 +193,7 @@ async function createNewLot(lotNumber, preloadedArt = null) {
   console.log(`[Scheduler] Lot #${lotNumber} created — bidding open for 12 hours.`);
   const totalLots = await prisma.lot.count();
   getIo()?.emit('lot:new', { lot: { ...lot, totalLots } });
+  return lot;
 }
 
 async function checkPaymentExpirations() {
