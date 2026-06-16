@@ -110,14 +110,23 @@ function checkBiddingClosed() {
   } catch { return false; }
 }
 
-function getCountdownTarget(isClosed) {
-  const now = new Date();
-  const istDate = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  const y = istDate.getUTCFullYear();
-  const m = istDate.getUTCMonth();
-  const d = istDate.getUTCDate();
-  if (isClosed) return Date.UTC(y, m, d, 18, 30, 0);
-  return Date.UTC(y, m, d, 12, 30, 0);
+const AUTO_RESTART_DELAY_MS = 6 * 60 * 60 * 1000; // must match backend
+
+function getCountdownTarget(lotClosed, endsAt) {
+  if (endsAt) {
+    const endsAtMs = new Date(endsAt).getTime();
+    if (lotClosed) return endsAtMs + AUTO_RESTART_DELAY_MS;
+    return endsAtMs;
+  }
+  return Date.now() + 6 * 3600 * 1000;
+}
+
+function getWatchingCount(lotNumber, bidsCount) {
+  if (lotNumber == null) return 8;
+  const base = 8 + (bidsCount ?? 0) * 3;
+  const timeSeed = Math.floor(Date.now() / 15000); // changes every 15 seconds
+  const offset = (timeSeed * 7 + lotNumber * 3) % 6;
+  return base + offset;
 }
 
 export default function Lots() {
@@ -135,7 +144,6 @@ export default function Lots() {
   const [apiLot, setApiLot] = useState(null);
   const [currentBid, setCurrentBid] = useState(null);
   const [liveBids, setLiveBids] = useState(0);
-  const [watching, setWatching] = useState(0);
   const [bump, setBump] = useState(false);
   const [lotClosed, setLotClosed] = useState(true);
   const myBidRef = useRef(null);
@@ -186,16 +194,7 @@ export default function Lots() {
       .catch(() => null);
   }, [token]);
 
-  /* watching count — simulated from bid activity, same approach as App.jsx */
-  useEffect(() => {
-    if (!apiLot) return;
-    const base = 8 + liveBids * 3;
-    setWatching(base + Math.floor(Math.random() * 6));
-    const id = setInterval(() => {
-      setWatching((n) => Math.max(1, n + (Math.random() < 0.4 ? 1 : -1)));
-    }, 7000);
-    return () => clearInterval(id);
-  }, [apiLot?.id, liveBids]);
+  const watching = getWatchingCount(apiLot?.lotNumber, liveBids);
 
   /* socket.io — stay in sync with the live room */
   useEffect(() => {
@@ -244,6 +243,7 @@ export default function Lots() {
     title: heroTitle,
     artworkHeadline: heroArtworkHeadline,
     startsAt: heroStartsAt,
+    endsAt: apiLot.endsAt,
     artist: apiLot.artist ?? LIVE_LOT.artist,
     size: apiLot.size ?? LIVE_LOT.size,
     startingBid: apiLot.startingBid ?? LIVE_LOT.startingBid,
