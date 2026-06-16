@@ -266,19 +266,24 @@ export default function App() {
         <div className="topbar-left">
           <Link to="/" className="brand-link">
             <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
-            <span className="brand-name">Oxide</span>
+            <div>
+              <div className="brand-name">Oxide</div>
+              {lot && <div className="brand-sub">Drop #{lot.lotNumber}</div>}
+            </div>
           </Link>
-          {lot && (
-            <>
-              <span className="brand-lot num">
-                Drop #{lot.lotNumber}
-              </span>
-              <nav className="desktop-nav">
-                <Link to="/lots" className="nav-link">Archive</Link>
-                <Link to="/how-it-works" className="nav-link">How it works</Link>
-              </nav>
-            </>
+          
+          {user ? (
+            <UserMenu user={user} logout={logout} />
+          ) : (
+            <button className="pill auth-pill" onClick={() => navigate('/login')}>
+              Sign in
+            </button>
           )}
+
+          <nav className="desktop-nav">
+            <Link to="/lots" className="nav-link">View All Lots</Link>
+            <Link to="/how-it-works" className="nav-link">How it works</Link>
+          </nav>
         </div>
 
         <div className="topbar-center">
@@ -294,15 +299,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="topbar-right">
-          {user ? (
-            <UserMenu user={user} logout={logout} />
-          ) : (
-            <button className="pill auth-pill" onClick={() => navigate('/login')}>
-              Sign in to bid
-            </button>
-          )}
-        </div>
+        <div className="topbar-right" />
 
         <button 
           className="mobile-menu-toggle" 
@@ -398,7 +395,7 @@ export default function App() {
                 <span className="icon">🏠</span> Live Auction
               </Link>
               <Link to="/lots" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
-                <span className="icon">📁</span> Lots &amp; Archive
+                <span className="icon">📁</span> View All Lots
               </Link>
               <Link to="/how-it-works" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
                 <span className="icon">📖</span> How It Works

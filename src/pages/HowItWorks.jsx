@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Starfield from '../components/Starfield';
 import SEO from '../components/SEO';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,14 +13,16 @@ export default function HowItWorks() {
     return () => document.body.classList.remove('how-it-works-page-body');
   }, []);
 
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
   return (
     <div className="how-it-works-page">
       <SEO page="how-it-works" />
       <Starfield />
 
-      <header className="how-it-works-topbar">
-        <div className="brand">
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none', color: 'inherit' }}>
+      <header className="topbar">
+        <div className="topbar-left">
+          <Link to="/" className="brand-link">
             <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
             <div>
               <div className="brand-name">Oxide</div>
@@ -32,12 +34,23 @@ export default function HowItWorks() {
           ) : (
             <Link className="pill auth-pill" to="/login">Sign in</Link>
           )}
+          <nav className="desktop-nav">
+            <Link to="/" className="nav-link">Live Room</Link>
+            <Link to="/lots" className="nav-link">View All Lots</Link>
+          </nav>
         </div>
-        <div className="topbar-right">
-          <Link className="pill" to="/">
-            Back to live room
-          </Link>
-        </div>
+        <div className="topbar-right" />
+        <button 
+          className="mobile-menu-toggle" 
+          onClick={() => setShowMobileMenu(true)} 
+          aria-label="Open navigation menu"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </header>
 
       <main className="how-it-works-content">
@@ -101,6 +114,84 @@ export default function HowItWorks() {
           </div>
         </div>
       </main>
+      {showMobileMenu && (
+        <div className="mobile-menu-overlay" onClick={() => setShowMobileMenu(false)}>
+          <div className="mobile-menu-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-header">
+              <div className="brand">
+                <img src="/favicon.png" className="brand-mark" style={{ background: 'none', boxShadow: 'none' }} alt="" />
+                <span className="brand-name">Oxide</span>
+              </div>
+              <button className="drawer-close" onClick={() => setShowMobileMenu(false)} aria-label="Close menu">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+
+            {user && (
+              <div className="drawer-profile">
+                <span className="av" style={{ background: `hsl(${user.hue ?? 200} 45% 62%)` }}>
+                  {(user.name ?? user.email ?? '?').slice(0, 1).toUpperCase()}
+                </span>
+                <div className="drawer-user-info">
+                  <div className="drawer-user-name">{user.name || 'Anonymous User'}</div>
+                  <div className="drawer-user-email">{user.email}</div>
+                </div>
+              </div>
+            )}
+
+            <nav className="drawer-nav">
+              <Link to="/" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
+                <span className="icon">🏠</span> Live Auction
+              </Link>
+              <Link to="/lots" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
+                <span className="icon">📁</span> View All Lots
+              </Link>
+              <Link to="/how-it-works" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
+                <span className="icon">📖</span> How It Works
+              </Link>
+              {user ? (
+                <>
+                  <Link to="/profile" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
+                    <span className="icon">👤</span> My Profile
+                  </Link>
+                  <Link to="/orders" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
+                    <span className="icon">📦</span> My Orders
+                  </Link>
+                  <Link to="/addresses" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
+                    <span className="icon">📍</span> Shipping Addresses
+                  </Link>
+                  {user.role === 'admin' && (
+                    <Link to="/admin" className="drawer-link" onClick={() => setShowMobileMenu(false)}>
+                      <span className="icon">⚙️</span> Admin Studio
+                    </Link>
+                  )}
+                  <button 
+                    className="drawer-link logout-btn" 
+                    onClick={() => {
+                      logout();
+                      setShowMobileMenu(false);
+                    }}
+                  >
+                    <span className="icon">🚪</span> Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link 
+                  to="/login"
+                  className="drawer-signin-btn" 
+                  style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}
+                  onClick={() => setShowMobileMenu(false)}
+                >
+                  Sign in to bid
+                </Link>
+              )}
+            </nav>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
