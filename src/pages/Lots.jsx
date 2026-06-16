@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { io as socketIO } from 'socket.io-client';
 import SEO from '../components/SEO';
+import UserMenu from '../components/UserMenu';
 import { useAuth } from '../contexts/AuthContext';
 import { Hero, Toolbar, Grid } from '../components/lots/LotsGrid';
 import PeekModal from '../components/lots/PeekModal';
@@ -318,14 +319,7 @@ export default function Lots() {
             <span className="dot" /> Live room · Lot {heroLot.lotNo}
           </Link>
           {user ? (
-            <button
-              className="pill account"
-              onClick={logout}
-              style={{ cursor: 'pointer', border: 'none' }}
-            >
-              <span className="av">{userInitial}</span>
-              {user.name ?? user.email?.split('@')[0]}
-            </button>
+            <UserMenu user={user} logout={logout} />
           ) : (
             <Link className="pill" to="/login">Sign in</Link>
           )}

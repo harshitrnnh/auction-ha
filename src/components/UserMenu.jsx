@@ -37,16 +37,26 @@ export default function UserMenu({ user, logout }) {
   return (
     <div className="user-menu" ref={ref}>
       <button
-        className="brand-mark user-avatar"
         onClick={() => setOpen((o) => !o)}
         aria-label="Account menu"
         aria-expanded={open}
+        style={{
+          background: 'none', border: 'none', padding: 0,
+          display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+          outline: 'none'
+        }}
       >
-        {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt={user.name} className="user-avatar-img" />
-        ) : (
-          <span className="user-avatar-initials">{initials}</span>
-        )}
+        <div
+          className="brand-mark user-avatar"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {user.avatarUrl ? (
+            <img src={user.avatarUrl} alt={user.name} className="user-avatar-img" />
+          ) : (
+            <span className="user-avatar-initials">{initials}</span>
+          )}
+        </div>
+        <span style={{ color: 'var(--txt-mute)', fontSize: 9, transition: 'color 0.15s', userSelect: 'none' }}>▼</span>
       </button>
 
       {open && (

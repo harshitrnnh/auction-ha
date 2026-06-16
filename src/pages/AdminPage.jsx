@@ -811,7 +811,7 @@ export default function AdminPage() {
                         if (p.title) title = p.title;
                       }
                     } catch (_) {}
-                    const isActive = !!(currentLot?.artworkUrl && currentLot.artworkUrl === draft.artworkUrl);
+                    const isActive = !!(currentLot?.status === 'active' && currentLot?.artworkUrl && currentLot.artworkUrl === draft.artworkUrl);
                     const isSelectedForNew = selectedDraftForNewLot === draft.id;
                     return (
                       <div key={draft.id} style={{
@@ -944,12 +944,13 @@ export default function AdminPage() {
                                     }
                                   } catch (_) {}
                                   const wasActive = lot.artworkUrl && lot.artworkUrl === draft.artworkUrl;
+                                  const isSelectedForNew = selectedDraftForNewLot === draft.id;
                                   return (
                                     <div key={draft.id} style={{
                                       flexShrink: 0, width: 110,
-                                      border: `1px solid ${wasActive ? 'rgba(230,194,126,0.35)' : 'rgba(255,255,255,0.07)'}`,
+                                      border: `1px solid ${wasActive ? 'rgba(230,194,126,0.35)' : isSelectedForNew ? '#e6c27e' : 'rgba(255,255,255,0.07)'}`,
                                       borderRadius: 7, overflow: 'hidden',
-                                      background: wasActive ? 'rgba(230,194,126,0.04)' : 'rgba(255,255,255,0.02)',
+                                      background: wasActive ? 'rgba(230,194,126,0.04)' : isSelectedForNew ? 'rgba(230,194,126,0.08)' : 'rgba(255,255,255,0.02)',
                                     }}>
                                       {draft.artworkUrl ? (
                                         <img src={draft.artworkUrl} alt={draftTitle}
@@ -969,6 +970,20 @@ export default function AdminPage() {
                                           WebkitBoxOrient: 'vertical' }}>
                                           {draftTitle}
                                         </div>
+                                        {currentLot?.status !== 'active' && (
+                                          <button
+                                            onClick={() => setSelectedDraftForNewLot(prev => prev === draft.id ? null : draft.id)}
+                                            style={{
+                                              width: '100%', fontSize: 9, padding: '3px 0', marginTop: 5, borderRadius: 4,
+                                              border: isSelectedForNew ? '1px solid #e6c27e' : '1px solid rgba(255,255,255,0.12)',
+                                              background: isSelectedForNew ? 'rgba(230,194,126,0.18)' : 'rgba(255,255,255,0.04)',
+                                              color: isSelectedForNew ? '#e6c27e' : '#b9b6c4',
+                                              cursor: 'pointer', fontWeight: 600
+                                            }}
+                                          >
+                                            {isSelectedForNew ? '✓ Selected' : 'Select'}
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   );
