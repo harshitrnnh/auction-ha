@@ -1,16 +1,5 @@
 /* Oxide — Lots & Archive page styles */
 
-/* Body override for scrollable lots page */
-body.lots-page {
-  overflow: auto;
-  height: auto;
-  min-height: 100vh;
-}
-body.lots-page #root {
-  height: auto;
-  min-height: 100vh;
-}
-
 /* ---------- App shell ---------- */
 .lots-app {
   position: relative;
@@ -27,80 +16,6 @@ body.lots-page #root {
   pointer-events: none;
   z-index: 0;
   opacity: 0.6;
-}
-
-/* ---------- Top chrome ---------- */
-.lots-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px clamp(20px, 4vw, 52px);
-  background: linear-gradient(180deg, rgba(7,7,12,0.92), rgba(7,7,12,0.5) 70%, transparent);
-  backdrop-filter: blur(10px);
-}
-.lots-topbar .brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  color: inherit;
-}
-.lots-topbar .brand-sub {
-  color: var(--txt-mute);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.lots-topbar .topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.lots-topbar .pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  color: var(--txt-dim);
-  font-size: 12px;
-  text-decoration: none;
-  background: linear-gradient(180deg, rgba(20,22,34,0.7), rgba(11,12,20,0.78));
-  white-space: nowrap;
-  transition: border-color 0.18s, color 0.18s;
-}
-.lots-topbar .pill:hover { border-color: var(--gold); color: var(--txt); }
-.lots-topbar .pill .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--win);
-  box-shadow: 0 0 8px var(--win);
-}
-.lots-topbar .account {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 14px 6px 6px;
-}
-.lots-topbar .account .av {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  flex: none;
-  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
-  color: #271d08;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 12px;
 }
 
 /* ---------- Page wrap ---------- */
@@ -1256,9 +1171,6 @@ body.lots-page #root {
   .lots-toolbar { top: 60px; }
 }
 @media (max-width: 560px) {
-  .lots-topbar { padding: 12px 16px; }
-  .lots-topbar .brand-sub { display: none; }
-  .lots-topbar .pill:not(.account) { display: none; }
   .lots-hero { grid-template-columns: 1fr; }
   .lots-hero .hero-art { justify-content: flex-start; padding: 0 16px 16px; }
   .hero-tshirt-wrap { width: clamp(80px, 22vw, 120px); }
