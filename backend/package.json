@@ -8,6 +8,7 @@
     "db:push": "prisma db push",
     "db:seed": "node src/seed.js",
     "db:query": "node db_query.js",
+    "db:reset-lot-1": "node reset-db-lot-1.js",
     "db:studio": "prisma studio"
   },
   "dependencies": {

@@ -484,6 +484,34 @@ app.post('/api/admin/reset', async (req, res) => {
   }
 });
 
+// Hard Reset: wipe all lots, bids, orders, drafts to start fresh from Lot #1
+app.post('/api/admin/reset-db-to-lot-1', requireAdmin, async (_req, res) => {
+  try {
+    console.log('[Admin Hard Reset] Initiating full database wipe to start from Lot #1...');
+    
+    // 1. Delete all orders
+    await prisma.order.deleteMany({});
+    
+    // 2. Delete all bids
+    await prisma.bid.deleteMany({});
+    
+    // 3. Delete all artwork drafts
+    await prisma.artworkDraft.deleteMany({});
+    
+    // 4. Delete all lots
+    await prisma.lot.deleteMany({});
+
+    // 5. Create Lot #1 (fresh active rotation)
+    await createNewLot(1);
+
+    console.log('[Admin Hard Reset] Database wiped successfully. Lot #1 is now live.');
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin Hard Reset] Failed:', err);
+    res.status(500).json({ error: 'Failed to hard reset database: ' + err.message });
+  }
+});
+
 app.post('/api/admin/check-expirations', async (_req, res) => {
   await checkPaymentExpirations();
   res.json({ ok: true });
