@@ -222,7 +222,7 @@ function MyBid({ myBid, status }) {
 
 function Feed({ bids }) {
   return (
-    <div className="feed" style={{ flex: bids.length > 0 ? '0 1 auto' : 'none', minHeight: '0' }}>
+    <div className="feed">
       <div className="feed-head">
         <span className="t">Live activity</span>
         <span className="live"><span className="dot" /> Live · {bids.length} bids</span>
