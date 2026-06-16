@@ -199,7 +199,7 @@ async function createNewLot(lotNumber, preloadedArt = null) {
 
 async function checkPaymentExpirations() {
   const lot = await prisma.lot.findFirst({
-    where: { status: 'closed' },
+    where: { status: { in: ['closed', 'hidden'] } },
     orderBy: { lotNumber: 'desc' },
   });
   if (!lot) return;
