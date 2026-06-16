@@ -9,7 +9,7 @@ import { pollQikinkOrders } from './vendor/qikink.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const BIDDING_DURATION_MS = 12 * 60 * 60 * 1000; // 12 hours
+const BIDDING_DURATION_MS = 18 * 60 * 60 * 1000; // 18 hours
 const AUTO_RESTART_DELAY_MS = 6 * 60 * 60 * 1000; // 6 hours between close and next open
 
 const LOT_TEMPLATES = [
@@ -197,7 +197,7 @@ async function createNewLot(lotNumber, preloadedArt = null) {
     });
   }
 
-  console.log(`[Scheduler] Lot #${lotNumber} created — bidding open for 12 hours.`);
+  console.log(`[Scheduler] Lot #${lotNumber} created — bidding open for 18 hours.`);
   const totalLots = await prisma.lot.count({ where: { lotNumber: { gt: 0 } } });
   getIo()?.emit('lot:new', { lot: { ...lot, totalLots } });
   return lot;
