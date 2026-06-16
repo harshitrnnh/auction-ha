@@ -322,6 +322,7 @@ export default function Lots() {
             <Link to="/how-it-works" className="nav-link">How it works</Link>
           </nav>
         </div>
+        <div className="topbar-center" />
         <div className="topbar-right">
           {user ? (
             <UserMenu user={user} logout={logout} />
