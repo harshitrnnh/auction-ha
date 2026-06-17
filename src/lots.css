@@ -191,10 +191,8 @@
 .lots-hero .hero-art {
   position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   padding: 16px 20px 16px 8px;
 }
 .lots-hero .hero-art .art-bloom { width: min(78%, 180px); }
@@ -232,6 +230,7 @@
   font-size: 12px;
   color: var(--txt-dim);
   white-space: nowrap;
+  margin-top: 4px;
 }
 .lots-hero .hero-watching .dot {
   width: 6px;
@@ -239,6 +238,7 @@
   border-radius: 50%;
   background: var(--win);
   box-shadow: 0 0 8px var(--win);
+  flex-shrink: 0;
   animation: lots-blink 1.4s infinite;
 }
 
