@@ -155,6 +155,7 @@
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 2px;
+  margin-bottom: 16px;
 }
 .lots-hero .btn-primary {
   display: inline-flex;
@@ -190,8 +191,10 @@
 .lots-hero .hero-art {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 16px 20px 16px 8px;
 }
 .lots-hero .hero-art .art-bloom { width: min(78%, 180px); }
@@ -223,15 +226,12 @@
   mix-blend-mode: screen;
 }
 .lots-hero .hero-watching {
-  position: absolute;
-  bottom: 18px;
-  right: 20px;
-  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 7px;
   font-size: 12px;
   color: var(--txt-dim);
+  white-space: nowrap;
 }
 .lots-hero .hero-watching .dot {
   width: 6px;
@@ -239,6 +239,7 @@
   border-radius: 50%;
   background: var(--win);
   box-shadow: 0 0 8px var(--win);
+  animation: lots-blink 1.4s infinite;
 }
 
 /* ---------- Artwork bloom (tee silhouette) ---------- */
