@@ -106,6 +106,7 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
         <div className="live-row">
           <span className="live-badge"><span className="dot" /> Live now</span>
           <span className="hero-lotno">Drop #{parseInt(lot.lotNo, 10)}</span>
+          <span className="hero-watching"><span className="dot" /> {lot.watching} watching</span>
         </div>
         <h1 className="hero-title">{lot.title}</h1>
         <p className="hero-edition">Unique piece · 1 of 1 · never reprinted</p>
@@ -135,7 +136,6 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
         <div className="hero-cta">
           <a className="btn-primary" href="/">Enter live room <span aria-hidden="true">→</span></a>
         </div>
-        <span className="hero-watching"><span className="dot" /> {lot.watching} watching</span>
       </div>
 
       <div className="hero-art">
