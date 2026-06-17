@@ -135,6 +135,7 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
         <div className="hero-cta">
           <a className="btn-primary" href="/">Enter live room <span aria-hidden="true">→</span></a>
         </div>
+        <span className="hero-watching"><span className="dot" /> {lot.watching} watching</span>
       </div>
 
       <div className="hero-art">
@@ -144,7 +145,6 @@ export function Hero({ lot, currentBid, bids, bump, lotClosed, getCountdownTarge
             <img src={overlaySrc} alt={lot.title} className="hero-chest-art" />
           )}
         </div>
-        <span className="hero-watching"><span className="dot" /> {lot.watching} watching</span>
       </div>
     </section>
   );
