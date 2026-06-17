@@ -999,6 +999,7 @@ body.lots-page-body #root {
   .archive-scroll-area {
     flex: 1 1 auto;
     overflow-y: auto;
+    padding-top: 8px;
     padding-bottom: 80px;
   }
   .archive-scroll-area::-webkit-scrollbar { width: 6px; }
@@ -1022,6 +1023,7 @@ body.lots-page-body #root {
   .explanation-grid {
     flex: 1 1 auto;
     overflow-y: auto;
+    padding-top: 8px;
     padding-bottom: 40px;
   }
   .explanation-grid::-webkit-scrollbar { width: 6px; }
