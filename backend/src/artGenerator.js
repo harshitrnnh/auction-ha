@@ -396,25 +396,89 @@ export async function generateDailyArtwork(lotNumber) {
         });
 
     const systemInstruction = `
-========================================
-SERIES BIBLE — FIELD NOTES FROM THE DAY
-===========================================
+================================================================================
+SERIES BIBLE — CUTE COHESIVE AI-SLOP MEGA-CREATURE MASCOT FOR T-SHIRTS
+================================================================================
 
-This artwork series is a long-running collectible visual archive.
+Your task is to transform every concept, event, person, object, trend, historical reference, scientific discovery, geopolitical event, sports story, cultural signal, or news item into a single connected cute AI-slop mega-creature suitable for printing on a T-shirt.
 
-Every artwork belongs to the same universe.
-Every artwork should be immediately recognizable as part of the collection.
-The subject matter changes daily, but the visual language does not.
-The goal is recognizable evolution within a stable visual identity.
+============================================================
+CORE PRINCIPLE
+============================================================
+- Never visualize events literally.
+- Instead, convert every concept into an absurd chain of cute morphing objects and creatures.
+- The final artwork should feel like an AI-generated mascot from an alternate universe that accidentally absorbed all the day's information.
 
-========================================
-COMPOSITION & ARTWORK ARCHITECTURE
-========================================
+============================================================
+VISUAL STYLE
+============================================================
+- Cute, Cartoon-like, Toy-like, Kawaii, Whimsical, Playful, Strange, Viral.
+- Hyper-detailed, Internet-maximalist, AI-slop aesthetic.
+- Collectible vinyl toy aesthetic, Sticker-pack aesthetic, Fantasy mascot aesthetic.
 
-- The artwork must be a complete vertical visual composition with a 3:4 aspect ratio, generated on a plain solid black background.
-- NO TEXT OF ANY KIND: The generated image must contain absolutely NO text, NO words, NO letters, NO numbers, NO labels, and NO characters of any kind. The entire image must be purely visual artwork. Do NOT print the date, edition number, title, headers, or any other text inside the image.
-- Absolutely NO borders, NO framing lines, NO background grids, NO frames, NO cartographic borders, and NO border decorations around the artwork or canvas.
-- **SIGNALS INTEGRATION REQUIREMENT**: You must select a minimum of 5 daily signals to incorporate into the central graphic and list in the metadata. Each of these selected signals must come from a completely different category. The 6 categories are:
+============================================================
+BACKGROUND RULES
+============================================================
+- Solid 100% pitch-black background (hex #000000).
+- Absolutely NO scenery, NO landscapes, NO environments.
+- Absolutely NO poster layouts, NO editorial layouts.
+- Absolutely NO borders, NO frames, NO background grids.
+- Absolutely NO text, NO labels, NO typography, NO letters, NO numbers, NO logos.
+- The artwork should appear as a single isolated graphic floating on black.
+
+============================================================
+ENTITY RULES
+============================================================
+- The artwork does NOT need to have one central or dominant element.
+- Instead, each element should blend surrealistically and morph seamlessly into the next, forming a weird, continuous morphing chain or network of cute characters, mascots, and objects.
+- The entire composition must read as a single connected, morphing entity.
+- Nothing should float independently; every object and creature must physically connect to, flow out of, or morph into adjacent elements, creating a unified surrealistic morphing collage.
+
+============================================================
+TRANSFORMATION RULES
+============================================================
+- Every concept must be translated into cute object chains.
+- Examples of transformation chains:
+    * warrior → horse → river → ribbon → dragon
+    * soccer → soccer ball → planet → fish → bubble
+    * lottery → ticket → butterfly → flower → cloud
+    * technology → controller → octopus → cable → noodle
+    * music → soundwave → rainbow ribbon → dragon tail
+    * community care → trash bag → cocoon → nest → shelter
+    * historical event → mascot creature → toy → animal → fantasy object
+- Never leave concepts as literal representations. Everything should transform.
+
+============================================================
+RECURSIVE DETAIL RULES
+============================================================
+- Every object contains: smaller creatures, hidden faces, hidden worlds, tiny vehicles, miniature architecture, tiny mascots, tiny food items, tiny planets, tiny bubbles.
+- Every large form contains additional discoveries. Every discovery contains additional discoveries.
+- The image should reward infinite zooming.
+
+============================================================
+AI-SLOP DENSITY RULES
+============================================================
+- Prioritize: impossible transformations, visual abundance, nested worlds, recursive creatures, absurd combinations, excessive detail, toy-store energy, internet-core aesthetics, dopamine-maximalism.
+- Avoid: clean symbolism, minimalism, conceptual restraint, elegant composition, visual hierarchy.
+- The image should feel like the model could not stop adding details.
+
+============================================================
+CHARACTER DESIGN RULES
+============================================================
+- All creatures should be cute, expressive, emotionally readable, funny, slightly confused, and slightly magical.
+- Large eyes are encouraged. Rounded forms are encouraged. Smiling expressions are encouraged.
+
+============================================================
+COLOR RULES
+============================================================
+- Use vibrant colorful gradients.
+- Prefer: neon pink, electric cyan, candy yellow, mint green, lavender purple, holographic rainbow gradients, pearlescent highlights, translucent bubble materials.
+- The image should feel like a premium toy or mascot.
+
+============================================================
+SIGNALS INTEGRATION REQUIREMENT
+============================================================
+- You must select a minimum of 5 daily signals to incorporate into the central graphic and list in the metadata. Each of these selected signals must come from a completely different category. The 6 categories are:
     1. Weird News: Contains 'upi_weird_news' and 'oddity_central'.
     2. Global Attention: Contains 'top_wikipedia'.
     3. Positive News: Contains 'positive_news' and 'optimist_daily'.
@@ -422,37 +486,33 @@ COMPOSITION & ARTWORK ARCHITECTURE
     5. Cultural Resonance: Contains 'top_song'.
     6. Historical Lens: Contains 'wikipedia_on_this_day'.
   You must select at most 1 signal per category, selecting from at least 5 different categories.
-- The structure of the visual artwork is as follows:
-  - CENTRAL ARTWORK: A large, perfectly centered, highly surrealist and dream-like graphic, drawn in white and light-silver line art on the solid black background, occupying the entire composition.
-  - **CRITICAL - ONE CONNECTED SEAMLESS SURREALIST ENTITY**: The graphic must be ONE SINGLE, unified, connected, seamless, surrealist entity. Absolutely no elements, details, lines, shapes, particles, or visual components of any kind are to exist outside of this single connected entity.
-  - **NO EXTRA ELEMENTS**: The entire graphic must form a single, unified, continuous structure. There must be no floating, isolated, or separate objects, elements, or details anywhere in the image. If any detail represents a signal, it must be physically connected to and morphing into/out of the main body of this single entity.
-  - **SEAMLESS MORPHING**: All elements representing the 5+ selected categories must physically morph, dissolve, and flow out of one another as a single continuous form. Avoid placing separate elements on top of or next to each other.
 
-========================================
-FIXED VISUAL LANGUAGE (CRITICAL)
-========================================
+============================================================
+FIXED VISUAL LANGUAGE & ESTHETICS (CRITICAL)
+============================================================
 
 Every artwork must strictly adhere to the following visual constraints:
-- 100% MONOCHROME: Only white and light-silver linework on a plain solid 100% pitch-black background. Absolutely NO other colors (no green, no yellow, no blue, no red, no grey tones, no color gradients).
-- SOLID PITCH-BLACK CANVAS: The entire canvas/background must be completely and uniformly black. Absolutely NO white banners, NO white background strips, NO grey boxes, NO white panels, and NO highlighted containers.
-- Vector illustration aesthetic, crisp clean lines, high contrast, strong silhouette, graphic clarity, clean negative space.
-- Allowed mark-making: contour lines, crosshatching, stippling, engraved linework.
-- STRICTLY FORBIDDEN: Any colors (such as green, yellow, or blue), painterly rendering, color gradients, soft airbrushing, cinematic lighting, photographic realism, 3D rendering, or glossy/watercolor/oil effects.
+- CUTE CARTOON ILLUSTRATION AESTHETIC: The style is a whimsical, playful 2D digital vector cartoon illustration or doodle graphic. It must have entirely flat color fills with absolutely NO gradients, NO 3D shading, and NO lighting effects. Bold, clean, crisp black ink outlines must encircle every single character, mascot, object, and nested detail, giving it a classic clean cartoon line-art finish.
+- NO STICKER OUTLINES: Absolutely NO external white border, NO thick white outline, and NO sticker cutlines around the creature. The outer edges of the creature must blend cleanly and directly into the solid black background.
+- SMILING FACES ON EVERYTHING: Every single creature, animal, character, and INANIMATE OBJECT (like cups, sacks, lottery tickets, balls, planets, game controllers, stars) must have big shiny black expressive cartoon eyes, blushing pink cheeks, and a happy goofy smile.
+- COLOR PALETTE: Saturated pastel and vibrant pop colors (such as candy yellow, soft pink, electric cyan, mint green, lavender purple). All colors must be applied as completely flat, solid fills with NO gradients, NO shadows, and NO highlights.
+- SOLID PITCH-BLACK CANVAS: The entire background/canvas must be 100% solid pitch-black (hex #000000). There must be no gradients or patterns in the background, only solid black, so it can be printed on a t-shirt directly.
+- STRICTLY FORBIDDEN: Monochrome art, black and white only, photographic realism, scary/gothic/dark elements, thin sketchy lines, text/letters, background scenery/landscapes, color gradients, shadows, 3D clay/plastic rendering, or a non-black background.
 
-========================================
+============================================================
 OUTPUT FORMAT
-=============
+============================================================
 
 Return a JSON object with this exact structure:
 
 {
   "date": "YYYY-MM-DD",
-  "data_signals_used": ["A detailed list of at least 5 daily signals selected from the daily run. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', or 'Wikipedia On this Day' (do NOT use category names like 'Positive News' or generic names like 'Daily News' or 'Wikipedia' or 'Future Prediction'). Ensure each signal is from a completely different category (maximum 1 per category, across at least 5 of the 6 defined categories)."],
+  "data_signals_used": ["A detailed list of at least 5 daily signals selected from the daily run. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', or 'Wikipedia On this Day'. Ensure each signal is from a completely different category (maximum 1 per category, across at least 5 of the 6 defined categories)."],
   "data_signals_used_summarized": ["A summarized list of the selected signals, using exactly 3-4 words per signal, formatted as a clear and parsable list of strings."],
   "essence": "A brief sentence summarizing the thematic essence of the day.",
-  "title": "A surrealist title of 3-4 words maximum.",
-  "image_prompt": "Highly detailed prompt to generate the complete visual artwork in a vertical 3:4 ratio. The prompt MUST start with: 'Strictly monochrome black and white line art on a 100% solid pitch-black background. Absolutely no color, no green, no yellow, no red, no blue. Absolutely NO text, NO letters, NO words, NO labels, and NO numbers of any kind in the entire image. The entire image is pure visual artwork on a solid pitch-black canvas.' Following this, the prompt must detail the single, large, highly integrated, seamless, surrealist central graphic with absolutely no elements outside of this single connected entity. The entire artwork must be one connected, seamless, surrealist entity drawn in white and light-silver line art, with absolutely no elements, floating details, or shapes outside of this connected entity. Describe how the 5+ selected daily signals from different categories seamlessly morph and fuse into this single continuous composite entity, flowing out of one another, with absolutely NO separate elements placed next to each other, and absolutely NO borders, NO frames, or NO framing lines around the graphic or the canvas. The entire background of the image must be a uniform, continuous, solid pitch-black background. All graphics must be rendered directly on this continuous black background.",
-  "interpretive_statement": "A paragraph explaining the artwork's concept. In this statement, you MUST mention the 5 selected daily signals clearly (including their specific news headlines, song titles, probabilities, or historical events) and then explain how they are fused into the unified art statement that formed the visual artwork."
+  "title": "A funny, cute title of 3-4 words maximum.",
+  "image_prompt": "Highly detailed prompt to generate the complete visual artwork in a vertical 3:4 ratio. The prompt MUST start with: 'An isolated single cute AI-slop morphing artwork on a 100% solid pitch-black background. 2D vector cartoon illustration style, flat color fills, absolutely NO color gradients, and NO shading. Bold, clean, crisp black outlines around every character, creature, and object. Absolutely NO external white borders, and NO sticker cutlines. Absolutely NO text, NO letters, NO words, NO numbers, NO logos, and NO borders in the entire image. The entire background is completely solid pitch-black.' Following this, the prompt must detail a continuous, weird, morphing chain or network of cute characters, mascots, and objects that surrealistically blend into one another (without a single dominant or central element). Describe the absurd chain of cute morphing objects and recursive creatures representing each of the 5+ daily news signals (e.g. how the news is transformed: e.g. a warrior signal morphed into a cute dragon, which morphs into a vinyl record, which morphs into a singing star). The prompt must emphasize infinite visual abundance, recursive creatures, nested worlds inside the forms (like tiny smiling faces, food items, bubbles, planets, or vehicles), flat pop/pastel colors with no shading or highlights (using solid pink, cyan, purple, mint green, and yellow), and large goofy smiling eyes on everything. The entire background must be pure solid black.",
+  "interpretive_statement": "A paragraph explaining the artwork's concept. Explain how the 5 selected daily signals were transformed through cute object chains into the unified mega-creature."
 }
 `;
 
@@ -543,45 +603,105 @@ export async function generatePromptFromSignals(selectedSignals, lotNumber) {
   const dateString = formatter.format(today);
 
   const systemInstruction = `
-========================================
-SERIES BIBLE — FIELD NOTES FROM THE DAY
-===========================================
+================================================================================
+SERIES BIBLE — CUTE COHESIVE AI-SLOP MEGA-CREATURE MASCOT FOR T-SHIRTS
+================================================================================
 
-This artwork series is a long-running collectible visual archive.
+Your task is to transform every concept, event, person, object, trend, historical reference, scientific discovery, geopolitical event, sports story, cultural signal, or news item into a single connected cute AI-slop mega-creature suitable for printing on a T-shirt.
 
-Every artwork belongs to the same universe.
-Every artwork should be immediately recognizable as part of the collection.
-The subject matter changes daily, but the visual language does not.
-The goal is recognizable evolution within a stable visual identity.
+============================================================
+CORE PRINCIPLE
+============================================================
+- Never visualize events literally.
+- Instead, convert every concept into an absurd chain of cute morphing objects and creatures.
+- The final artwork should feel like an AI-generated mascot from an alternate universe that accidentally absorbed all the day's information.
 
-========================================
-COMPOSITION & ARTWORK ARCHITECTURE
-========================================
+============================================================
+VISUAL STYLE
+============================================================
+- Cute, Cartoon-like, Toy-like, Kawaii, Whimsical, Playful, Strange, Viral.
+- Hyper-detailed, Internet-maximalist, AI-slop aesthetic.
+- Collectible vinyl toy aesthetic, Sticker-pack aesthetic, Fantasy mascot aesthetic.
 
-- The artwork must be a complete vertical visual composition with a 3:4 aspect ratio, generated on a plain solid black background.
-- NO TEXT OF ANY KIND: The generated image must contain absolutely NO text, NO words, NO letters, NO numbers, NO labels, and NO characters of any kind. The entire image must be purely visual artwork. Do NOT print the date, edition number, title, headers, or any other text inside the image.
-- Absolutely NO borders, NO framing lines, NO background grids, NO frames, NO cartographic borders, and NO border decorations around the artwork or canvas.
-- **SIGNALS INTEGRATION REQUIREMENT**: You must incorporate the provided selected signals of the day into the central graphic and list them in the metadata.
-- The structure of the visual artwork is as follows:
-  - CENTRAL ARTWORK: A large, perfectly centered, highly surrealist and dream-like graphic, drawn in white and light-silver line art on the solid black background, occupying the entire composition.
-  - **CRITICAL - ONE CONNECTED SEAMLESS SURREALIST ENTITY**: The graphic must be ONE SINGLE, unified, connected, seamless, surrealist entity. Absolutely no elements, details, lines, shapes, particles, or visual components of any kind are to exist outside of this single connected entity.
-  - **NO EXTRA ELEMENTS**: The entire graphic must form a single, unified, continuous structure. There must be no floating, isolated, or separate objects, elements, or details anywhere in the image. If any detail represents a signal, it must be physically connected to and morphing into/out of the main body of this single entity.
-  - **SEAMLESS MORPHING**: All elements representing the selected categories must physically morph, dissolve, and flow out of one another as a single continuous form. Avoid placing separate elements on top of or next to each other.
+============================================================
+BACKGROUND RULES
+============================================================
+- Solid 100% pitch-black background (hex #000000).
+- Absolutely NO scenery, NO landscapes, NO environments.
+- Absolutely NO poster layouts, NO editorial layouts.
+- Absolutely NO borders, NO frames, NO background grids.
+- Absolutely NO text, NO labels, NO typography, NO letters, NO numbers, NO logos.
+- The artwork should appear as a single isolated graphic floating on black.
 
-========================================
-FIXED VISUAL LANGUAGE (CRITICAL)
-========================================
+============================================================
+ENTITY RULES
+============================================================
+- The artwork does NOT need to have one central or dominant element.
+- Instead, each element should blend surrealistically and morph seamlessly into the next, forming a weird, continuous morphing chain or network of cute characters, mascots, and objects.
+- The entire composition must read as a single connected, morphing entity.
+- Nothing should float independently; every object and creature must physically connect to, flow out of, or morph into adjacent elements, creating a unified surrealistic morphing collage.
+
+============================================================
+TRANSFORMATION RULES
+============================================================
+- Every concept must be translated into cute object chains.
+- Examples of transformation chains:
+    * warrior → horse → river → ribbon → dragon
+    * soccer → soccer ball → planet → fish → bubble
+    * lottery → ticket → butterfly → flower → cloud
+    * technology → controller → octopus → cable → noodle
+    * music → soundwave → rainbow ribbon → dragon tail
+    * community care → trash bag → cocoon → nest → shelter
+    * historical event → mascot creature → toy → animal → fantasy object
+- Never leave concepts as literal representations. Everything should transform.
+
+============================================================
+RECURSIVE DETAIL RULES
+============================================================
+- Every object contains: smaller creatures, hidden faces, hidden worlds, tiny vehicles, miniature architecture, tiny mascots, tiny food items, tiny planets, tiny bubbles.
+- Every large form contains additional discoveries. Every discovery contains additional discoveries.
+- The image should reward infinite zooming.
+
+============================================================
+AI-SLOP DENSITY RULES
+============================================================
+- Prioritize: impossible transformations, visual abundance, nested worlds, recursive creatures, absurd combinations, excessive detail, toy-store energy, internet-core aesthetics, dopamine-maximalism.
+- Avoid: clean symbolism, minimalism, conceptual restraint, elegant composition, visual hierarchy.
+- The image should feel like the model could not stop adding details.
+
+============================================================
+CHARACTER DESIGN RULES
+============================================================
+- All creatures should be cute, expressive, emotionally readable, funny, slightly confused, and slightly magical.
+- Large eyes are encouraged. Rounded forms are encouraged. Smiling expressions are encouraged.
+
+============================================================
+COLOR RULES
+============================================================
+- Use vibrant colorful gradients.
+- Prefer: neon pink, electric cyan, candy yellow, mint green, lavender purple, holographic rainbow gradients, pearlescent highlights, translucent bubble materials.
+- The image should feel like a premium toy or mascot.
+
+============================================================
+SIGNALS INTEGRATION REQUIREMENT
+============================================================
+- You must incorporate the provided selected signals of the day into the central graphic and list them in the metadata.
+
+============================================================
+FIXED VISUAL LANGUAGE & ESTHETICS (CRITICAL)
+============================================================
 
 Every artwork must strictly adhere to the following visual constraints:
-- 100% MONOCHROME: Only white and light-silver linework on a plain solid 100% pitch-black background. Absolutely NO other colors (no green, no yellow, no blue, no red, no grey tones, no color gradients).
-- SOLID PITCH-BLACK CANVAS: The entire canvas/background must be completely and uniformly black. Absolutely NO white banners, NO white background strips, NO grey boxes, NO white panels, and NO highlighted containers.
-- Vector illustration aesthetic, crisp clean lines, high contrast, strong silhouette, graphic clarity, clean negative space.
-- Allowed mark-making: contour lines, crosshatching, stippling, engraved linework.
-- STRICTLY FORBIDDEN: Any colors (such as green, yellow, or blue), painterly rendering, color gradients, soft airbrushing, cinematic lighting, photographic realism, 3D rendering, or glossy/watercolor/oil effects.
+- CUTE CARTOON ILLUSTRATION AESTHETIC: The style is a whimsical, playful 2D digital vector cartoon illustration or doodle graphic. It must have entirely flat color fills with absolutely NO gradients, NO 3D shading, and NO lighting effects. Bold, clean, crisp black ink outlines must encircle every single character, mascot, object, and nested detail, giving it a classic clean cartoon line-art finish.
+- NO STICKER OUTLINES: Absolutely NO external white border, NO thick white outline, and NO sticker cutlines around the creature. The outer edges of the creature must blend cleanly and directly into the solid black background.
+- SMILING FACES ON EVERYTHING: Every single creature, animal, character, and INANIMATE OBJECT (like cups, sacks, lottery tickets, balls, planets, game controllers, stars) must have big shiny black expressive cartoon eyes, blushing pink cheeks, and a happy goofy smile.
+- COLOR PALETTE: Saturated pastel and vibrant pop colors (such as candy yellow, soft pink, electric cyan, mint green, lavender purple). All colors must be applied as completely flat, solid fills with NO gradients, NO shadows, and NO highlights.
+- SOLID PITCH-BLACK CANVAS: The entire background/canvas must be 100% solid pitch-black (hex #000000). There must be no gradients or patterns in the background, only solid black, so it can be printed on a t-shirt directly.
+- STRICTLY FORBIDDEN: Monochrome art, black and white only, photographic realism, scary/gothic/dark elements, thin sketchy lines, text/letters, background scenery/landscapes, color gradients, shadows, 3D clay/plastic rendering, or a non-black background.
 
-========================================
+============================================================
 OUTPUT FORMAT
-=============
+============================================================
 
 Return a JSON object with this exact structure:
 
@@ -590,9 +710,9 @@ Return a JSON object with this exact structure:
   "data_signals_used": ["A detailed list of the selected signals. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', or 'Wikipedia On this Day'."],
   "data_signals_used_summarized": ["A summarized list of the selected signals, using exactly 3-4 words per signal, formatted as a clear and parsable list of strings."],
   "essence": "A brief sentence summarizing the thematic essence of the day.",
-  "title": "A surrealist title of 3-4 words maximum.",
-  "image_prompt": "Highly detailed prompt to generate the complete visual artwork in a vertical 3:4 ratio. The prompt MUST start with: 'Strictly monochrome black and white line art on a 100% solid pitch-black background. Absolutely no color, no green, no yellow, no red, no blue. Absolutely NO text, NO letters, NO words, NO labels, and NO numbers of any kind in the entire image. The entire image is pure visual artwork on a solid pitch-black canvas.' Following this, the prompt must detail the single, large, highly integrated, seamless, surrealist central graphic with absolutely no elements outside of this single connected entity. The entire artwork must be one connected, seamless, surrealist entity drawn in white and light-silver line art, with absolutely no elements, floating details, or shapes outside of this connected entity. Describe how the selected daily signals seamlessly morph and fuse into this single continuous composite entity, flowing out of one another, with absolutely NO separate elements placed next to each other, and absolutely NO borders, NO frames, or NO framing lines around the graphic or the canvas. The entire background of the image must be a uniform, continuous, solid pitch-black background. All graphics must be rendered directly on this continuous black background.",
-  "interpretive_statement": "A paragraph explaining the artwork's concept. In this statement, you MUST mention the selected daily signals clearly (including their specific news headlines, song titles, probabilities, or historical events) and then explain how they are fused into the unified art statement that formed the visual artwork."
+  "title": "A funny, cute title of 3-4 words maximum.",
+  "image_prompt": "Highly detailed prompt to generate the complete visual artwork in a vertical 3:4 ratio. The prompt MUST start with: 'An isolated single cute AI-slop morphing artwork on a 100% solid pitch-black background. 2D vector cartoon illustration style, flat color fills, absolutely NO color gradients, and NO shading. Bold, clean, crisp black outlines around every character, creature, and object. Absolutely NO external white borders, and NO sticker cutlines. Absolutely NO text, NO letters, NO words, NO numbers, NO logos, and NO borders in the entire image. The entire background is completely solid pitch-black.' Following this, the prompt must detail a continuous, weird, morphing chain or network of cute characters, mascots, and objects that surrealistically blend into one another (without a single dominant or central element). Describe the absurd chain of cute morphing objects and recursive creatures representing each of the 5+ daily news signals (e.g. how the news is transformed: e.g. a warrior signal morphed into a cute dragon, which morphs into a vinyl record, which morphs into a singing star). The prompt must emphasize infinite visual abundance, recursive creatures, nested worlds inside the forms (like tiny smiling faces, food items, bubbles, planets, or vehicles), flat pop/pastel colors with no shading or highlights (using solid pink, cyan, purple, mint green, and yellow), and large goofy smiling eyes on everything. The entire background must be pure solid black.",
+  "interpretive_statement": "A paragraph explaining the artwork's concept. Explain how the 5 selected daily signals were transformed through cute object chains into the unified mega-creature."
 }
 `;
 
