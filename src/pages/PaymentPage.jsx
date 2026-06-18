@@ -110,7 +110,9 @@ export default function PaymentPage() {
           l.currentPayeeId !== user?.id ||
           !l.paymentStatus?.startsWith('pending_')
         ) {
-          setPageError('No pending payment found for your account.');
+          const hadBid = data.myBid !== null;
+          const windowPassed = l.status === 'closed' && hadBid && l.currentPayeeId !== user?.id;
+          setPageError(windowPassed ? 'window_missed' : 'no_payment');
           setLoading(false);
           return;
         }
@@ -266,6 +268,7 @@ export default function PaymentPage() {
   }
 
   if (pageError) {
+    const missedWindow = pageError === 'window_missed';
     return (
       <div className="account-page">
         <div className="auth-bg"><div className="auth-nebula-a" /><div className="auth-nebula-b" /></div>
@@ -274,9 +277,15 @@ export default function PaymentPage() {
             <button className="account-back" onClick={() => navigate('/')}>← Back</button>
           </div>
           <div className="account-empty">
-            <div className="account-empty-icon">🔒</div>
-            <div className="account-empty-text">{pageError}</div>
-            <div className="account-empty-sub">No active payment window found for your account.</div>
+            <div className="account-empty-icon">{missedWindow ? '⏰' : '🔒'}</div>
+            <div className="account-empty-text">
+              {missedWindow ? 'You missed your payment window.' : 'No active payment found.'}
+            </div>
+            <div className="account-empty-sub">
+              {missedWindow
+                ? 'Your 2-hour window to complete payment has closed. The lot has been offered to the next bidder in line.'
+                : 'No active payment window found for your account.'}
+            </div>
             <button className="celebration-pay-btn" style={{ marginTop: '20px' }} onClick={() => navigate('/')}>Back to Auction</button>
           </div>
         </div>
@@ -381,7 +390,7 @@ export default function PaymentPage() {
               </div>
               {expired && (
                 <p style={{ fontSize: '12px', color: '#ff6b7d', margin: '8px 0 0', textAlign: 'center' }}>
-                  Your payment window has closed. The opportunity has been passed on.
+                  Your 2-hour window has closed. The lot has been offered to the next bidder in line.
                 </p>
               )}
             </div>

@@ -146,6 +146,12 @@ async function closeActiveLot() {
   if (distinctBidders.length > 1 && distinctBidders[1].email) {
     await sendSecondPlaceEmail(distinctBidders[1], activeLot);
   }
+  if (distinctBidders.length > 2 && distinctBidders[2].email) {
+    await sendThirdPlaceEmail(distinctBidders[2], activeLot);
+  }
+  for (const bidder of distinctBidders.slice(3)) {
+    if (bidder.email) await sendBetterLuckEmail(bidder, activeLot);
+  }
 
   // Auto-start next lot after 6-hour gap
   scheduleNextLot(AUTO_RESTART_DELAY_MS);
@@ -313,7 +319,7 @@ Winning Bid: ₹${amount.toLocaleString('en-IN')} · Pay within 2 hours
 
   try {
     await resend.emails.send({
-      from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
+      from: 'Oxide Auction <no-reply@oxide.chemicalfarmers.com>',
       to: email,
       subject: `You won today's auction! 🏆`,
       html: emailWrapper(`
@@ -369,7 +375,7 @@ The top bidder has 2 hours to pay. You'll be notified if the opportunity shifts.
 
   try {
     await resend.emails.send({
-      from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
+      from: 'Oxide Auction <no-reply@oxide.chemicalfarmers.com>',
       to: email,
       subject: `You almost had it! ⚡`,
       html: emailWrapper(`
@@ -399,6 +405,100 @@ The top bidder has 2 hours to pay. You'll be notified if the opportunity shifts.
   }
 }
 
+async function sendThirdPlaceEmail(bidder, lot) {
+  const { name, email } = bidder;
+  const title = getLotTitle(lot);
+  const no = lotNo(lot);
+  const appUrl = getAppUrl();
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`
+============================================================
+[Email Mock] 3rd Place: ${name} (${email})
+Subject: You're 3rd in line — "${title}" · Lot #${no}
+Both top bidders have 2 hours each to pay. You'll be notified if the opportunity reaches you.
+============================================================
+    `);
+    return;
+  }
+
+  try {
+    await resend.emails.send({
+      from: 'Oxide Auction <no-reply@oxide.chemicalfarmers.com>',
+      to: email,
+      subject: `You're 3rd in line for today's drop`,
+      html: emailWrapper(`
+        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 20px;">You're 3rd in line, ${escHtml(name)}.</h2>
+        <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">You were the 3rd highest bidder on today's drop.</p>
+        ${productImageBlock(lot)}
+        <div style="margin-bottom: 4px;">
+          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${escHtml(title)}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${escHtml(lot.artist)}</div>` : ''}
+          <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
+            Lot #${no} · Edition 1/1
+          </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 16px; margin: 20px 0; line-height: 1.7;">
+          <p style="font-size: 14px; color: #b9b6c4; margin: 0 0 10px;">
+            The top two bidders each have a <strong style="color: #f4f1ea;">2-hour window</strong> to complete their payment — in order.
+          </p>
+          <p style="font-size: 14px; color: #b9b6c4; margin: 0;">
+            If neither of them pays, this drop comes to you. We'll send you a payment link the moment that happens — keep an eye on your inbox.
+          </p>
+        </div>
+        ${appUrl ? ctaButton('View Auction', appUrl, '#b9b6c4') : ''}
+      `),
+    });
+  } catch (err) {
+    console.error('[Scheduler] Error sending 3rd place email:', err);
+  }
+}
+
+async function sendBetterLuckEmail(bidder, lot) {
+  const { name, email } = bidder;
+  const title = getLotTitle(lot);
+  const no = lotNo(lot);
+  const appUrl = getAppUrl();
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`
+============================================================
+[Email Mock] Better Luck: ${name} (${email})
+Subject: Better luck next time — "${title}" · Lot #${no}
+============================================================
+    `);
+    return;
+  }
+
+  try {
+    await resend.emails.send({
+      from: 'Oxide Auction <no-reply@oxide.chemicalfarmers.com>',
+      to: email,
+      subject: `Better luck next time`,
+      html: emailWrapper(`
+        <h2 style="color: #e6c27e; margin: 0 0 4px; font-size: 20px;">Better luck next time, ${escHtml(name)}.</h2>
+        <p style="font-size: 13px; color: #7d7a8c; margin: 0 0 20px;">Today's auction has ended and the top three bidders have first claim on this drop.</p>
+        ${productImageBlock(lot)}
+        <div style="margin-bottom: 4px;">
+          <div style="font-size: 18px; font-weight: 700; color: #f4f1ea; line-height: 1.3;">${escHtml(title)}</div>
+          ${lot.artist ? `<div style="font-size: 13px; color: #7d7a8c; margin-top: 2px;">by ${escHtml(lot.artist)}</div>` : ''}
+          <div style="font-size: 11px; color: #4d4a5c; margin-top: 4px; font-family: monospace; letter-spacing: 0.06em;">
+            Lot #${no} · Edition 1/1
+          </div>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 16px; margin: 20px 0; line-height: 1.7;">
+          <p style="font-size: 14px; color: #b9b6c4; margin: 0;">
+            A new drop goes live every day. Show up early, bid strong — the next one is yours to win.
+          </p>
+        </div>
+        ${appUrl ? ctaButton('See Tomorrow\'s Drop', appUrl, '#b9b6c4') : ''}
+      `),
+    });
+  } catch (err) {
+    console.error('[Scheduler] Error sending better luck email:', err);
+  }
+}
+
 async function sendPaymentLinkEmail(bidder, lot, rank) {
   const { name, email, amount } = bidder;
   const title = getLotTitle(lot);
@@ -419,7 +519,7 @@ Previous bidder defaulted. You have 2 hours to pay ₹${amount.toLocaleString('e
 
   try {
     await resend.emails.send({
-      from: 'Oxide Auction <otp@oxide.chemicalfarmers.com>',
+      from: 'Oxide Auction <no-reply@oxide.chemicalfarmers.com>',
       to: email,
       subject: `Your opportunity to claim today's drop! 🏆`,
       html: emailWrapper(`
