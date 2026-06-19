@@ -132,9 +132,9 @@ function createBackCanvas(logoImage, lot, callback) {
     }
     lines.push(line.trim());
 
-    // Center the block vertically, but shifted slightly upwards (starting around y = 520)
+    // Center the block vertically, but shifted upwards to sit on the upper back
     const totalHeight = lines.length * lineHeight;
-    let currentY = Math.max(300, 600 - (totalHeight / 2) - 80);
+    let currentY = Math.max(200, 600 - (totalHeight / 2) - 220);
 
     for (let i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], 600, currentY);

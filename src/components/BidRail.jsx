@@ -315,6 +315,8 @@ export default function BidRail({ auction }) {
               source = 'Top Song';
             } else if (orig.includes('historical lens') || orig.includes('wikipedia_on_this_day') || orig.includes('wikipedia event') || orig.includes('historical') || orig.includes('history') || orig.includes('wikipedia on this day') || orig.includes('day') || orig.match(/^\d{3,4}:/)) {
               source = 'Wikipedia On this Day';
+            } else if (orig.includes('google_news') || orig.includes('google news')) {
+              source = 'Google News';
             }
             
             // 2. Define patterns to remove category prefixes
@@ -324,7 +326,8 @@ export default function BidRail({ auction }) {
               /^(positive\s*news|optimist_daily):\s*/i,
               /^(future\s*prediction|polymarket):\s*/i,
               /^(cultural\s*resonance|top_song|song):\s*/i,
-              /^(historical\s*lens|wikipedia_on_this_day|wikipedia\s*event):\s*/i
+              /^(historical\s*lens|wikipedia_on_this_day|wikipedia\s*event):\s*/i,
+              /^(google_news|google\s*news):\s*/i
             ];
             
             // 3. Define patterns to remove source prefixes
@@ -340,7 +343,8 @@ export default function BidRail({ auction }) {
               { pat: /^polymarket:\s*/i, src: 'Polymarket Trending' },
               { pat: /^polymarket\s*trending:\s*/i, src: 'Polymarket Trending' },
               { pat: /^top\s*song:\s*/i, src: 'Top Song' },
-              { pat: /^oddity\s*central:\s*/i, src: 'Oddity Central' }
+              { pat: /^oddity\s*central:\s*/i, src: 'Oddity Central' },
+              { pat: /^google\s*news:\s*/i, src: 'Google News' }
             ];
             
             // 4. Repeatedly strip category & source prefixes from the text until stable
