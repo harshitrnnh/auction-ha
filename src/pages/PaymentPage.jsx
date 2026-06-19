@@ -98,26 +98,30 @@ export default function PaymentPage() {
     if (!token) return;
     (async () => {
       try {
-        const r = await fetch(`${API}/api/lots/current`, {
+        const r = await fetch(`${API}/api/lots/my-payment`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Failed to load lot');
-
-        const l = data.lot;
-        if (
-          l.status !== 'closed' ||
-          l.currentPayeeId !== user?.id ||
-          !l.paymentStatus?.startsWith('pending_')
-        ) {
-          const hadBid = data.myBid !== null;
-          const windowPassed = l.status === 'closed' && hadBid && l.currentPayeeId !== user?.id;
-          setPageError(windowPassed ? 'window_missed' : 'no_payment');
+        if (!r.ok) {
+          // 404 means no pending payment — check if user had a bid on the last closed lot
+          // to decide between "missed window" and generic "no payment" message
+          if (r.status === 404) {
+            const fallback = await fetch(`${API}/api/lots/current`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const fallbackData = await fallback.json();
+            const l = fallbackData.lot;
+            const hadBid = fallbackData.myBid !== null;
+            const windowPassed = l?.status === 'closed' && hadBid && l?.currentPayeeId !== user?.id;
+            setPageError(windowPassed ? 'window_missed' : 'no_payment');
+          } else {
+            setPageError('no_payment');
+          }
           setLoading(false);
           return;
         }
-        setLot(l);
-        setMyBid(data.myBid ?? l.startingBid);
+        setLot(data.lot);
+        setMyBid(data.myBid ?? data.lot.startingBid);
       } catch (e) {
         setPageError(e.message);
       }

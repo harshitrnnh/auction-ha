@@ -80,6 +80,28 @@ router.get('/current', optionalAuth, async (req, res) => {
   });
 });
 
+/* GET /api/lots/my-payment — find the lot where the authenticated user is the current payee */
+router.get('/my-payment', requireAuth, async (req, res) => {
+  const lot = await prisma.lot.findFirst({
+    where: {
+      currentPayeeId: req.userId,
+      paymentStatus: { startsWith: 'pending_' },
+      status: 'closed',
+    },
+    orderBy: { lotNumber: 'desc' },
+  });
+  if (!lot) return res.status(404).json({ error: 'No pending payment found.' });
+
+  const bids = await prisma.bid.findMany({
+    where: { lotId: lot.id, userId: req.userId },
+    orderBy: { amount: 'desc' },
+    take: 1,
+  });
+  const myBid = bids[0]?.amount ?? lot.startingBid;
+
+  res.json({ lot, myBid });
+});
+
 /* POST /api/lots/create-razorpay-order */
 router.post('/create-razorpay-order', requireAuth, async (req, res) => {
   try {
