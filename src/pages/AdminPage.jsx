@@ -503,13 +503,22 @@ export default function AdminPage() {
     const group4 = (signals.polymarket || []).map(s => `Polymarket Trending: ${s.question} (${s.percentage}% probability)`);
     const group5 = (signals.top_song || []).map(s => `Top Song: ${s.title} by ${s.artist}`);
     const group6 = signals.wikipedia_on_this_day ? [`Wikipedia On this Day: In ${signals.wikipedia_on_this_day.year}, ${signals.wikipedia_on_this_day.event}`] : [];
+    const group7 = (signals.google_news || []).map(s => `Google News: ${s}`);
 
-    const groups = [group1, group2, group3, group4, group5, group6].filter(g => g.length > 0);
     const selected = [];
-    const shuffledGroups = [...groups].sort(() => 0.5 - Math.random());
-    const groupsToPick = shuffledGroups.slice(0, 5);
+
+    // Always pick 1 from Google News (group7) if it exists and has items
+    if (group7.length > 0) {
+      const randomGoogleNews = group7[Math.floor(Math.random() * group7.length)];
+      selected.push(randomGoogleNews);
+    }
+
+    // Pick exactly 4 other signals from 4 different groups (out of groups 1 to 6)
+    const otherGroups = [group1, group2, group3, group4, group5, group6].filter(g => g.length > 0);
+    const shuffledOther = [...otherGroups].sort(() => 0.5 - Math.random());
+    const pickedOther = shuffledOther.slice(0, 4);
     
-    groupsToPick.forEach(group => {
+    pickedOther.forEach(group => {
       const randomItem = group[Math.floor(Math.random() * group.length)];
       if (randomItem) selected.push(randomItem);
     });
@@ -1347,6 +1356,9 @@ export default function AdminPage() {
                                   } else if (categoryKey === 'wikipedia_on_this_day') {
                                     displayLabel = `In ${rawItem.year}: ${rawItem.event}`;
                                     stringVal = `Wikipedia On this Day: In ${rawItem.year}, ${rawItem.event}`;
+                                  } else if (categoryKey === 'google_news') {
+                                    displayLabel = rawItem;
+                                    stringVal = `Google News: ${rawItem}`;
                                   }
 
                                   const isChecked = selectedSignals.includes(stringVal);

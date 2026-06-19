@@ -63,6 +63,29 @@ async function fetchUpiOddNews() {
   return [];
 }
 
+async function fetchGoogleNews() {
+  try {
+    const res = await fetch('https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' }
+    });
+    if (res.ok) {
+      const xml = await res.text();
+      const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+      const news = [];
+      for (const item of items) {
+        const title = item.match(/<title>(.*?)<\/title>/)?.[1] || '';
+        if (title) {
+          news.push(cleanText(title));
+        }
+      }
+      return news.slice(0, 5);
+    }
+  } catch (e) {
+    console.log('[Data Collector - Google News] Fetch failed:', e.message);
+  }
+  return [];
+}
+
 async function fetchWikipediaPageviews(date) {
   try {
     const fetchWiki = async (offset) => {
@@ -257,6 +280,7 @@ export const collectDailyData = async (dateString) => {
   const upiOddNews = (await fetchUpiOddNews()).filter(item => !isExcluded(item));
   const oddityCentral = (await fetchOddityCentral()).filter(item => !isExcluded(item));
   const wikipediaPageviews = (await fetchWikipediaPageviews(dateString)).filter(item => !isExcluded(item));
+  const googleNews = (await fetchGoogleNews()).filter(item => !isExcluded(item));
   
   const positiveNewsRaw = await fetchPositiveNews();
   const positiveNews = positiveNewsRaw
@@ -294,7 +318,8 @@ export const collectDailyData = async (dateString) => {
       optimist_daily: optimistDaily,
       polymarket: polymarket,
       top_song: topSong,
-      wikipedia_on_this_day: wikipediaOnThisDay
+      wikipedia_on_this_day: wikipediaOnThisDay,
+      google_news: googleNews
     }
   };
 };
@@ -478,14 +503,15 @@ COLOR RULES
 ============================================================
 SIGNALS INTEGRATION REQUIREMENT
 ============================================================
-- You must select a minimum of 5 daily signals to incorporate into the central graphic and list in the metadata. Each of these selected signals must come from a completely different category. The 6 categories are:
+- You must select a minimum of 5 daily signals to incorporate into the central graphic and list in the metadata. Each of these selected signals must come from a completely different category. The 7 categories are:
     1. Weird News: Contains 'upi_weird_news' and 'oddity_central'.
     2. Global Attention: Contains 'top_wikipedia'.
     3. Positive News: Contains 'positive_news' and 'optimist_daily'.
     4. Future Prediction: Contains 'polymarket'.
     5. Cultural Resonance: Contains 'top_song'.
     6. Historical Lens: Contains 'wikipedia_on_this_day'.
-  You must select at most 1 signal per category, selecting from at least 5 different categories.
+    7. Top US News: Contains 'google_news'.
+  You must select exactly 1 signal from category 7 (google_news) and at least 4 signals from at least 4 of the other categories (1-6), selecting at most 1 signal per category.
 
 ============================================================
 FIXED VISUAL LANGUAGE & ESTHETICS (CRITICAL)
@@ -507,7 +533,7 @@ Return a JSON object with this exact structure:
 
 {
   "date": "YYYY-MM-DD",
-  "data_signals_used": ["A detailed list of at least 5 daily signals selected from the daily run. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', or 'Wikipedia On this Day'. Ensure each signal is from a completely different category (maximum 1 per category, across at least 5 of the 6 defined categories)."],
+  "data_signals_used": ["A detailed list of at least 5 daily signals selected from the daily run. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', 'Wikipedia On this Day', or 'Google News'. Ensure you include exactly 1 'Google News' signal and at least 4 other signals from different categories (maximum 1 per category, across at least 5 of the 7 defined categories)."],
   "data_signals_used_summarized": ["A summarized list of the selected signals, using exactly 3-4 words per signal, formatted as a clear and parsable list of strings."],
   "essence": "A brief sentence summarizing the thematic essence of the day.",
   "title": "A funny, cute title of 3-4 words maximum.",
@@ -707,7 +733,7 @@ Return a JSON object with this exact structure:
 
 {
   "date": "YYYY-MM-DD",
-  "data_signals_used": ["A detailed list of the selected signals. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', or 'Wikipedia On this Day'."],
+  "data_signals_used": ["A detailed list of the selected signals. For each signal, format it as 'Source Name: specific details' (e.g. 'UPI Weird News: Man solves two Rubik\\'s cubes...'). The Source Name MUST be one of: 'UPI Weird News', 'Oddity Central', 'Wikipedia Top Search', 'Optimist Daily', 'Good News Network', 'Polymarket Trending', 'Top Song', 'Wikipedia On this Day', or 'Google News'."],
   "data_signals_used_summarized": ["A summarized list of the selected signals, using exactly 3-4 words per signal, formatted as a clear and parsable list of strings."],
   "essence": "A brief sentence summarizing the thematic essence of the day.",
   "title": "A funny, cute title of 3-4 words maximum.",
