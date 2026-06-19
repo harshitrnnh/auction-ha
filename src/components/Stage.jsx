@@ -97,73 +97,52 @@ function createBackCanvas(logoImage, lot, callback) {
     } catch (e) {}
   }
 
-  const lotNo = lot?.lotNumber != null 
-    ? (lot.lotNumber < 0 ? 'Old ' + Math.abs(lot.lotNumber) : String(lot.lotNumber).padStart(3, '0')) 
-    : (lot?.lotNo ? String(lot.lotNo).padStart(3, '0') : '001');
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 1200;
+  const ctx = canvas.getContext('2d');
 
-  const lotDate = lot?.startsAt 
-    ? new Date(lot.startsAt).toLocaleDateString('en-GB') 
-    : new Date().toLocaleDateString('en-GB');
+  // Transparent background
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.src = logoImage;
-  img.onload = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 1200;
-    const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
 
-    // Transparent background
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Summarized signals
+  if (signalsSummarized.length > 0) {
+    ctx.font = '27px Georgia, serif';
+    const signalsText = signalsSummarized.join('   •   ');
+    
+    const words = signalsText.split(' ');
+    let line = '';
+    const lines = [];
+    const maxWidth = 720;
+    const lineHeight = 42;
 
-    const logoSize = 345;
-    ctx.drawImage(img, (1200 - logoSize) / 2, 140, logoSize, logoSize);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-
-    // Lot number and Date
-    ctx.font = '34px Georgia, serif';
-    ctx.fillText(`LOT NO. ${lotNo}`, 600, 560);
-    ctx.fillText(`DATE - ${lotDate}`, 600, 608);
-
-    // Summarized signals
-    if (signalsSummarized.length > 0) {
-      ctx.font = '27px Georgia, serif';
-      const signalsText = signalsSummarized.join('   •   ');
-      
-      const words = signalsText.split(' ');
-      let line = '';
-      const lines = [];
-      const maxWidth = 720;
-      const lineHeight = 38;
-
-      for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
-          lines.push(line.trim());
-          line = words[n] + ' ';
-        } else {
-          line = testLine;
-        }
-      }
-      lines.push(line.trim());
-
-      let currentY = 680;
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], 600, currentY);
-        currentY += lineHeight;
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = ctx.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        lines.push(line.trim());
+        line = words[n] + ' ';
+      } else {
+        line = testLine;
       }
     }
+    lines.push(line.trim());
 
-    callback(canvas);
-  };
-  img.onerror = () => {
-    callback(null);
-  };
+    // Center the block vertically, but shifted slightly upwards (starting around y = 520)
+    const totalHeight = lines.length * lineHeight;
+    let currentY = Math.max(300, 600 - (totalHeight / 2) - 80);
+
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], 600, currentY);
+      currentY += lineHeight;
+    }
+  }
+
+  setTimeout(() => callback(canvas), 0);
 }
 
 const clampZoom = (z) => Math.max(0.6, Math.min(2.2, z));
