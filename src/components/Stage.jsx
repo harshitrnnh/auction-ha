@@ -99,7 +99,7 @@ function createBackCanvas(logoImage, lot, callback) {
 
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
-  canvas.height = 1200;
+  canvas.height = 1600;
   const ctx = canvas.getContext('2d');
 
   // Transparent background
@@ -134,7 +134,7 @@ function createBackCanvas(logoImage, lot, callback) {
 
     // Center the block vertically, but shifted upwards to sit on the upper back
     const totalHeight = lines.length * lineHeight;
-    let currentY = Math.max(200, 600 - (totalHeight / 2) - 220);
+    let currentY = Math.max(250, 800 - (totalHeight / 2) - 450);
 
     for (let i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], 600, currentY);
@@ -527,7 +527,7 @@ export default function Stage({ modelCount = 0, lot, onTap }) {
             tempMesh,
             new THREE.Vector3(0, 0.06, -0.15),
             new THREE.Euler(0, Math.PI, 0),
-            new THREE.Vector3(0.248, 0.248, 0.248),
+            new THREE.Vector3(0.248, 0.33, 0.248),
           );
           child.add(new THREE.Mesh(bdg, new THREE.MeshStandardMaterial({
             map: logoTexture, transparent: true, roughness: 0.8,
@@ -605,9 +605,9 @@ export default function Stage({ modelCount = 0, lot, onTap }) {
       createBackCanvas('/cf_logo.png', lot, (backCanvas) => {
         if (!backCanvas) { place(); return; }
         const decW = Math.round(cw * 0.46);
-        const decH = decW;
+        const decH = Math.round(decW * 4 / 3);
         const decX = Math.round((cw - decW) / 2);
-        const decY = Math.round(ch * 0.17);
+        const decY = Math.round(ch * 0.205);
         ctx.drawImage(backCanvas, decX, decY, decW, decH);
         place();
       });

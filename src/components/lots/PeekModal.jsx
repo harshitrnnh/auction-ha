@@ -257,7 +257,7 @@ function createBackCanvasForCard(logoImage, lot, callback) {
 
   const canvas = document.createElement('canvas');
   canvas.width = 1200;
-  canvas.height = 1200;
+  canvas.height = 1600;
   const ctx = canvas.getContext('2d');
 
   // Transparent background
@@ -292,7 +292,7 @@ function createBackCanvasForCard(logoImage, lot, callback) {
 
     // Center the block vertically, but shifted upwards to sit on the upper back
     const totalHeight = lines.length * lineHeight;
-    let currentY = Math.max(200, 600 - (totalHeight / 2) - 220);
+    let currentY = Math.max(250, 800 - (totalHeight / 2) - 450);
 
     for (let i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], 600, currentY);
