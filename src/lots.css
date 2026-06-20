@@ -43,6 +43,7 @@
   grid-template-columns: 1fr auto;
   align-items: center;
   min-height: 0;
+  flex-shrink: 0;
 }
 .lots-hero .hero-spot {
   position: absolute;
