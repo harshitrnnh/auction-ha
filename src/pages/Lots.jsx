@@ -354,24 +354,23 @@ export default function Lots() {
             getCountdownTarget={getCountdownTarget}
           />
         )}
-
-        <div className="archive-head">
-          <div>
-            <h2 className="archive-title">The Archive</h2>
-            <div className="archive-sub">
-              Every Oxide lot that&apos;s come before.
+        <div className="archive-scroll-area">
+          <div className="archive-head">
+            <div>
+              <h2 className="archive-title">The Archive</h2>
+              <div className="archive-sub">
+                Every Oxide lot that&apos;s come before.
+              </div>
             </div>
           </div>
-        </div>
 
-        <Toolbar
-          q={q} setQ={setQ}
-          sort={sort} setSort={setSort}
-          ownedOnly={ownedOnly} setOwnedOnly={setOwnedOnly}
-          userLoggedIn={loggedIn}
-        />
+          <Toolbar
+            q={q} setQ={setQ}
+            sort={sort} setSort={setSort}
+            ownedOnly={ownedOnly} setOwnedOnly={setOwnedOnly}
+            userLoggedIn={loggedIn}
+          />
 
-        <div className="archive-scroll-area">
           <div className="result-count">
             {ownedOnly
               ? <><b>Your {filtered.length} {filtered.length === 1 ? 'piece' : 'pieces'}</b></>
