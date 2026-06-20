@@ -134,7 +134,7 @@ function createBackCanvas(logoImage, lot, callback) {
 
     // Center the block vertically, but shifted upwards to sit on the upper back
     const totalHeight = lines.length * lineHeight;
-    let currentY = Math.max(150, 800 - (totalHeight / 2) - 500);
+    let currentY = Math.max(250, 800 - (totalHeight / 2) - 400);
 
     for (let i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], 600, currentY);
@@ -525,7 +525,7 @@ export default function Stage({ modelCount = 0, lot, onTap }) {
           logoTexture.anisotropy = maxAniso;
           const bdg = new DecalGeometry(
             tempMesh,
-            new THREE.Vector3(0, 0.06, -0.15),
+            new THREE.Vector3(0, 0.01, -0.15),
             new THREE.Euler(0, Math.PI, 0),
             new THREE.Vector3(0.248, 0.33, 0.248),
           );
