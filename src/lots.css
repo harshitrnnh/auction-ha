@@ -787,6 +787,10 @@
 .m-chest-art.immersive {
   width: min(28%, 170px);
 }
+.m-chest-art.m-back-art,
+.m-thumb-art.m-back-art {
+  transform: translate(-50%, -85%);
+}
 /* modal thumbnails */
 .m-thumb-tshirt {
   position: relative;

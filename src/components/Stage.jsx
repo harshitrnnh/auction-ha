@@ -607,7 +607,7 @@ export default function Stage({ modelCount = 0, lot, onTap }) {
         const decW = Math.round(cw * 0.46);
         const decH = Math.round(decW * 4 / 3);
         const decX = Math.round((cw - decW) / 2);
-        const decY = Math.round(ch * 0.205);
+        const decY = Math.round(ch * 0.155);
         ctx.drawImage(backCanvas, decX, decY, decW, decH);
         place();
       });

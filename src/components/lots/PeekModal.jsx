@@ -482,7 +482,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
                 <div className="m-tshirt-wrap">
                   <img src="/tshirt_back_black_transparent10small.png" alt="" className="m-tshirt-base" />
                   {backOverlaySrc && (
-                    <img src={backOverlaySrc} alt={lot.title} className="m-chest-art" />
+                    <img src={backOverlaySrc} alt={lot.title} className="m-chest-art m-back-art" />
                   )}
                 </div>
               )}
@@ -536,7 +536,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               <div className="m-thumb-tshirt">
                 <img src="/tshirt_back_black_transparent10small.png" alt="Back" className="m-thumb-img" />
                 {backOverlaySrc && (
-                  <img src={backOverlaySrc} alt="" className="m-thumb-art" />
+                  <img src={backOverlaySrc} alt="" className="m-thumb-art m-back-art" />
                 )}
               </div>
             </button>
@@ -835,7 +835,7 @@ export default function PeekModal({ lot, onClose, userLoggedIn }) {
               <div className="m-tshirt-wrap">
                 <img src="/tshirt_back_black_transparent10small.png" alt="" className="m-tshirt-base immersive" />
                 {backOverlaySrc && (
-                  <img src={backOverlaySrc} alt={lot.title} className="m-chest-art immersive" />
+                  <img src={backOverlaySrc} alt={lot.title} className="m-chest-art immersive m-back-art" />
                 )}
               </div>
             )}
