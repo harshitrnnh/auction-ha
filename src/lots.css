@@ -306,6 +306,11 @@
   backdrop-filter: blur(10px);
   box-shadow: 0 14px 40px rgba(0,0,0,0.35);
 }
+@media (min-width: 901px) {
+  .lots-toolbar {
+    top: 0;
+  }
+}
 .lots-search {
   display: flex;
   align-items: center;
