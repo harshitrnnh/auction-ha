@@ -292,9 +292,6 @@
 
 /* ---------- Toolbar ---------- */
 .lots-toolbar {
-  position: sticky;
-  top: 64px;
-  z-index: 20;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -306,11 +303,6 @@
   background: linear-gradient(180deg, rgba(20,22,34,0.82), rgba(11,12,20,0.86));
   backdrop-filter: blur(10px);
   box-shadow: 0 14px 40px rgba(0,0,0,0.35);
-}
-@media (min-width: 901px) {
-  .lots-toolbar {
-    top: 0;
-  }
 }
 .lots-search {
   display: flex;
@@ -1179,7 +1171,6 @@
   .m-gallery { height: auto; min-height: 380px; }
   .m-tshirt-base:not(.immersive) { width: min(68%, 280px); }
   .m-chest-art:not(.immersive) { width: min(24%, 93px); }
-  .lots-toolbar { top: 60px; }
 }
 @media (max-width: 560px) {
   .lots-hero { grid-template-columns: 1fr; }
