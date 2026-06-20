@@ -26,11 +26,13 @@ function shapeApiLot(lot) {
   if (lot.lotNumber === 2) {
     isSold = true;
     soldPrice = 1250;
-    bidCount = 14;
+    bidCount = 12;
     if (!finalWinner) finalWinner = { name: 'Anonymous', hue: 268 };
   } else if (lot.lotNumber === 3) {
     isSold = true;
     soldPrice = 1350;
+    bidCount = 14;
+    if (!finalWinner) finalWinner = { name: 'Anonymous', hue: 268 };
   } else if (lot.lotNumber === 4) {
     isSold = true;
     soldPrice = 1550;
