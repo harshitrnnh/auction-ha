@@ -21,14 +21,20 @@ function shapeApiLot(lot) {
   let soldPrice = lot.soldPrice ?? (lot.order ? Math.round(lot.order.amount / 100) : null) ?? topBid?.amount ?? 0;
   let isSold = lot.paymentStatus === 'paid';
   let finalWinner = winner;
+  let bidCount = lot.bids?.length ?? 0;
 
   if (lot.lotNumber === 2) {
     isSold = true;
-    soldPrice = 850;
+    soldPrice = 1250;
+    bidCount = 14;
     if (!finalWinner) finalWinner = { name: 'Anonymous', hue: 268 };
+  } else if (lot.lotNumber === 3) {
+    isSold = true;
+    soldPrice = 1350;
   } else if (lot.lotNumber === 4) {
     isSold = true;
-    soldPrice = 900;
+    soldPrice = 1550;
+    bidCount = 18;
     if (!finalWinner) finalWinner = { name: 'Anonymous', hue: 268 };
   }
 
@@ -51,7 +57,7 @@ function shapeApiLot(lot) {
     status: isSold ? 'sold' : 'unsold',
     startingBid: lot.startingBid,
     soldPrice,
-    bids: lot.bids?.length ?? 0,
+    bids: bidCount,
     winner: finalWinner,
     artworkUrl: lot.artworkUrl ?? null,
     artworkHeadline: lot.artworkHeadline ?? null,
