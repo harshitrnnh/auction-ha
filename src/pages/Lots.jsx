@@ -100,15 +100,6 @@ function LotsStarfield() {
 }
 
 /* IST countdown helpers — matches App.jsx exactly */
-function checkBiddingClosed() {
-  try {
-    const str = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Asia/Kolkata',
-      hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23',
-    }).format(new Date());
-    return parseInt(str.split(':')[0], 10) >= 18;
-  } catch { return false; }
-}
 
 const AUTO_RESTART_DELAY_MS = 6 * 60 * 60 * 1000; // must match backend
 
@@ -165,7 +156,7 @@ export default function Lots() {
         setApiLot(data.lot);
         setCurrentBid(data.currentBid);
         setLiveBids(data.bids?.length ?? 0);
-        const closed = data.lot?.status === 'closed' || checkBiddingClosed();
+        const closed = data.lot?.status === 'closed';
         setLotClosed(closed);
       })
       .catch(() => null);
